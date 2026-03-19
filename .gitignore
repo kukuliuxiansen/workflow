@@ -1,0 +1,22 @@
+# Compiled
+target/
+*.class
+*.jar
+*.war
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Database
+*.db
+
+# Temp
+tmp/
+temp/
