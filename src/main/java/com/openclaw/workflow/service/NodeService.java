@@ -1,8 +1,10 @@
 package com.openclaw.workflow.service;
 
+import com.openclaw.workflow.entity.Workflow;
 import com.openclaw.workflow.entity.WorkflowNode;
 import com.openclaw.workflow.repository.WorkflowEdgeRepository;
 import com.openclaw.workflow.repository.WorkflowNodeRepository;
+import com.openclaw.workflow.repository.WorkflowRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,11 +15,14 @@ import java.util.UUID;
 @Service
 public class NodeService {
 
+    private final WorkflowRepository workflowRepository;
     private final WorkflowNodeRepository nodeRepository;
     private final WorkflowEdgeRepository edgeRepository;
 
-    public NodeService(WorkflowNodeRepository nodeRepository,
+    public NodeService(WorkflowRepository workflowRepository,
+                       WorkflowNodeRepository nodeRepository,
                        WorkflowEdgeRepository edgeRepository) {
+        this.workflowRepository = workflowRepository;
         this.nodeRepository = nodeRepository;
         this.edgeRepository = edgeRepository;
     }
@@ -35,6 +40,10 @@ public class NodeService {
     public WorkflowNode create(String workflowId, WorkflowNode.NodeType type,
                                 String name, Integer positionX, Integer positionY,
                                 String config) {
+        // 验证工作流是否存在
+        Workflow workflow = workflowRepository.findById(workflowId)
+                .orElseThrow(() -> new RuntimeException("工作流不存在: " + workflowId));
+
         WorkflowNode node = new WorkflowNode();
         node.setId("node_" + UUID.randomUUID().toString().substring(0, 8));
         node.setWorkflowId(workflowId);

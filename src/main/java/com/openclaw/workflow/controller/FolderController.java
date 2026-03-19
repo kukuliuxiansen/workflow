@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @Tag(name = "Folder", description = "文件夹管理接口")
 @RestController
@@ -34,8 +35,12 @@ public class FolderController {
 
     @Operation(summary = "创建文件夹")
     @PostMapping
-    public ApiResponse<Folder> create(@RequestParam String name,
-                                       @RequestParam(required = false) String parentId) {
+    public ApiResponse<Folder> create(@RequestBody Map<String, String> request) {
+        String name = request.get("name");
+        String parentId = request.get("parentId");
+        if (name == null || name.trim().isEmpty()) {
+            throw new IllegalArgumentException("文件夹名称不能为空");
+        }
         Folder folder = folderService.create(name, parentId);
         return ApiResponse.success(folder);
     }
@@ -43,7 +48,11 @@ public class FolderController {
     @Operation(summary = "更新文件夹")
     @PutMapping("/{id}")
     public ApiResponse<Folder> update(@PathVariable String id,
-                                       @RequestParam String name) {
+                                       @RequestBody Map<String, String> request) {
+        String name = request.get("name");
+        if (name == null || name.trim().isEmpty()) {
+            throw new IllegalArgumentException("文件夹名称不能为空");
+        }
         Folder folder = folderService.update(id, name);
         return ApiResponse.success(folder);
     }

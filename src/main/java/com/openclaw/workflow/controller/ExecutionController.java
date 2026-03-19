@@ -9,6 +9,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 
 @Tag(name = "Execution", description = "执行管理接口")
@@ -84,5 +85,15 @@ public class ExecutionController {
     @GetMapping("/executions/{executionId}/status")
     public ApiResponse<Map<String, Object>> getStatus(@PathVariable String executionId) {
         return ApiResponse.success(executionService.getStatus(executionId));
+    }
+
+    @Operation(summary = "检查工作流是否有活跃执行")
+    @GetMapping("/workflows/{workflowId}/executions/active")
+    public ApiResponse<Map<String, Object>> checkActiveExecution(@PathVariable String workflowId) {
+        Map<String, Object> result = new HashMap<>();
+        List<Execution> activeExecutions = executionService.findActiveByWorkflowId(workflowId);
+        result.put("hasActive", !activeExecutions.isEmpty());
+        result.put("activeExecutions", activeExecutions);
+        return ApiResponse.success(result);
     }
 }

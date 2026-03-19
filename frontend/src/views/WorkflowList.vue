@@ -29,8 +29,8 @@
                 <path d="M3 9h18M9 21V9"/>
               </svg>
             </div>
-            <span class="status-badge" :class="workflow.status.toLowerCase()">
-              {{ workflow.status === 'PUBLISHED' ? '已发布' : '草稿' }}
+            <span class="status-badge" :class="workflow.status">
+              {{ workflow.status === 'published' ? '已发布' : '草稿' }}
             </span>
           </div>
           <h3 class="card-title">{{ workflow.name }}</h3>
@@ -41,7 +41,7 @@
                 <circle cx="12" cy="12" r="10"/>
                 <polyline points="12 6 12 12 16 14"/>
               </svg>
-              {{ formatDate(workflow.updatedAt) }}
+              {{ formatDate(workflow.updated_at) }}
             </span>
             <div class="card-actions" @click.stop>
               <button class="action-btn" @click="cloneWorkflow(workflow.id)" title="复制">
@@ -77,25 +77,6 @@
       <div v-if="loading" class="loading-state">
         <div class="loading-spinner"></div>
         <p>加载中...</p>
-      </div>
-
-      <!-- 分页 -->
-      <div v-if="pagination.total > pagination.pageSize" class="pagination">
-        <button
-          class="page-btn"
-          :disabled="pagination.page === 1"
-          @click="pagination.page--; loadWorkflows()"
-        >
-          上一页
-        </button>
-        <span class="page-info">{{ pagination.page }} / {{ Math.ceil(pagination.total / pagination.pageSize) }}</span>
-        <button
-          class="page-btn"
-          :disabled="pagination.page * pagination.pageSize >= pagination.total"
-          @click="pagination.page++; loadWorkflows()"
-        >
-          下一页
-        </button>
       </div>
     </main>
 
@@ -151,11 +132,6 @@ const router = useRouter()
 
 const loading = ref(false)
 const workflows = ref<WorkflowTemplate[]>([])
-const pagination = reactive({
-  page: 1,
-  pageSize: 12,
-  total: 0
-})
 
 const showCreateDialog = ref(false)
 const creating = ref(false)
@@ -165,6 +141,7 @@ const newWorkflow = reactive({
 })
 
 function formatDate(dateStr: string) {
+  if (!dateStr) return ''
   const date = new Date(dateStr)
   return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
 }
@@ -172,12 +149,10 @@ function formatDate(dateStr: string) {
 async function loadWorkflows() {
   loading.value = true
   try {
-    const res = await workflowApi.list({
-      page: pagination.page,
-      pageSize: pagination.pageSize
-    })
-    workflows.value = res.data
-    pagination.total = res.total
+    const res = await workflowApi.list()
+    if (res.success) {
+      workflows.value = res.data || []
+    }
   } catch (error) {
     console.error('Failed to load workflows:', error)
   } finally {
@@ -198,17 +173,12 @@ async function submitCreate() {
   try {
     const res = await workflowApi.create({
       name: newWorkflow.name,
-      description: newWorkflow.description,
-      status: 'DRAFT',
-      version: 1,
-      globalConfig: {
-        projectPath: '',
-        feishuOpenId: '',
-        maxGlobalLoop: 3
-      }
+      description: newWorkflow.description
     })
-    showCreateDialog.value = false
-    router.push(`/workflows/${res.data.id}`)
+    if (res.success) {
+      showCreateDialog.value = false
+      router.push(`/workflows/${res.data.id}`)
+    }
   } catch (error) {
     console.error('Failed to create workflow:', error)
   } finally {
@@ -222,17 +192,22 @@ function editWorkflow(id: string) {
 
 async function cloneWorkflow(id: string) {
   try {
-    await workflowApi.clone(id)
-    loadWorkflows()
+    const res = await workflowApi.clone(id)
+    if (res.success) {
+      loadWorkflows()
+    }
   } catch (error) {
     console.error('Failed to clone workflow:', error)
   }
 }
 
 async function deleteWorkflow(id: string) {
+  if (!confirm('确定要删除这个工作流吗？')) return
   try {
-    await workflowApi.delete(id)
-    loadWorkflows()
+    const res = await workflowApi.delete(id)
+    if (res.success) {
+      loadWorkflows()
+    }
   } catch (error) {
     console.error('Failed to delete workflow:', error)
   }
@@ -248,7 +223,7 @@ onMounted(() => {
   height: 100%;
   display: flex;
   flex-direction: column;
-  background: var(--bg-tertiary);
+  background: #0f0f1a;
   overflow: hidden;
 }
 
@@ -257,8 +232,8 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 24px 32px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
+  background: #16213e;
+  border-bottom: 1px solid #2a2a4a;
 }
 
 .header-content {
@@ -266,13 +241,13 @@ onMounted(() => {
     margin: 0;
     font-size: 24px;
     font-weight: 600;
-    color: var(--text-primary);
+    color: #ffffff;
   }
 
   p {
     margin: 4px 0 0;
     font-size: 14px;
-    color: var(--text-muted);
+    color: #6a6a7a;
   }
 }
 
@@ -281,7 +256,7 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   padding: 12px 24px;
-  background: var(--accent-gradient);
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
   border: none;
   border-radius: 10px;
   color: white;
@@ -289,7 +264,7 @@ onMounted(() => {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
-  box-shadow: var(--shadow-glow);
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
 
   &:hover {
     transform: translateY(-2px);
@@ -315,17 +290,17 @@ onMounted(() => {
 }
 
 .workflow-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
+  background: #1e1e32;
+  border: 1px solid #2a2a4a;
   border-radius: 16px;
   padding: 20px;
   cursor: pointer;
   transition: all 0.3s ease;
 
   &:hover {
-    border-color: var(--accent-primary);
+    border-color: #6366f1;
     transform: translateY(-4px);
-    box-shadow: var(--shadow-lg);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
   }
 }
 
@@ -339,7 +314,7 @@ onMounted(() => {
 .card-icon {
   width: 40px;
   height: 40px;
-  background: var(--accent-gradient);
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
   border-radius: 10px;
   display: flex;
   align-items: center;
@@ -376,13 +351,13 @@ onMounted(() => {
   margin: 0 0 8px;
   font-size: 16px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: #cdd6f4;
 }
 
 .card-desc {
   margin: 0 0 16px;
   font-size: 13px;
-  color: var(--text-muted);
+  color: #6a6a7a;
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -401,7 +376,7 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  color: var(--text-muted);
+  color: #6a6a7a;
 
   svg {
     width: 14px;
@@ -418,9 +393,9 @@ onMounted(() => {
   width: 32px;
   height: 32px;
   border-radius: 8px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-hover);
-  color: var(--text-muted);
+  border: 1px solid #2a2a4a;
+  background: #252542;
+  color: #6a6a7a;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -428,8 +403,8 @@ onMounted(() => {
   transition: all 0.2s;
 
   &:hover {
-    color: var(--text-primary);
-    border-color: var(--border-light);
+    color: #cdd6f4;
+    border-color: #3a3a5a;
   }
 
   &.delete:hover {
@@ -455,8 +430,8 @@ onMounted(() => {
 .empty-icon {
   width: 80px;
   height: 80px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
+  background: #1e1e32;
+  border: 1px solid #2a2a4a;
   border-radius: 20px;
   display: flex;
   align-items: center;
@@ -466,7 +441,7 @@ onMounted(() => {
   svg {
     width: 40px;
     height: 40px;
-    color: var(--text-muted);
+    color: #6a6a7a;
   }
 }
 
@@ -474,20 +449,20 @@ onMounted(() => {
   margin: 0 0 8px;
   font-size: 18px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: #ffffff;
 }
 
 .empty-state p, .loading-state p {
   margin: 0;
   font-size: 14px;
-  color: var(--text-muted);
+  color: #6a6a7a;
 }
 
 .loading-spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid var(--border-color);
-  border-top-color: var(--accent-primary);
+  border: 3px solid #2a2a4a;
+  border-top-color: #6366f1;
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: 16px;
@@ -495,40 +470,6 @@ onMounted(() => {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
-}
-
-.pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  margin-top: 32px;
-  padding: 16px;
-}
-
-.page-btn {
-  padding: 8px 16px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  color: var(--text-primary);
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-
-  &:hover:not(:disabled) {
-    border-color: var(--accent-primary);
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-}
-
-.page-info {
-  font-size: 13px;
-  color: var(--text-secondary);
 }
 
 /* Modal Styles */
@@ -547,12 +488,12 @@ onMounted(() => {
 }
 
 .modal-content {
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
+  background: #16213e;
+  border: 1px solid #2a2a4a;
   border-radius: 16px;
   width: 480px;
   max-width: 90%;
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 
 .modal-header {
@@ -560,12 +501,12 @@ onMounted(() => {
   align-items: center;
   justify-content: space-between;
   padding: 20px 24px;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 1px solid #2a2a4a;
 
   h3 {
     font-size: 18px;
     font-weight: 600;
-    color: var(--text-primary);
+    color: #ffffff;
     margin: 0;
   }
 }
@@ -576,7 +517,7 @@ onMounted(() => {
   border-radius: 8px;
   border: none;
   background: transparent;
-  color: var(--text-muted);
+  color: #6a6a7a;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -584,8 +525,8 @@ onMounted(() => {
   transition: all 0.2s;
 
   &:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
+    background: #252542;
+    color: #cdd6f4;
   }
 
   svg {
@@ -609,28 +550,28 @@ onMounted(() => {
     display: block;
     font-size: 13px;
     font-weight: 500;
-    color: var(--text-secondary);
+    color: #a0a0b0;
     margin-bottom: 8px;
   }
 
   input, textarea {
     width: 100%;
-    background: var(--bg-card);
-    border: 1px solid var(--border-color);
+    background: #1e1e32;
+    border: 1px solid #2a2a4a;
     border-radius: 10px;
     padding: 12px 16px;
-    color: var(--text-primary);
+    color: #cdd6f4;
     font-size: 14px;
     outline: none;
     transition: all 0.2s;
 
     &:focus {
-      border-color: var(--accent-primary);
+      border-color: #6366f1;
       box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
     }
 
     &::placeholder {
-      color: var(--text-muted);
+      color: #6a6a7a;
     }
   }
 
@@ -645,23 +586,23 @@ onMounted(() => {
   justify-content: flex-end;
   gap: 12px;
   padding: 16px 24px;
-  border-top: 1px solid var(--border-color);
+  border-top: 1px solid #2a2a4a;
 }
 
 .btn-secondary {
   padding: 10px 20px;
   border-radius: 8px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-card);
-  color: var(--text-primary);
+  border: 1px solid #2a2a4a;
+  background: #1e1e32;
+  color: #cdd6f4;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
 
   &:hover {
-    background: var(--bg-hover);
-    border-color: var(--border-light);
+    background: #252542;
+    border-color: #3a3a5a;
   }
 }
 
@@ -669,7 +610,7 @@ onMounted(() => {
   padding: 10px 20px;
   border-radius: 8px;
   border: none;
-  background: var(--accent-gradient);
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
   color: white;
   font-size: 14px;
   font-weight: 500;

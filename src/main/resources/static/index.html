@@ -358,6 +358,18 @@
     .edge-path.success { stroke: #4a4; }
     .edge-path.fail { stroke: #f44; }
     .edge-path:hover { stroke-width: 3; }
+    /* 拖拽连线临时线 */
+    .drag-line {
+      fill: none;
+      stroke-width: 2;
+      stroke-dasharray: 5,5;
+      pointer-events: none;
+    }
+    .drag-line.success { stroke: #4a4; }
+    .drag-line.fail { stroke: #f44; }
+    /* 端口拖拽高亮 */
+    .port.dragging { transform: scale(1.3); box-shadow: 0 0 10px currentColor; }
+    .node.connect-target { box-shadow: 0 0 0 2px #6b5ce7; }
 
     /* 右侧面板 - 浮动在画布上方 */
     .right-panel {
@@ -3002,6 +3014,7 @@
       }
 
       let html = '<svg class="edges-svg" id="edgesSvg"></svg>';
+      html += '<svg class="edges-svg" id="dragLineSvg" style="z-index:10;"><path id="dragLine" class="drag-line" d="" style="display:none;"/></svg>';
 
       workflow.nodes.forEach((node, i) => {
         const x = node.position_x || 50 + (i % 3) * 280;
@@ -3025,8 +3038,8 @@
             <div class="node-ports">
               <div class="port input" title="输入"></div>
               <div style="display:flex;gap:4px;">
-                <div class="port fail" title="失败" onclick="startConnect(event,'${node.id}','fail')"></div>
-                <div class="port success" title="成功" onclick="startConnect(event,'${node.id}','success')"></div>
+                <div class="port fail" title="失败→拖拽连线" onmousedown="startDragConnect(event,'${node.id}','fail')"></div>
+                <div class="port success" title="成功→拖拽连线" onmousedown="startDragConnect(event,'${node.id}','success')"></div>
               </div>
             </div>
           </div>
@@ -3930,8 +3943,124 @@
       }
     }
 
-    // 连线
+    // 连线 - 拖拽模式
     let connectingFrom = null;
+    let isDraggingConnect = false;
+
+    function startDragConnect(e, nodeId, type) {
+      e.stopPropagation();
+      e.preventDefault();
+      connectingFrom = { nodeId, type };
+      isDraggingConnect = true;
+
+      // 高亮端口
+      e.target.classList.add('dragging');
+
+      // 显示临时线
+      const dragLine = document.getElementById('dragLine');
+      dragLine.style.display = 'block';
+      dragLine.classList.remove('success', 'fail');
+      dragLine.classList.add(type);
+
+      // 计算起点位置
+      const nodeEl = document.getElementById(`node-${nodeId}`);
+      const portEl = e.target;
+      const canvas = document.getElementById('canvas');
+
+      const nodeRect = nodeEl.getBoundingClientRect();
+      const portRect = portEl.getBoundingClientRect();
+      const canvasRect = canvas.getBoundingClientRect();
+
+      const startX = (portRect.left + portRect.width/2 - canvasRect.left) / state.zoom;
+      const startY = (portRect.top + portRect.height/2 - canvasRect.top) / state.zoom;
+
+      connectingFrom.startX = startX;
+      connectingFrom.startY = startY;
+
+      // 添加鼠标移动和释放事件
+      document.addEventListener('mousemove', onDragConnect);
+      document.addEventListener('mouseup', endDragConnect);
+
+      addLog('info', `开始拖拽连线: ${nodeId} (${type})`);
+    }
+
+    function onDragConnect(e) {
+      if (!isDraggingConnect || !connectingFrom) return;
+
+      const dragLine = document.getElementById('dragLine');
+      const canvas = document.getElementById('canvas');
+      const canvasRect = canvas.getBoundingClientRect();
+
+      // 计算鼠标在画布上的位置
+      const mouseX = (e.clientX - canvasRect.left) / state.zoom;
+      const mouseY = (e.clientY - canvasRect.top) / state.zoom;
+
+      // 绘制贝塞尔曲线
+      const x1 = connectingFrom.startX;
+      const y1 = connectingFrom.startY;
+      const x2 = mouseX;
+      const y2 = mouseY;
+
+      // 使用水平贝塞尔曲线
+      const midX = (x1 + x2) / 2;
+      dragLine.setAttribute('d', `M${x1},${y1} C${midX},${y1} ${midX},${y2} ${x2},${y2}`);
+
+      // 检测目标节点
+      const targetNode = e.target.closest('.node');
+      document.querySelectorAll('.node.connect-target').forEach(n => n.classList.remove('connect-target'));
+      if (targetNode && targetNode.id !== `node-${connectingFrom.nodeId}`) {
+        targetNode.classList.add('connect-target');
+      }
+    }
+
+    async function endDragConnect(e) {
+      // 移除高亮
+      document.querySelectorAll('.port.dragging').forEach(p => p.classList.remove('dragging'));
+      document.querySelectorAll('.node.connect-target').forEach(n => n.classList.remove('connect-target'));
+
+      // 隐藏临时线
+      const dragLine = document.getElementById('dragLine');
+      dragLine.style.display = 'none';
+
+      // 移除事件监听
+      document.removeEventListener('mousemove', onDragConnect);
+      document.removeEventListener('mouseup', endDragConnect);
+
+      // 检测目标节点
+      const targetNode = e.target.closest('.node');
+      if (targetNode && connectingFrom) {
+        const targetId = targetNode.id.replace('node-', '');
+        if (targetId !== connectingFrom.nodeId) {
+          try {
+            const res = await fetch(`${API}/workflows/${state.currentWorkflow.id}/edges`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                source: connectingFrom.nodeId,
+                target: targetId,
+                type: connectingFrom.type
+              })
+            });
+            const data = await res.json();
+            if (data.success) {
+              await selectWorkflow(state.currentWorkflow.id);
+              showToast('success', '连线创建成功');
+              addLog('success', `连线: ${connectingFrom.nodeId} → ${targetId}`);
+            } else {
+              showToast('error', data.message || '创建连线失败');
+            }
+          } catch (err) {
+            showToast('error', '创建连线失败');
+            console.error(err);
+          }
+        }
+      }
+
+      isDraggingConnect = false;
+      connectingFrom = null;
+    }
+
+    // 保留旧的点击模式作为备选（Shift+点击端口）
     function startConnect(e, nodeId, type) {
       e.stopPropagation();
       connectingFrom = { nodeId, type };

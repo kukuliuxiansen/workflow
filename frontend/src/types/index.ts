@@ -4,24 +4,27 @@ export interface WorkflowTemplate {
   name: string
   description: string
   status: 'draft' | 'published'
-  version: number
-  globalConfig: GlobalConfig
-  createdAt: string
-  updatedAt: string
+  version: string
+  folder_id: string | null
+  global_config: string | null
+  created_at: string
+  updated_at: string
 }
 
 // 全局配置
 export interface GlobalConfig {
-  projectPath: string
-  feishuOpenId: string
-  maxGlobalLoop: number
+  projectPath?: string
+  feishuOpenId?: string
+  maxGlobalLoop?: number
+  maxRetries?: number
+  maxGlobalRetries?: number
   outputFormat?: string
   retryInterval?: number
   timeout?: number
 }
 
 // 节点类型
-export type NodeType = 'agent_execution' | 'api_call' | 'finish'
+export type NodeType = 'start' | 'finish' | 'agent_execution' | 'api_call' | 'condition' | 'parallel' | 'loop' | 'wait' | 'subworkflow' | 'human_review'
 
 // 节点配置
 export interface NodeConfig {
@@ -62,14 +65,15 @@ export interface ApiCallConfig {
 // 工作流节点
 export interface WorkflowNode {
   id: string
-  workflowId: string
+  workflow_id: string
   type: NodeType
   name: string
-  positionX: number
-  positionY: number
-  config: NodeConfig
-  createdAt: string
-  updatedAt: string
+  description?: string
+  position_x: number
+  position_y: number
+  config: string | null
+  created_at: string
+  updated_at: string
 }
 
 // 连线类型
@@ -78,97 +82,39 @@ export type EdgeType = 'success' | 'fail'
 // 工作流连线
 export interface WorkflowEdge {
   id: string
-  workflowId: string
-  sourceNodeId: string
-  targetNodeId: string
-  type: EdgeType
-  createdAt: string
+  workflow_id: string
+  source_node_id: string
+  target_node_id: string
+  edge_type: EdgeType
+  condition_expr?: string
+  label?: string
+  created_at: string
 }
 
 // 执行状态
 export type ExecutionStatus = 'pending' | 'running' | 'paused' | 'stopped' | 'completed' | 'failed'
 
-// 触发模式
-export type TriggerMode = 'manual' | 'scheduled'
+// 日志条目
+export interface LogEntry {
+  timestamp: string
+  level: 'info' | 'warn' | 'error' | 'debug'
+  message: string
+  nodeId?: string
+  nodeName?: string
+}
 
 // 执行记录
 export interface ExecutionRecord {
-  id: string
+  executionId: string
   workflowId: string
   status: ExecutionStatus
-  progress: number
-  inputData: Record<string, unknown>
-  triggerMode: TriggerMode
   startTime: string | null
   endTime: string | null
-  currentNodeId: string | null
-  errorInfo: ErrorInfo | null
   createdAt: string
-}
-
-// 错误信息
-export interface ErrorInfo {
-  code: string
-  message: string
-  stack?: string
-}
-
-// 审核状态
-export type ReviewStatus = 'pending' | 'approved' | 'rejected' | 'timeout'
-
-// 审核决策
-export type ReviewDecision = 'approve' | 'reject'
-
-// 审核记录
-export interface ReviewRecord {
-  id: string
-  executionId: string
-  workflowId: string
-  nodeId: string
-  status: ReviewStatus
-  reviewerAgentId: string | null
-  submitTime: string | null
-  timeoutSeconds: number
-  responseTime: string | null
-  decision: ReviewDecision | null
-  comment: string | null
-}
-
-// Agent信息
-export interface Agent {
-  id: string
-  name: string
-  description: string
-  type: string
-  capabilities: string[]
-}
-
-// 日志条目
-export interface LogEntry {
-  id: string
-  executionId: string
-  timestamp: string
-  level: 'info' | 'warn' | 'error' | 'debug'
-  nodeId: string | null
-  message: string
-  data?: Record<string, unknown>
-}
-
-// 分页请求
-export interface PageRequest {
-  page: number
-  pageSize: number
-  sortBy?: string
-  sortOrder?: 'asc' | 'desc'
-}
-
-// 分页响应
-export interface PageResponse<T> {
-  data: T[]
-  total: number
-  page: number
-  pageSize: number
-  totalPages: number
+  currentNodeId: string | null
+  previousNodeId: string | null
+  nodeRetryCount?: number
+  globalRetryCount?: number
 }
 
 // API响应
@@ -176,13 +122,14 @@ export interface ApiResponse<T> {
   code: number
   message: string
   data: T
+  success: boolean
 }
 
 // Vue Flow 节点数据
 export interface FlowNodeData {
   label: string
   type: NodeType
-  config: NodeConfig
+  config: string | null
 }
 
 // Vue Flow 节点
@@ -202,4 +149,24 @@ export interface FlowEdge {
   animated?: boolean
   style?: Record<string, string>
   label?: string
+}
+
+// 文件夹
+export interface Folder {
+  id: string
+  name: string
+  parent_id: string | null
+  sort_order: number
+  created_at: string
+}
+
+// 模板
+export interface Template {
+  id: string
+  name: string
+  description: string
+  nodes?: string
+  edges?: string
+  builtin: boolean
+  workflowId?: string
 }

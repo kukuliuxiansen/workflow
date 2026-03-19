@@ -44,6 +44,16 @@ public class ExecutionService {
         return executionRepository.findByStatusOrderByCreatedAtDesc(status);
     }
 
+    /**
+     * 查找工作流的活跃执行（running或paused状态）
+     */
+    public List<Execution> findActiveByWorkflowId(String workflowId) {
+        List<Execution> allExecutions = executionRepository.findByWorkflowIdOrderByCreatedAtDesc(workflowId);
+        return allExecutions.stream()
+                .filter(e -> "running".equals(e.getStatus()) || "paused".equals(e.getStatus()))
+                .toList();
+    }
+
     public Execution findById(String executionId) {
         return executionRepository.findById(executionId)
                 .orElseThrow(() -> new RuntimeException("执行记录不存在: " + executionId));

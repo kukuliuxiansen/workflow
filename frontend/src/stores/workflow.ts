@@ -1,10 +1,11 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { WorkflowNode, WorkflowEdge, GlobalConfig, NodeType, NodeConfig } from '@/types'
+import type { WorkflowNode, WorkflowEdge, GlobalConfig, NodeType } from '@/types'
+import { nodeApi, edgeApi } from '@/api'
 
 // 生成唯一ID
 const generateId = (prefix: string = 'node') => {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+  return `${prefix}_${Date.now().toString(16)}_${Math.random().toString(16).substring(2, 6)}`
 }
 
 export const useWorkflowStore = defineStore('workflow', () => {
@@ -13,16 +14,10 @@ export const useWorkflowStore = defineStore('workflow', () => {
   const name = ref<string>('')
   const description = ref<string>('')
   const status = ref<'draft' | 'published'>('draft')
-  const version = ref<number>(1)
+  const version = ref<string>('1.0')
   const nodes = ref<WorkflowNode[]>([])
   const edges = ref<WorkflowEdge[]>([])
-  const globalConfig = ref<GlobalConfig>({
-    projectPath: '',
-    feishuOpenId: '',
-    maxGlobalLoop: 3,
-    timeout: 300,
-    retryInterval: 60
-  })
+  const globalConfig = ref<GlobalConfig>({})
 
   // 当前选中的节点ID
   const selectedNodeId = ref<string | null>(null)
@@ -34,7 +29,7 @@ export const useWorkflowStore = defineStore('workflow', () => {
   })
 
   const hasStartNode = computed(() => {
-    return nodes.value.some(n => n.name === 'start' || nodes.value.findIndex(node => node.id === n.id) === 0)
+    return nodes.value.some(n => n.type === 'start')
   })
 
   const hasFinishNode = computed(() => {
@@ -47,19 +42,25 @@ export const useWorkflowStore = defineStore('workflow', () => {
     name: string
     description: string
     status: 'draft' | 'published'
-    version: number
-    globalConfig: GlobalConfig
+    version: string
+    global_config: string | null
     nodes: WorkflowNode[]
     edges: WorkflowEdge[]
   }) {
     workflowId.value = data.id
     name.value = data.name
-    description.value = data.description
+    description.value = data.description || ''
     status.value = data.status
     version.value = data.version
-    globalConfig.value = data.globalConfig
-    nodes.value = data.nodes
-    edges.value = data.edges
+    nodes.value = data.nodes || []
+    edges.value = data.edges || []
+    if (data.global_config) {
+      try {
+        globalConfig.value = JSON.parse(data.global_config)
+      } catch (e) {
+        globalConfig.value = {}
+      }
+    }
   }
 
   function resetWorkflow() {
@@ -67,17 +68,11 @@ export const useWorkflowStore = defineStore('workflow', () => {
     name.value = ''
     description.value = ''
     status.value = 'draft'
-    version.value = 1
+    version.value = '1.0'
     nodes.value = []
     edges.value = []
     selectedNodeId.value = null
-    globalConfig.value = {
-      projectPath: '',
-      feishuOpenId: '',
-      maxGlobalLoop: 3,
-      timeout: 300,
-      retryInterval: 60
-    }
+    globalConfig.value = {}
   }
 
   function updateBasicInfo(data: { name?: string; description?: string }) {
@@ -89,79 +84,81 @@ export const useWorkflowStore = defineStore('workflow', () => {
     globalConfig.value = { ...globalConfig.value, ...config }
   }
 
-  function addNode(type: NodeType, position: { x: number; y: number }, config?: Partial<NodeConfig>) {
-    const nodeNames: Record<NodeType, string> = {
+  async function addNode(type: NodeType, position: { x: number; y: number }) {
+    const nodeNames: Record<string, string> = {
+      start: '开始',
+      finish: '结束',
       agent_execution: 'Agent执行',
       api_call: 'API调用',
-      finish: '结束'
+      condition: '条件判断',
+      human_review: '人工审核',
+      parallel: '并行',
+      loop: '循环',
+      wait: '等待'
     }
 
-    const defaultConfig: NodeConfig = {
-      timeout: 300,
-      retryInterval: 60,
-      inputFields: [],
-      outputFields: [],
-      ...config
-    }
+    try {
+      const response = await nodeApi.create(workflowId.value, {
+        type,
+        name: nodeNames[type] || '新节点',
+        positionX: position.x,
+        positionY: position.y
+      })
 
-    const node: WorkflowNode = {
-      id: generateId('node'),
-      workflowId: workflowId.value,
-      type,
-      name: config?.agentId || nodeNames[type],
-      positionX: position.x,
-      positionY: position.y,
-      config: defaultConfig,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      if (response.success && response.data) {
+        nodes.value.push(response.data)
+        return response.data
+      }
+    } catch (e) {
+      console.error('创建节点失败:', e)
     }
-
-    nodes.value.push(node)
-    return node
+    return null
   }
 
-  function updateNode(nodeId: string, updates: Partial<WorkflowNode>) {
-    const index = nodes.value.findIndex(n => n.id === nodeId)
-    if (index !== -1) {
-      nodes.value[index] = {
-        ...nodes.value[index],
-        ...updates,
-        updatedAt: new Date().toISOString()
-      }
-    }
-  }
+  async function updateNode(nodeId: string, updates: Partial<WorkflowNode>) {
+    try {
+      const response = await nodeApi.update(workflowId.value, nodeId, {
+        name: updates.name,
+        positionX: updates.position_x,
+        positionY: updates.position_y,
+        config: updates.config
+      })
 
-  function updateNodeConfig(nodeId: string, configUpdates: Partial<NodeConfig>) {
-    const index = nodes.value.findIndex(n => n.id === nodeId)
-    if (index !== -1) {
-      nodes.value[index] = {
-        ...nodes.value[index],
-        config: {
-          ...nodes.value[index].config,
-          ...configUpdates
-        },
-        updatedAt: new Date().toISOString()
+      if (response.success && response.data) {
+        const index = nodes.value.findIndex(n => n.id === nodeId)
+        if (index !== -1) {
+          nodes.value[index] = response.data
+        }
       }
+    } catch (e) {
+      console.error('更新节点失败:', e)
     }
   }
 
   function updateNodePosition(nodeId: string, x: number, y: number) {
     const index = nodes.value.findIndex(n => n.id === nodeId)
     if (index !== -1) {
-      nodes.value[index].positionX = x
-      nodes.value[index].positionY = y
+      nodes.value[index].position_x = x
+      nodes.value[index].position_y = y
     }
+    // 异步保存到后端
+    nodeApi.updatePosition(workflowId.value, nodeId, x, y).catch(console.error)
   }
 
-  function deleteNode(nodeId: string) {
-    // 删除相关的连线
-    edges.value = edges.value.filter(e =>
-      e.sourceNodeId !== nodeId && e.targetNodeId !== nodeId
-    )
-    // 删除节点
-    nodes.value = nodes.value.filter(n => n.id !== nodeId)
-    if (selectedNodeId.value === nodeId) {
-      selectedNodeId.value = null
+  async function deleteNode(nodeId: string) {
+    try {
+      await nodeApi.delete(workflowId.value, nodeId)
+      // 删除相关的连线
+      edges.value = edges.value.filter(e =>
+        e.source_node_id !== nodeId && e.target_node_id !== nodeId
+      )
+      // 删除节点
+      nodes.value = nodes.value.filter(n => n.id !== nodeId)
+      if (selectedNodeId.value === nodeId) {
+        selectedNodeId.value = null
+      }
+    } catch (e) {
+      console.error('删除节点失败:', e)
     }
   }
 
@@ -169,44 +166,53 @@ export const useWorkflowStore = defineStore('workflow', () => {
     selectedNodeId.value = nodeId
   }
 
-  function addEdge(sourceNodeId: string, targetNodeId: string, type: 'success' | 'fail') {
+  async function addEdge(sourceNodeId: string, targetNodeId: string, type: 'success' | 'fail') {
     // 检查是否已存在相同连线
     const exists = edges.value.some(e =>
-      e.sourceNodeId === sourceNodeId &&
-      e.targetNodeId === targetNodeId &&
-      e.type === type
+      e.source_node_id === sourceNodeId &&
+      e.target_node_id === targetNodeId &&
+      e.edge_type === type
     )
     if (exists) return null
 
-    const edge: WorkflowEdge = {
-      id: generateId('edge'),
-      workflowId: workflowId.value,
-      sourceNodeId,
-      targetNodeId,
-      type,
-      createdAt: new Date().toISOString()
-    }
+    try {
+      const response = await edgeApi.create(workflowId.value, {
+        source: sourceNodeId,
+        target: targetNodeId,
+        type
+      })
 
-    edges.value.push(edge)
-    return edge
+      if (response.success && response.data) {
+        edges.value.push(response.data)
+        return response.data
+      }
+    } catch (e) {
+      console.error('创建连线失败:', e)
+    }
+    return null
   }
 
-  function deleteEdge(edgeId: string) {
-    edges.value = edges.value.filter(e => e.id !== edgeId)
+  async function deleteEdge(edgeId: string) {
+    try {
+      await edgeApi.delete(workflowId.value, edgeId)
+      edges.value = edges.value.filter(e => e.id !== edgeId)
+    } catch (e) {
+      console.error('删除连线失败:', e)
+    }
   }
 
   function getEdgesByNodeId(nodeId: string) {
-    return edges.value.filter(e => e.sourceNodeId === nodeId || e.targetNodeId === nodeId)
+    return edges.value.filter(e => e.source_node_id === nodeId || e.target_node_id === nodeId)
   }
 
   function getSuccessTarget(nodeId: string): string | null {
-    const edge = edges.value.find(e => e.sourceNodeId === nodeId && e.type === 'success')
-    return edge?.targetNodeId || null
+    const edge = edges.value.find(e => e.source_node_id === nodeId && e.edge_type === 'success')
+    return edge?.target_node_id || null
   }
 
   function getFailTarget(nodeId: string): string | null {
-    const edge = edges.value.find(e => e.sourceNodeId === nodeId && e.type === 'fail')
-    return edge?.targetNodeId || null
+    const edge = edges.value.find(e => e.source_node_id === nodeId && e.edge_type === 'fail')
+    return edge?.target_node_id || null
   }
 
   return {
@@ -231,7 +237,6 @@ export const useWorkflowStore = defineStore('workflow', () => {
     updateGlobalConfig,
     addNode,
     updateNode,
-    updateNodeConfig,
     updateNodePosition,
     deleteNode,
     selectNode,

@@ -1,6 +1,6 @@
 package com.openclaw.workflow.dto;
 
-import com.openclaw.workflow.entity.WorkflowEdge.EdgeType;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -9,13 +9,16 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  */
 public class CreateEdgeRequest {
 
-    @JsonProperty("sourceNodeId")
+    @JsonProperty("source")
+    @JsonAlias("sourceNodeId")
     private String sourceNodeId;
 
-    @JsonProperty("targetNodeId")
+    @JsonProperty("target")
+    @JsonAlias("targetNodeId")
     private String targetNodeId;
 
-    @JsonProperty("edgeType")
+    @JsonProperty("type")
+    @JsonAlias("edgeType")
     private String edgeType;
 
     private String label;
@@ -30,12 +33,12 @@ public class CreateEdgeRequest {
     public void setEdgeType(String edgeType) { this.edgeType = edgeType; }
 
     @JsonIgnore
-    public EdgeType getEdgeTypeEnum() {
-        if (edgeType == null) return EdgeType.SUCCESS;
+    public com.openclaw.workflow.entity.WorkflowEdge.EdgeType getEdgeTypeEnum() {
+        if (edgeType == null) return com.openclaw.workflow.entity.WorkflowEdge.EdgeType.SUCCESS;
         try {
-            return EdgeType.valueOf(edgeType.toUpperCase());
+            return com.openclaw.workflow.entity.WorkflowEdge.EdgeType.valueOf(edgeType.toUpperCase());
         } catch (Exception e) {
-            return EdgeType.SUCCESS;
+            return com.openclaw.workflow.entity.WorkflowEdge.EdgeType.SUCCESS;
         }
     }
 

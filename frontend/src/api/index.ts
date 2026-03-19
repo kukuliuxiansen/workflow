@@ -4,13 +4,8 @@ import type {
   WorkflowNode,
   WorkflowEdge,
   ExecutionRecord,
-  ReviewRecord,
-  Agent,
-  LogEntry,
-  PageRequest,
-  PageResponse,
-  ApiResponse,
-  GlobalConfig
+  GlobalConfig,
+  ApiResponse
 } from '@/types'
 
 const api = axios.create({
@@ -20,20 +15,6 @@ const api = axios.create({
     'Content-Type': 'application/json'
   }
 })
-
-// 请求拦截器
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-    return config
-  },
-  (error) => {
-    return Promise.reject(error)
-  }
-)
 
 // 响应拦截器
 api.interceptors.response.use(
@@ -48,48 +29,38 @@ api.interceptors.response.use(
 
 export const workflowApi = {
   // 获取工作流列表
-  list(params: PageRequest & { status?: string }): Promise<PageResponse<WorkflowTemplate>> {
-    return api.get('/workflows', { params })
+  list() {
+    return api.get<any, ApiResponse<WorkflowTemplate[]>>('/workflows')
   },
 
   // 获取工作流详情
-  get(id: string): Promise<ApiResponse<WorkflowTemplate & { nodes: WorkflowNode[]; edges: WorkflowEdge[] }>> {
-    return api.get(`/workflows/${id}`)
+  get(id: string) {
+    return api.get<any, ApiResponse<WorkflowTemplate & { nodes: WorkflowNode[]; edges: WorkflowEdge[] }>>(`/workflows/${id}`)
   },
 
   // 创建工作流
-  create(data: Partial<WorkflowTemplate>): Promise<ApiResponse<WorkflowTemplate>> {
-    return api.post('/workflows', data)
+  create(data: { name: string; description?: string }) {
+    return api.post<any, ApiResponse<WorkflowTemplate>>('/workflows', data)
   },
 
   // 更新工作流
-  update(id: string, data: Partial<WorkflowTemplate>): Promise<ApiResponse<WorkflowTemplate>> {
-    return api.put(`/workflows/${id}`, data)
+  update(id: string, data: { name?: string; description?: string; globalConfig?: string }) {
+    return api.put<any, ApiResponse<WorkflowTemplate>>(`/workflows/${id}`, data)
   },
 
   // 删除工作流
-  delete(id: string): Promise<ApiResponse<void>> {
-    return api.delete(`/workflows/${id}`)
+  delete(id: string) {
+    return api.delete<any, ApiResponse<void>>(`/workflows/${id}`)
   },
 
   // 复制工作流
-  clone(id: string): Promise<ApiResponse<WorkflowTemplate>> {
-    return api.post(`/workflows/${id}/clone`)
+  clone(id: string) {
+    return api.post<any, ApiResponse<WorkflowTemplate>>(`/workflows/${id}/clone`)
   },
 
   // 导出YAML
-  exportYaml(id: string): Promise<ApiResponse<string>> {
-    return api.get(`/workflows/${id}/export`)
-  },
-
-  // 导入YAML
-  importYaml(yamlContent: string): Promise<ApiResponse<WorkflowTemplate>> {
-    return api.post('/workflows/import', { yaml: yamlContent })
-  },
-
-  // 更新全局配置
-  updateGlobalConfig(id: string, config: GlobalConfig): Promise<ApiResponse<void>> {
-    return api.put(`/workflows/${id}/global-config`, config)
+  exportYaml(id: string) {
+    return api.get<any, ApiResponse<string>>(`/workflows/${id}/export`)
   }
 }
 
@@ -97,28 +68,28 @@ export const workflowApi = {
 
 export const nodeApi = {
   // 获取节点列表
-  list(workflowId: string): Promise<ApiResponse<WorkflowNode[]>> {
-    return api.get(`/workflows/${workflowId}/nodes`)
+  list(workflowId: string) {
+    return api.get<any, ApiResponse<WorkflowNode[]>>(`/workflows/${workflowId}/nodes`)
   },
 
   // 创建节点
-  create(workflowId: string, data: Partial<WorkflowNode>): Promise<ApiResponse<WorkflowNode>> {
-    return api.post(`/workflows/${workflowId}/nodes`, data)
+  create(workflowId: string, data: { type: string; name: string; positionX: number; positionY: number; config?: string }) {
+    return api.post<any, ApiResponse<WorkflowNode>>(`/workflows/${workflowId}/nodes`, data)
   },
 
   // 更新节点
-  update(workflowId: string, nodeId: string, data: Partial<WorkflowNode>): Promise<ApiResponse<WorkflowNode>> {
-    return api.put(`/workflows/${workflowId}/nodes/${nodeId}`, data)
+  update(workflowId: string, nodeId: string, data: { name?: string; positionX?: number; positionY?: number; config?: string }) {
+    return api.put<any, ApiResponse<WorkflowNode>>(`/workflows/${workflowId}/nodes/${nodeId}`, data)
   },
 
   // 删除节点
-  delete(workflowId: string, nodeId: string): Promise<ApiResponse<void>> {
-    return api.delete(`/workflows/${workflowId}/nodes/${nodeId}`)
+  delete(workflowId: string, nodeId: string) {
+    return api.delete<any, ApiResponse<void>>(`/workflows/${workflowId}/nodes/${nodeId}`)
   },
 
   // 更新节点位置
-  updatePosition(workflowId: string, nodeId: string, x: number, y: number): Promise<ApiResponse<void>> {
-    return api.patch(`/workflows/${workflowId}/nodes/${nodeId}/position`, { positionX: x, positionY: y })
+  updatePosition(workflowId: string, nodeId: string, x: number, y: number) {
+    return api.patch<any, ApiResponse<void>>(`/workflows/${workflowId}/nodes/${nodeId}/position`, { x, y })
   }
 }
 
@@ -126,13 +97,13 @@ export const nodeApi = {
 
 export const edgeApi = {
   // 创建连线
-  create(workflowId: string, data: Partial<WorkflowEdge>): Promise<ApiResponse<WorkflowEdge>> {
-    return api.post(`/workflows/${workflowId}/edges`, data)
+  create(workflowId: string, data: { source: string; target: string; type: string }) {
+    return api.post<any, ApiResponse<WorkflowEdge>>(`/workflows/${workflowId}/edges`, data)
   },
 
   // 删除连线
-  delete(workflowId: string, edgeId: string): Promise<ApiResponse<void>> {
-    return api.delete(`/workflows/${workflowId}/edges/${edgeId}`)
+  delete(workflowId: string, edgeId: string) {
+    return api.delete<any, ApiResponse<void>>(`/workflows/${workflowId}/edges/${edgeId}`)
   }
 }
 
@@ -140,56 +111,83 @@ export const edgeApi = {
 
 export const executionApi = {
   // 启动执行
-  start(workflowId: string, inputData: Record<string, unknown>): Promise<ApiResponse<ExecutionRecord>> {
-    return api.post(`/workflows/${workflowId}/executions`, { inputData })
+  start(workflowId: string, inputData: Record<string, unknown>) {
+    return api.post<any, ApiResponse<ExecutionRecord>>(`/workflows/${workflowId}/executions`, { inputData })
   },
 
   // 获取执行状态
-  get(executionId: string): Promise<ApiResponse<ExecutionRecord>> {
-    return api.get(`/executions/${executionId}`)
+  get(executionId: string) {
+    return api.get<any, ApiResponse<ExecutionRecord>>(`/executions/${executionId}`)
   },
 
   // 暂停执行
-  pause(executionId: string): Promise<ApiResponse<void>> {
-    return api.post(`/executions/${executionId}/pause`)
+  pause(executionId: string) {
+    return api.post<any, ApiResponse<void>>(`/executions/${executionId}/pause`)
+  },
+
+  // 恢复执行
+  resume(executionId: string) {
+    return api.post<any, ApiResponse<void>>(`/executions/${executionId}/resume`)
   },
 
   // 停止执行
-  stop(executionId: string): Promise<ApiResponse<void>> {
-    return api.post(`/executions/${executionId}/stop`)
+  stop(executionId: string) {
+    return api.post<any, ApiResponse<void>>(`/executions/${executionId}/stop`)
   },
 
-  // 获取执行日志
-  getLogs(executionId: string, params?: { nodeId?: string; level?: string }): Promise<ApiResponse<LogEntry[]>> {
-    return api.get(`/executions/${executionId}/logs`, { params })
+  // 获取执行记录列表
+  listRecords(workflowId?: string, limit: number = 10) {
+    const params = new URLSearchParams()
+    if (workflowId) params.append('workflowId', workflowId)
+    params.append('limit', String(limit))
+    return api.get<any, ApiResponse<ExecutionRecord[]>>(`/executions/records?${params}`)
   },
 
-  // 获取执行列表
-  list(params: PageRequest & { workflowId?: string; status?: string }): Promise<PageResponse<ExecutionRecord>> {
-    return api.get('/executions', { params })
+  // 获取执行记录详情
+  getRecord(executionId: string) {
+    return api.get<any, ApiResponse<ExecutionRecord>>(`/executions/records/${executionId}`)
   }
 }
 
-// ============ 审核 API ============
+// ============ 配置 API ============
 
-export const reviewApi = {
-  // 获取待审核列表
-  listPending(params: PageRequest): Promise<PageResponse<ReviewRecord>> {
-    return api.get('/reviews/pending', { params })
+export const configApi = {
+  // 获取全局配置
+  getGlobal() {
+    return api.get<any, ApiResponse<GlobalConfig>>('/config/global')
   },
 
-  // 提交审核结果
-  respond(reviewId: string, decision: 'approve' | 'reject', comment?: string): Promise<ApiResponse<ReviewRecord>> {
-    return api.post(`/reviews/${reviewId}/response`, { decision, comment })
-  }
-}
+  // 保存全局配置
+  saveGlobal(config: Partial<GlobalConfig>) {
+    return api.post<any, ApiResponse<void>>('/config/global', config)
+  },
 
-// ============ Agent API ============
-
-export const agentApi = {
   // 获取Agent列表
-  list(): Promise<ApiResponse<Agent[]>> {
-    return api.get('/agents')
+  getAgents() {
+    return api.get<any, ApiResponse<any[]>>('/config/load-agents')
+  }
+}
+
+// ============ 模板 API ============
+
+export const templateApi = {
+  // 获取模板列表
+  list() {
+    return api.get<any, ApiResponse<any[]>>('/templates')
+  },
+
+  // 从模板创建工作流
+  createFromTemplate(templateId: string, name: string) {
+    return api.post<any, ApiResponse<WorkflowTemplate>>(`/templates/${templateId}/create-workflow`, { name })
+  }
+}
+
+// ============ 系统 API ============
+
+export const systemApi = {
+  // 浏览目录
+  browseDirectory(path?: string) {
+    return api.post<any, ApiResponse<{ path: string; directories: { name: string; path: string }[] }>>('/system/browse-directory', { path })
   }
 }
 
@@ -197,8 +195,8 @@ export const agentApi = {
 
 export const aiApi = {
   // AI生成工作流
-  generateWorkflow(prompt: string): Promise<ApiResponse<WorkflowTemplate>> {
-    return api.post('/ai/generate-workflow', { prompt })
+  generateWorkflow(description: string, name?: string) {
+    return api.post<any, ApiResponse<WorkflowTemplate>>('/ai/generate-workflow', { description, name })
   }
 }
 

@@ -8,16 +8,17 @@ import com.openclaw.workflow.entity.WorkflowNode;
 import com.openclaw.workflow.repository.WorkflowEdgeRepository;
 import com.openclaw.workflow.repository.WorkflowNodeRepository;
 import com.openclaw.workflow.repository.WorkflowRepository;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
 import java.util.*;
 
 @Service
@@ -38,7 +39,7 @@ public class AIService {
     private final WorkflowRepository workflowRepository;
     private final WorkflowNodeRepository nodeRepository;
     private final WorkflowEdgeRepository edgeRepository;
-    private final HttpClient httpClient;
+    private final CloseableHttpClient httpClient;
 
     public AIService(WorkflowRepository workflowRepository,
                      WorkflowNodeRepository nodeRepository,
@@ -46,9 +47,7 @@ public class AIService {
         this.workflowRepository = workflowRepository;
         this.nodeRepository = nodeRepository;
         this.edgeRepository = edgeRepository;
-        this.httpClient = HttpClient.newBuilder()
-                .connectTimeout(Duration.ofSeconds(30))
-                .build();
+        this.httpClient = HttpClients.createDefault();
     }
 
     public WorkflowDto generateWorkflow(String description, String name) {
@@ -124,27 +123,27 @@ public class AIService {
 
         String jsonBody = objectMapper.writeValueAsString(requestBody);
 
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(baseUrl + "/chat/completions"))
-                .header("Content-Type", "application/json")
-                .header("Authorization", "Bearer " + apiKey)
-                .POST(HttpRequest.BodyPublishers.ofString(jsonBody))
-                .build();
+        HttpPost request = new HttpPost(baseUrl + "/chat/completions");
+        request.setHeader("Content-Type", "application/json");
+        request.setHeader("Authorization", "Bearer " + apiKey);
+        request.setEntity(new StringEntity(jsonBody, "UTF-8"));
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        try (CloseableHttpResponse response = httpClient.execute(request)) {
+            int statusCode = response.getStatusLine().getStatusCode();
+            if (statusCode != 200) {
+                throw new RuntimeException("AI API 调用失败: " + statusCode);
+            }
 
-        if (response.statusCode() != 200) {
-            throw new RuntimeException("AI API 调用失败: " + response.statusCode());
+            String responseBody = EntityUtils.toString(response.getEntity(), "UTF-8");
+            Map<String, Object> responseMap = objectMapper.readValue(responseBody, Map.class);
+            List<Map<String, Object>> choices = (List<Map<String, Object>>) responseMap.get("choices");
+            if (choices != null && !choices.isEmpty()) {
+                Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
+                return (String) message.get("content");
+            }
+
+            throw new RuntimeException("AI 返回内容为空");
         }
-
-        Map<String, Object> responseMap = objectMapper.readValue(response.body(), Map.class);
-        List<Map<String, Object>> choices = (List<Map<String, Object>>) responseMap.get("choices");
-        if (choices != null && !choices.isEmpty()) {
-            Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
-            return (String) message.get("content");
-        }
-
-        throw new RuntimeException("AI 返回内容为空");
     }
 
     @SuppressWarnings("unchecked")
