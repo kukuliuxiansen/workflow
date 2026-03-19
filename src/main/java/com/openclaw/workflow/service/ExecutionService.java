@@ -1,10 +1,13 @@
 package com.openclaw.workflow.service;
 
 import com.openclaw.workflow.engine.WorkflowEngine;
+import com.openclaw.workflow.engine.handler.HumanReviewNodeHandler;
 import com.openclaw.workflow.engine.model.ExecutionOptions;
 import com.openclaw.workflow.engine.model.ExecutionResult;
 import com.openclaw.workflow.entity.Execution;
+import com.openclaw.workflow.entity.ReviewRecord;
 import com.openclaw.workflow.repository.ExecutionRepository;
+import com.openclaw.workflow.repository.ReviewRecordRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Async;
@@ -22,14 +25,17 @@ public class ExecutionService {
 
     private final ExecutionRepository executionRepository;
     private final WorkflowEngine workflowEngine;
+    private final ReviewRecordRepository reviewRecordRepository;
 
     // 存储活跃的执行实例
     private final Map<String, WorkflowEngine> activeEngines = new ConcurrentHashMap<>();
 
     public ExecutionService(ExecutionRepository executionRepository,
-                            WorkflowEngine workflowEngine) {
+                            WorkflowEngine workflowEngine,
+                            ReviewRecordRepository reviewRecordRepository) {
         this.executionRepository = executionRepository;
         this.workflowEngine = workflowEngine;
+        this.reviewRecordRepository = reviewRecordRepository;
     }
 
     public List<Execution> findAll() {
@@ -170,6 +176,90 @@ public class ExecutionService {
         status.put("globalRetryCount", execution.getGlobalRetryCount());
         status.put("startTime", execution.getStartTime());
         status.put("endTime", execution.getEndTime());
+
+        return status;
+    }
+
+    // ==================== 人工审核相关方法 ====================
+
+    /**
+     * 处理审核结果
+     */
+    public Map<String, Object> processReview(String executionId, String nodeId, String token,
+                                               String action, String comment, String reviewer) {
+        Execution execution = findById(executionId);
+
+        // 验证Token
+        if (!HumanReviewNodeHandler.validateToken(token, executionId, nodeId)) {
+            throw new RuntimeException("无效的审核Token");
+        }
+
+        // 检查执行状态
+        if (!"waiting_review".equals(execution.getStatus()) && !"running".equals(execution.getStatus())) {
+            throw new RuntimeException("当前执行不在等待审核状态");
+        }
+
+        // 创建审核记录
+        ReviewRecord reviewRecord = new ReviewRecord();
+        reviewRecord.setExecutionId(executionId);
+        reviewRecord.setNodeId(nodeId);
+        reviewRecord.setReviewer(reviewer != null ? reviewer : "unknown");
+        reviewRecord.setComment(comment);
+        reviewRecord.setCreatedAt(LocalDateTime.now());
+
+        if ("approve".equalsIgnoreCase(action)) {
+            reviewRecord.setDecision(ReviewRecord.ReviewDecision.APPROVED);
+        } else if ("reject".equalsIgnoreCase(action)) {
+            reviewRecord.setDecision(ReviewRecord.ReviewDecision.REJECTED);
+        } else {
+            throw new RuntimeException("无效的审核动作: " + action);
+        }
+
+        reviewRecordRepository.save(reviewRecord);
+
+        // 恢复工作流执行
+        workflowEngine.resume(false);
+
+        // 更新执行状态
+        execution.setStatus("running");
+        executionRepository.save(execution);
+
+        logger.info("审核处理完成: executionId={}, nodeId={}, action={}", executionId, nodeId, action);
+
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("executionId", executionId);
+        result.put("nodeId", nodeId);
+        result.put("status", "APPROVED".equalsIgnoreCase(action) ? "APPROVED" : "REJECTED");
+        result.put("message", "审批成功，工作流将继续执行");
+        result.put("reviewRecord", reviewRecord);
+
+        return result;
+    }
+
+    /**
+     * 获取审核状态
+     */
+    public Map<String, Object> getReviewStatus(String executionId, String nodeId) {
+        Execution execution = findById(executionId);
+
+        List<ReviewRecord> records = reviewRecordRepository.findByExecutionIdAndNodeIdOrderByCreatedAtDesc(
+                executionId, nodeId);
+
+        Map<String, Object> status = new java.util.HashMap<>();
+        status.put("executionId", executionId);
+        status.put("nodeId", nodeId);
+        status.put("executionStatus", execution.getStatus());
+
+        if (records.isEmpty()) {
+            status.put("reviewStatus", "PENDING");
+            status.put("message", "等待审核");
+        } else {
+            ReviewRecord latest = records.get(0);
+            status.put("reviewStatus", latest.getDecision().name());
+            status.put("reviewer", latest.getReviewer());
+            status.put("comment", latest.getComment());
+            status.put("reviewTime", latest.getCreatedAt());
+        }
 
         return status;
     }

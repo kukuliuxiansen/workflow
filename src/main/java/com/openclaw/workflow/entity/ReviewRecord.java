@@ -16,7 +16,7 @@ public class ReviewRecord {
     @Column(name = "execution_id", nullable = false)
     private String executionId;
 
-    @Column(name = "workflow_id", nullable = false)
+    @Column(name = "workflow_id")
     private String workflowId;
 
     @Column(name = "node_id", nullable = false)
@@ -27,6 +27,9 @@ public class ReviewRecord {
 
     @Column(name = "reviewer_agent_id")
     private String reviewerAgentId;
+
+    @Column(name = "reviewer")
+    private String reviewer;
 
     @Column(name = "submit_time")
     private LocalDateTime submitTime;
@@ -48,6 +51,7 @@ public class ReviewRecord {
 
     public ReviewRecord() {
         this.createdAt = LocalDateTime.now();
+        this.id = "review-" + System.currentTimeMillis() + "-" + Integer.toHexString((int) (Math.random() * 0xFFFFFF));
     }
 
     public enum ReviewStatus {
@@ -58,8 +62,8 @@ public class ReviewRecord {
     }
 
     public enum ReviewDecision {
-        APPROVE,
-        REJECT
+        APPROVED,
+        REJECTED
     }
 
     // Getters and Setters
@@ -80,6 +84,9 @@ public class ReviewRecord {
 
     public String getReviewerAgentId() { return reviewerAgentId; }
     public void setReviewerAgentId(String reviewerAgentId) { this.reviewerAgentId = reviewerAgentId; }
+
+    public String getReviewer() { return reviewer; }
+    public void setReviewer(String reviewer) { this.reviewer = reviewer; }
 
     public LocalDateTime getSubmitTime() { return submitTime; }
     public void setSubmitTime(LocalDateTime submitTime) { this.submitTime = submitTime; }

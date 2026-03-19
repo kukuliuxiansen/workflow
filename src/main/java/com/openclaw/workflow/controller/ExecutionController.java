@@ -2,6 +2,7 @@ package com.openclaw.workflow.controller;
 
 import com.openclaw.workflow.dto.ApiResponse;
 import com.openclaw.workflow.dto.StartExecutionRequest;
+import com.openclaw.workflow.dto.ReviewResponseRequest;
 import com.openclaw.workflow.entity.Execution;
 import com.openclaw.workflow.service.ExecutionService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -95,5 +96,42 @@ public class ExecutionController {
         result.put("hasActive", !activeExecutions.isEmpty());
         result.put("activeExecutions", activeExecutions);
         return ApiResponse.success(result);
+    }
+
+    // ==================== 人工审核回调API ====================
+
+    @Operation(summary = "人工审核回调")
+    @PostMapping("/executions/{executionId}/review/{nodeId}")
+    public ApiResponse<Map<String, Object>> submitReview(
+            @PathVariable String executionId,
+            @PathVariable String nodeId,
+            @RequestBody ReviewResponseRequest request) {
+        try {
+            // 处理审核结果
+            Map<String, Object> result = executionService.processReview(
+                    executionId,
+                    nodeId,
+                    request.getToken(),
+                    request.getAction(),
+                    request.getComment(),
+                    request.getReviewer()
+            );
+            return ApiResponse.success(result);
+        } catch (Exception e) {
+            return ApiResponse.error(500, "审核处理失败: " + e.getMessage());
+        }
+    }
+
+    @Operation(summary = "获取审核状态")
+    @GetMapping("/executions/{executionId}/review/{nodeId}")
+    public ApiResponse<Map<String, Object>> getReviewStatus(
+            @PathVariable String executionId,
+            @PathVariable String nodeId) {
+        try {
+            Map<String, Object> status = executionService.getReviewStatus(executionId, nodeId);
+            return ApiResponse.success(status);
+        } catch (Exception e) {
+            return ApiResponse.error(404, "审核记录不存在");
+        }
     }
 }

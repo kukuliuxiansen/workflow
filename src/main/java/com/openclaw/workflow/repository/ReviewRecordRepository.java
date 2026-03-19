@@ -15,7 +15,15 @@ public interface ReviewRecordRepository extends JpaRepository<ReviewRecord, Stri
 
     List<ReviewRecord> findByExecutionId(String executionId);
 
+    List<ReviewRecord> findByExecutionIdOrderByCreatedAtDesc(String executionId);
+
     Optional<ReviewRecord> findByExecutionIdAndNodeId(String executionId, String nodeId);
 
+    List<ReviewRecord> findByExecutionIdAndNodeIdOrderByCreatedAtDesc(String executionId, String nodeId);
+
     List<ReviewRecord> findAllByOrderBySubmitTimeDesc();
+
+    List<ReviewRecord> findByReviewer(String reviewer);
+
+    List<ReviewRecord> findByNodeId(String nodeId);
 }
