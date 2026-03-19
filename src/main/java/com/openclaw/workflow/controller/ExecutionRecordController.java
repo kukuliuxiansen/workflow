@@ -81,12 +81,14 @@ public class ExecutionRecordController {
         if (config.getId() == null || config.getId().isEmpty()) {
             config.setId("tc_" + System.currentTimeMillis());
         }
+
+        // 尝试从执行记录获取workflowId
         if (config.getWorkflowId() == null || config.getWorkflowId().isEmpty()) {
-            // 尝试从执行记录获取workflowId
             executionRepository.findById(executionId).ifPresent(exec -> {
                 config.setWorkflowId(exec.getWorkflowId());
             });
         }
+
         config.setUpdatedAt(java.time.LocalDateTime.now());
         TaskConfig saved = taskConfigRepository.save(config);
         return ApiResponse.success(saved);
@@ -96,7 +98,7 @@ public class ExecutionRecordController {
     @GetMapping("/{executionId}/logs/execution")
     public ApiResponse<List<Map<String, Object>>> getExecutionLogs(@PathVariable String executionId) {
         // TODO: 实现从文件读取日志
-        return ApiResponse.success(List.of());
+        return ApiResponse.success(new java.util.ArrayList<>());
     }
 
     @Operation(summary = "保存执行日志")
@@ -111,7 +113,7 @@ public class ExecutionRecordController {
     @GetMapping("/{executionId}/logs/agent")
     public ApiResponse<List<Map<String, Object>>> getAgentLogs(@PathVariable String executionId) {
         // TODO: 实现从文件读取日志
-        return ApiResponse.success(List.of());
+        return ApiResponse.success(new java.util.ArrayList<>());
     }
 
     @Operation(summary = "保存Agent日志")
@@ -126,7 +128,7 @@ public class ExecutionRecordController {
     @GetMapping("/{executionId}/logs/node")
     public ApiResponse<List<Map<String, Object>>> getNodeLogs(@PathVariable String executionId) {
         // TODO: 实现从文件读取日志
-        return ApiResponse.success(List.of());
+        return ApiResponse.success(new java.util.ArrayList<>());
     }
 
     @Operation(summary = "保存节点日志")
@@ -144,7 +146,7 @@ public class ExecutionRecordController {
         if (!type.equals("execution") && !type.equals("agent") && !type.equals("node")) {
             throw new IllegalArgumentException("无效的日志类型: " + type);
         }
-        return ApiResponse.success(List.of());
+        return ApiResponse.success(new java.util.ArrayList<>());
     }
 
     private Map<String, Object> toRecordMap(Execution execution) {

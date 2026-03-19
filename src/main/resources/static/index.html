@@ -347,7 +347,7 @@
       top: 0; left: 0;
       width: 100%; height: 100%;
       pointer-events: none;
-      z-index: 1;
+      z-index: 5;
     }
     .edge-path {
       fill: none;
@@ -3074,9 +3074,10 @@
           const tgtNode = nodeMap[edge.target_node_id];
           if (!srcNode || !tgtNode) return;
 
-          // 获取实际节点元素尺寸
+          // 获取实际节点元素
           const srcEl = document.getElementById(`node-${edge.source_node_id}`);
           const tgtEl = document.getElementById(`node-${edge.target_node_id}`);
+
           if (srcEl) {
             srcNode.width = srcEl.offsetWidth;
             srcNode.height = srcEl.offsetHeight;
@@ -3088,24 +3089,25 @@
 
           const edgeType = edge.edge_type || 'success';
 
-          // 端口位置计算（node-ports padding: 6px，端口大小10px）
-          const portsY = srcNode.y + srcNode.height - 11; // 端口中心Y坐标
+          // 端口大小为10px，在节点边缘外
+          const portRadius = 5;
+          const portGap = 2; // 端口间距
 
-          // 源节点右侧端口：success在上，fail在下（gap:4px）
-          const x1 = srcNode.x + srcNode.width;
-          const y1 = portsY + (edgeType === 'success' ? -7 : 7);
+          // 源节点右侧端口的Y位置（在node-ports区域内）
+          // node-ports padding: 6px 12px，端口在右下角
+          const srcPortsCenterY = srcNode.y + srcNode.height - 11; // 端口中心Y
+
+          // 源端口位置：从节点右边沿开始，端口中心
+          const x1 = srcNode.x + srcNode.width; // 节点右边沿
+          const y1 = srcPortsCenterY + (edgeType === 'success' ? -(portRadius + portGap) : (portRadius + portGap));
 
           // 目标节点左侧输入端口
-          const x2 = tgtNode.x;
-          const y2 = tgtNode.y + tgtNode.height - 11;
+          const x2 = tgtNode.x; // 节点左边沿
+          const y2 = tgtNode.y + tgtNode.height - 11; // 输入端口中心Y
 
-          // 绘制贝塞尔曲线
-          const midX = (x1 + x2) / 2;
-          paths += `<path class="edge-path ${edgeType}" d="M${x1},${y1} C${midX},${y1} ${midX},${y2} ${x2},${y2}" onclick="deleteEdgeById('${edge.id}')"/>`;
-
-          // 添加端口连接点标记
-          paths += `<circle cx="${x1}" cy="${y1}" r="5" fill="${edgeType === 'success' ? '#4a4' : '#f44'}" class="edge-dot"/>`;
-          paths += `<circle cx="${x2}" cy="${y2}" r="5" fill="#6b5ce7" class="edge-dot"/>`;
+          // 绘制平滑的贝塞尔曲线
+          const controlOffset = Math.min(100, Math.abs(x2 - x1) / 2);
+          paths += `<path class="edge-path ${edgeType}" d="M${x1},${y1} C${x1 + controlOffset},${y1} ${x2 - controlOffset},${y2} ${x2},${y2}" onclick="deleteEdgeById('${edge.id}')"/>`;
         });
       }
 
@@ -3988,23 +3990,24 @@
 
       // 显示临时线
       const dragLine = document.getElementById('dragLine');
+      if (!dragLine) return;
       dragLine.style.display = 'block';
       dragLine.classList.remove('success', 'fail');
       dragLine.classList.add(type);
 
-      // 计算起点位置（从端口中心开始）
+      // 获取节点元素和数据
       const nodeEl = document.getElementById(`node-${nodeId}`);
-      const canvas = document.getElementById('canvas');
-      const canvasRect = canvas.getBoundingClientRect();
-
-      // 节点位置
       const nodeData = state.currentWorkflow?.nodes?.find(n => n.id === nodeId);
       if (!nodeData || !nodeEl) return;
 
-      // 计算端口位置（右侧，根据类型偏移）
-      const portsY = nodeData.position_y + nodeEl.offsetHeight - 11;
+      // 端口大小为10px，计算端口中心位置
+      const portRadius = 5;
+      const portGap = 2;
+
+      // 源端口位置：节点右边沿
       const startX = nodeData.position_x + nodeEl.offsetWidth;
-      const startY = portsY + (type === 'success' ? -7 : 7);
+      const portsCenterY = nodeData.position_y + nodeEl.offsetHeight - 11;
+      const startY = portsCenterY + (type === 'success' ? -(portRadius + portGap) : (portRadius + portGap));
 
       connectingFrom.startX = startX;
       connectingFrom.startY = startY;
@@ -4027,7 +4030,7 @@
 
       const canvasRect = canvas.getBoundingClientRect();
 
-      // 计算鼠标在画布上的位置（考虑缩放和平移）
+      // 计算鼠标在画布上的位置
       const mouseX = (e.clientX - canvasRect.left) / state.zoom;
       const mouseY = (e.clientY - canvasRect.top) / state.zoom;
 
@@ -4037,7 +4040,7 @@
       let x2 = mouseX;
       let y2 = mouseY;
 
-      // 检测目标节点并高亮，同时吸附到输入端口
+      // 检测目标节点并吸附
       const targetEl = document.elementFromPoint(e.clientX, e.clientY);
       const targetNode = targetEl ? targetEl.closest('.node') : null;
       document.querySelectorAll('.node.connect-target').forEach(n => n.classList.remove('connect-target'));
@@ -4049,13 +4052,13 @@
         const tgtNodeData = state.currentWorkflow?.nodes?.find(n => n.id === tgtId);
         if (tgtNodeData) {
           x2 = tgtNodeData.position_x;
-          y2 = tgtNodeData.position_y + targetNode.offsetHeight - 11; // 输入端口位置
+          y2 = tgtNodeData.position_y + targetNode.offsetHeight - 11;
         }
       }
 
-      // 使用水平贝塞尔曲线
-      const midX = (x1 + x2) / 2;
-      dragLine.setAttribute('d', `M${x1},${y1} C${midX},${y1} ${midX},${y2} ${x2},${y2}`);
+      // 绘制平滑曲线
+      const controlOffset = Math.min(100, Math.abs(x2 - x1) / 2);
+      dragLine.setAttribute('d', `M${x1},${y1} C${x1 + controlOffset},${y1} ${x2 - controlOffset},${y2} ${x2},${y2}`);
     }
 
     async function endDragConnect(e) {
@@ -4071,8 +4074,8 @@
       document.removeEventListener('mousemove', onDragConnect);
       document.removeEventListener('mouseup', endDragConnect);
 
-      // 检测目标节点 - 使用 document.elementFromPoint 获取鼠标位置的元素
-      if (connectingFrom) {
+      // 检测目标节点
+      if (connectingFrom && state.currentWorkflow) {
         const targetEl = document.elementFromPoint(e.clientX, e.clientY);
         const targetNode = targetEl ? targetEl.closest('.node') : null;
 
@@ -4081,6 +4084,7 @@
           if (targetId !== connectingFrom.nodeId) {
             try {
               addLog('info', `创建连线: ${connectingFrom.nodeId} -> ${targetId} (${connectingFrom.type})`);
+
               const res = await fetch(`${API}/workflows/${state.currentWorkflow.id}/edges`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -4090,22 +4094,24 @@
                   type: connectingFrom.type
                 })
               });
+
+              if (!res.ok) {
+                throw new Error(`HTTP ${res.status}`);
+              }
+
               const data = await res.json();
               if (data.success) {
                 await selectWorkflow(state.currentWorkflow.id);
                 showToast('success', '连线创建成功');
               } else {
                 showToast('error', data.message || '创建连线失败');
-                addLog('error', data.message || '创建连线失败');
               }
             } catch (err) {
               showToast('error', '创建连线失败');
               addLog('error', '创建连线失败: ' + err.message);
-              console.error(err);
+              console.error('连线错误:', err);
             }
           }
-        } else {
-          addLog('info', '连线取消 - 未找到目标节点');
         }
       }
 

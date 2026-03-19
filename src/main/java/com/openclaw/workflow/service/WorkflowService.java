@@ -139,13 +139,21 @@ public class WorkflowService {
             nodeRepository.save(clonedNode);
         }
 
-        // 克隆边
+        // 克隆边 - 跳过无效的边
         for (WorkflowEdge edge : edges) {
+            String newSourceId = nodeIdMap.get(edge.getSourceNodeId());
+            String newTargetId = nodeIdMap.get(edge.getTargetNodeId());
+
+            // 跳过源或目标节点不存在的边
+            if (newSourceId == null || newTargetId == null) {
+                continue;
+            }
+
             WorkflowEdge clonedEdge = new WorkflowEdge();
             clonedEdge.setId("edge_" + UUID.randomUUID().toString().substring(0, 8));
             clonedEdge.setWorkflowId(cloned.getId());
-            clonedEdge.setSourceNodeId(nodeIdMap.get(edge.getSourceNodeId()));
-            clonedEdge.setTargetNodeId(nodeIdMap.get(edge.getTargetNodeId()));
+            clonedEdge.setSourceNodeId(newSourceId);
+            clonedEdge.setTargetNodeId(newTargetId);
             clonedEdge.setEdgeType(edge.getEdgeType());
             clonedEdge.setLabel(edge.getLabel());
             edgeRepository.save(clonedEdge);

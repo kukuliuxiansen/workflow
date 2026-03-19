@@ -31,6 +31,12 @@ public class EdgeController {
     @PostMapping
     public ApiResponse<WorkflowEdge> create(@PathVariable String workflowId,
                                              @RequestBody CreateEdgeRequest request) {
+        if (request.getSourceNodeId() == null || request.getSourceNodeId().isEmpty()) {
+            throw new IllegalArgumentException("源节点ID不能为空");
+        }
+        if (request.getTargetNodeId() == null || request.getTargetNodeId().isEmpty()) {
+            throw new IllegalArgumentException("目标节点ID不能为空");
+        }
         WorkflowEdge edge = edgeService.create(
                 workflowId,
                 request.getSourceNodeId(),
@@ -50,16 +56,13 @@ public class EdgeController {
     }
 
     @Operation(summary = "通过源节点删除连线")
-    @DeleteMapping
+    @PostMapping("/delete-by-source")
     public ApiResponse<Void> deleteBySource(@PathVariable String workflowId,
-                                             @RequestBody(required = false) java.util.Map<String, String> request) {
-        if (request == null) {
-            return ApiResponse.success();
-        }
+                                             @RequestBody java.util.Map<String, String> request) {
         String sourceNodeId = request.get("source");
         String edgeType = request.get("type");
-        if (sourceNodeId == null) {
-            return ApiResponse.success();
+        if (sourceNodeId == null || sourceNodeId.isEmpty()) {
+            throw new IllegalArgumentException("源节点ID不能为空");
         }
         edgeService.deleteBySourceAndType(workflowId, sourceNodeId, edgeType);
         return ApiResponse.success();
