@@ -21,7 +21,7 @@ import java.util.*;
 @RequestMapping("/api/agents")
 public class AgentController {
 
-    @Value("${openclaw.config-path:#{systemProperties['user.home'] + '/.openclaw/openclaw-multi-agent.json'}}")
+    @Value("${openclaw.config-path:}")
     private String agentConfigPath;
 
     @Operation(summary = "获取Agent列表")
@@ -40,7 +40,7 @@ public class AgentController {
                 return ApiResponse.success(agent);
             }
         }
-        throw new NoSuchElementException("Agent不存在: " + id);
+        throw new RuntimeException("Agent不存在: " + id);
     }
 
     /**
@@ -48,13 +48,17 @@ public class AgentController {
      */
     private List<Map<String, Object>> loadAgents() {
         try {
-            Path configPath = Paths.get(agentConfigPath);
-            if (!Files.exists(configPath)) {
+            String configPath = agentConfigPath;
+            if (configPath == null || configPath.isEmpty()) {
+                configPath = System.getProperty("user.home") + "/.openclaw/openclaw-multi-agent.json";
+            }
+            Path path = Paths.get(configPath);
+            if (!Files.exists(path)) {
                 // 返回空列表而不是错误
                 return new ArrayList<>();
             }
 
-            byte[] bytes = Files.readAllBytes(configPath);
+            byte[] bytes = Files.readAllBytes(path);
             String content = new String(bytes, "UTF-8");
             // 简单解析JSON (实际项目中应使用ObjectMapper)
             // 这里返回模拟数据

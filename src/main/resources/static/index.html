@@ -358,6 +358,7 @@
     .edge-path.success { stroke: #4a4; }
     .edge-path.fail { stroke: #f44; }
     .edge-path:hover { stroke-width: 3; }
+    .edge-dot { pointer-events: none; }
     /* 拖拽连线临时线 */
     .drag-line {
       fill: none;
@@ -3056,44 +3057,73 @@
       const workflow = state.currentWorkflow;
       if (!workflow || !workflow.nodes) { svg.innerHTML = ''; return; }
 
-      // 构建节点位置映射（使用与 renderCanvas 相同的默认位置计算）
-      const nodePositions = {};
+      // 构建节点位置和尺寸映射
+      const nodeMap = {};
       workflow.nodes.forEach((node, i) => {
-        nodePositions[node.id] = {
-          x: node.position_x || 50 + (i % 3) * 280,
-          y: node.position_y || 50 + Math.floor(i / 3) * 180
-        };
+        const x = node.position_x || 50 + (i % 3) * 280;
+        const y = node.position_y || 50 + Math.floor(i / 3) * 180;
+        nodeMap[node.id] = { x, y, width: 200, height: 100 };
       });
 
       let paths = '';
-      workflow.nodes.forEach((node, i) => {
-        const nodeEl = document.getElementById(`node-${node.id}`);
-        if (!nodeEl) return;
 
-        // 源节点位置
-        const srcPos = nodePositions[node.id];
-        const x1 = srcPos.x + nodeEl.offsetWidth;
-        const y1 = srcPos.y + 50;
+      // 使用 edges 数组渲染连线
+      if (workflow.edges && Array.isArray(workflow.edges)) {
+        workflow.edges.forEach((edge) => {
+          const srcNode = nodeMap[edge.source_node_id];
+          const tgtNode = nodeMap[edge.target_node_id];
+          if (!srcNode || !tgtNode) return;
 
-        if (node.on_success) {
-          const targetPos = nodePositions[node.on_success];
-          if (targetPos) {
-            const x2 = targetPos.x;
-            const y2 = targetPos.y;
-            paths += `<path class="edge-path success" d="M${x1},${y1} C${(x1+x2)/2},${y1} ${(x1+x2)/2},${y2} ${x2},${y2}" onclick="deleteEdge('${node.id}','success')"/>`;
+          // 获取实际节点元素尺寸
+          const srcEl = document.getElementById(`node-${edge.source_node_id}`);
+          const tgtEl = document.getElementById(`node-${edge.target_node_id}`);
+          if (srcEl) {
+            srcNode.width = srcEl.offsetWidth;
+            srcNode.height = srcEl.offsetHeight;
           }
-        }
-        if (node.on_fail) {
-          const targetPos = nodePositions[node.on_fail];
-          if (targetPos) {
-            const x2 = targetPos.x;
-            const y2 = targetPos.y;
-            paths += `<path class="edge-path fail" d="M${x1},${y1+20} C${(x1+x2)/2},${y1+20} ${(x1+x2)/2},${y2} ${x2},${y2}" onclick="deleteEdge('${node.id}','fail')"/>`;
+          if (tgtEl) {
+            tgtNode.width = tgtEl.offsetWidth;
+            tgtNode.height = tgtEl.offsetHeight;
           }
-        }
-      });
+
+          const edgeType = edge.edge_type || 'success';
+
+          // 端口位置计算（node-ports padding: 6px，端口大小10px）
+          const portsY = srcNode.y + srcNode.height - 11; // 端口中心Y坐标
+
+          // 源节点右侧端口：success在上，fail在下（gap:4px）
+          const x1 = srcNode.x + srcNode.width;
+          const y1 = portsY + (edgeType === 'success' ? -7 : 7);
+
+          // 目标节点左侧输入端口
+          const x2 = tgtNode.x;
+          const y2 = tgtNode.y + tgtNode.height - 11;
+
+          // 绘制贝塞尔曲线
+          const midX = (x1 + x2) / 2;
+          paths += `<path class="edge-path ${edgeType}" d="M${x1},${y1} C${midX},${y1} ${midX},${y2} ${x2},${y2}" onclick="deleteEdgeById('${edge.id}')"/>`;
+
+          // 添加端口连接点标记
+          paths += `<circle cx="${x1}" cy="${y1}" r="5" fill="${edgeType === 'success' ? '#4a4' : '#f44'}" class="edge-dot"/>`;
+          paths += `<circle cx="${x2}" cy="${y2}" r="5" fill="#6b5ce7" class="edge-dot"/>`;
+        });
+      }
 
       svg.innerHTML = paths;
+    }
+
+    // 通过edge id删除连线
+    async function deleteEdgeById(edgeId) {
+      if (!confirm('删除此连线？')) return;
+      try {
+        await fetch(`${API}/workflows/${state.currentWorkflow.id}/edges/${edgeId}`, {
+          method: 'DELETE'
+        });
+        await selectWorkflow(state.currentWorkflow.id);
+        showToast('success', '连线已删除');
+      } catch (e) {
+        showToast('error', '删除失败');
+      }
     }
 
     // 切换右侧面板标签页
@@ -3962,17 +3992,19 @@
       dragLine.classList.remove('success', 'fail');
       dragLine.classList.add(type);
 
-      // 计算起点位置
+      // 计算起点位置（从端口中心开始）
       const nodeEl = document.getElementById(`node-${nodeId}`);
-      const portEl = e.target;
       const canvas = document.getElementById('canvas');
-
-      const nodeRect = nodeEl.getBoundingClientRect();
-      const portRect = portEl.getBoundingClientRect();
       const canvasRect = canvas.getBoundingClientRect();
 
-      const startX = (portRect.left + portRect.width/2 - canvasRect.left) / state.zoom;
-      const startY = (portRect.top + portRect.height/2 - canvasRect.top) / state.zoom;
+      // 节点位置
+      const nodeData = state.currentWorkflow?.nodes?.find(n => n.id === nodeId);
+      if (!nodeData || !nodeEl) return;
+
+      // 计算端口位置（右侧，根据类型偏移）
+      const portsY = nodeData.position_y + nodeEl.offsetHeight - 11;
+      const startX = nodeData.position_x + nodeEl.offsetWidth;
+      const startY = portsY + (type === 'success' ? -7 : 7);
 
       connectingFrom.startX = startX;
       connectingFrom.startY = startY;
@@ -3988,29 +4020,42 @@
       if (!isDraggingConnect || !connectingFrom) return;
 
       const dragLine = document.getElementById('dragLine');
+      if (!dragLine) return;
+
       const canvas = document.getElementById('canvas');
+      if (!canvas) return;
+
       const canvasRect = canvas.getBoundingClientRect();
 
-      // 计算鼠标在画布上的位置
+      // 计算鼠标在画布上的位置（考虑缩放和平移）
       const mouseX = (e.clientX - canvasRect.left) / state.zoom;
       const mouseY = (e.clientY - canvasRect.top) / state.zoom;
 
       // 绘制贝塞尔曲线
       const x1 = connectingFrom.startX;
       const y1 = connectingFrom.startY;
-      const x2 = mouseX;
-      const y2 = mouseY;
+      let x2 = mouseX;
+      let y2 = mouseY;
+
+      // 检测目标节点并高亮，同时吸附到输入端口
+      const targetEl = document.elementFromPoint(e.clientX, e.clientY);
+      const targetNode = targetEl ? targetEl.closest('.node') : null;
+      document.querySelectorAll('.node.connect-target').forEach(n => n.classList.remove('connect-target'));
+
+      if (targetNode && targetNode.id !== `node-${connectingFrom.nodeId}`) {
+        targetNode.classList.add('connect-target');
+        // 吸附到目标节点的输入端口位置
+        const tgtId = targetNode.id.replace('node-', '');
+        const tgtNodeData = state.currentWorkflow?.nodes?.find(n => n.id === tgtId);
+        if (tgtNodeData) {
+          x2 = tgtNodeData.position_x;
+          y2 = tgtNodeData.position_y + targetNode.offsetHeight - 11; // 输入端口位置
+        }
+      }
 
       // 使用水平贝塞尔曲线
       const midX = (x1 + x2) / 2;
       dragLine.setAttribute('d', `M${x1},${y1} C${midX},${y1} ${midX},${y2} ${x2},${y2}`);
-
-      // 检测目标节点
-      const targetNode = e.target.closest('.node');
-      document.querySelectorAll('.node.connect-target').forEach(n => n.classList.remove('connect-target'));
-      if (targetNode && targetNode.id !== `node-${connectingFrom.nodeId}`) {
-        targetNode.classList.add('connect-target');
-      }
     }
 
     async function endDragConnect(e) {
@@ -4020,39 +4065,47 @@
 
       // 隐藏临时线
       const dragLine = document.getElementById('dragLine');
-      dragLine.style.display = 'none';
+      if (dragLine) dragLine.style.display = 'none';
 
       // 移除事件监听
       document.removeEventListener('mousemove', onDragConnect);
       document.removeEventListener('mouseup', endDragConnect);
 
-      // 检测目标节点
-      const targetNode = e.target.closest('.node');
-      if (targetNode && connectingFrom) {
-        const targetId = targetNode.id.replace('node-', '');
-        if (targetId !== connectingFrom.nodeId) {
-          try {
-            const res = await fetch(`${API}/workflows/${state.currentWorkflow.id}/edges`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                source: connectingFrom.nodeId,
-                target: targetId,
-                type: connectingFrom.type
-              })
-            });
-            const data = await res.json();
-            if (data.success) {
-              await selectWorkflow(state.currentWorkflow.id);
-              showToast('success', '连线创建成功');
-              addLog('success', `连线: ${connectingFrom.nodeId} → ${targetId}`);
-            } else {
-              showToast('error', data.message || '创建连线失败');
+      // 检测目标节点 - 使用 document.elementFromPoint 获取鼠标位置的元素
+      if (connectingFrom) {
+        const targetEl = document.elementFromPoint(e.clientX, e.clientY);
+        const targetNode = targetEl ? targetEl.closest('.node') : null;
+
+        if (targetNode) {
+          const targetId = targetNode.id.replace('node-', '');
+          if (targetId !== connectingFrom.nodeId) {
+            try {
+              addLog('info', `创建连线: ${connectingFrom.nodeId} -> ${targetId} (${connectingFrom.type})`);
+              const res = await fetch(`${API}/workflows/${state.currentWorkflow.id}/edges`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  source: connectingFrom.nodeId,
+                  target: targetId,
+                  type: connectingFrom.type
+                })
+              });
+              const data = await res.json();
+              if (data.success) {
+                await selectWorkflow(state.currentWorkflow.id);
+                showToast('success', '连线创建成功');
+              } else {
+                showToast('error', data.message || '创建连线失败');
+                addLog('error', data.message || '创建连线失败');
+              }
+            } catch (err) {
+              showToast('error', '创建连线失败');
+              addLog('error', '创建连线失败: ' + err.message);
+              console.error(err);
             }
-          } catch (err) {
-            showToast('error', '创建连线失败');
-            console.error(err);
           }
+        } else {
+          addLog('info', '连线取消 - 未找到目标节点');
         }
       }
 

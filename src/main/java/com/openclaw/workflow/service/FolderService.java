@@ -58,6 +58,11 @@ public class FolderService {
 
     @Transactional
     public void delete(String id) {
+        // 检查文件夹是否存在
+        if (!folderRepository.existsById(id)) {
+            throw new RuntimeException("文件夹不存在: " + id);
+        }
+
         // 检查是否有子文件夹
         long childCount = folderRepository.countByParentId(id);
         if (childCount > 0) {

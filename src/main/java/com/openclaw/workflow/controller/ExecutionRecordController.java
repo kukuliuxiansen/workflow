@@ -78,6 +78,16 @@ public class ExecutionRecordController {
     public ApiResponse<TaskConfig> saveTaskConfig(@PathVariable String executionId,
                                                    @RequestBody TaskConfig config) {
         config.setExecutionId(executionId);
+        if (config.getId() == null || config.getId().isEmpty()) {
+            config.setId("tc_" + System.currentTimeMillis());
+        }
+        if (config.getWorkflowId() == null || config.getWorkflowId().isEmpty()) {
+            // 尝试从执行记录获取workflowId
+            executionRepository.findById(executionId).ifPresent(exec -> {
+                config.setWorkflowId(exec.getWorkflowId());
+            });
+        }
+        config.setUpdatedAt(java.time.LocalDateTime.now());
         TaskConfig saved = taskConfigRepository.save(config);
         return ApiResponse.success(saved);
     }
@@ -89,6 +99,14 @@ public class ExecutionRecordController {
         return ApiResponse.success(List.of());
     }
 
+    @Operation(summary = "保存执行日志")
+    @PostMapping("/{executionId}/logs/execution")
+    public ApiResponse<Void> saveExecutionLog(@PathVariable String executionId,
+                                               @RequestBody Map<String, Object> logData) {
+        // TODO: 实现日志持久化
+        return ApiResponse.success();
+    }
+
     @Operation(summary = "获取Agent日志")
     @GetMapping("/{executionId}/logs/agent")
     public ApiResponse<List<Map<String, Object>>> getAgentLogs(@PathVariable String executionId) {
@@ -96,10 +114,36 @@ public class ExecutionRecordController {
         return ApiResponse.success(List.of());
     }
 
+    @Operation(summary = "保存Agent日志")
+    @PostMapping("/{executionId}/logs/agent")
+    public ApiResponse<Void> saveAgentLog(@PathVariable String executionId,
+                                           @RequestBody Map<String, Object> logData) {
+        // TODO: 实现日志持久化
+        return ApiResponse.success();
+    }
+
     @Operation(summary = "获取节点日志")
     @GetMapping("/{executionId}/logs/node")
     public ApiResponse<List<Map<String, Object>>> getNodeLogs(@PathVariable String executionId) {
         // TODO: 实现从文件读取日志
+        return ApiResponse.success(List.of());
+    }
+
+    @Operation(summary = "保存节点日志")
+    @PostMapping("/{executionId}/logs/node")
+    public ApiResponse<Void> saveNodeLog(@PathVariable String executionId,
+                                          @RequestBody Map<String, Object> logData) {
+        // TODO: 实现日志持久化
+        return ApiResponse.success();
+    }
+
+    @Operation(summary = "获取无效类型日志")
+    @GetMapping("/{executionId}/logs/{type}")
+    public ApiResponse<List<Map<String, Object>>> getLogsByType(@PathVariable String executionId,
+                                                                 @PathVariable String type) {
+        if (!type.equals("execution") && !type.equals("agent") && !type.equals("node")) {
+            throw new IllegalArgumentException("无效的日志类型: " + type);
+        }
         return ApiResponse.success(List.of());
     }
 

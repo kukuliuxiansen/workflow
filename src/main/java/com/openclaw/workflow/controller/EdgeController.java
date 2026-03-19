@@ -48,4 +48,20 @@ public class EdgeController {
         edgeService.delete(workflowId, edgeId);
         return ApiResponse.success();
     }
+
+    @Operation(summary = "通过源节点删除连线")
+    @DeleteMapping
+    public ApiResponse<Void> deleteBySource(@PathVariable String workflowId,
+                                             @RequestBody(required = false) java.util.Map<String, String> request) {
+        if (request == null) {
+            return ApiResponse.success();
+        }
+        String sourceNodeId = request.get("source");
+        String edgeType = request.get("type");
+        if (sourceNodeId == null) {
+            return ApiResponse.success();
+        }
+        edgeService.deleteBySourceAndType(workflowId, sourceNodeId, edgeType);
+        return ApiResponse.success();
+    }
 }

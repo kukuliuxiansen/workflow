@@ -16,7 +16,7 @@ public class TaskConfig {
     @Column(name = "execution_id", unique = true, nullable = false)
     private String executionId;
 
-    @Column(name = "workflow_id", nullable = false)
+    @Column(name = "workflow_id")
     private String workflowId;
 
     private String name;

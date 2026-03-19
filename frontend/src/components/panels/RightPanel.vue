@@ -170,8 +170,8 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted } from 'vue'
 import { useWorkflowStore, useEditorStore } from '@/stores'
-import { agentApi, nodeApi } from '@/api'
-import type { Agent, NodeType } from '@/types'
+import { configApi, nodeApi } from '@/api'
+import type { NodeType } from '@/types'
 
 interface Props {
   expanded: boolean
@@ -185,7 +185,7 @@ defineEmits<{
 const workflowStore = useWorkflowStore()
 const editorStore = useEditorStore()
 
-const agents = ref<Agent[]>([])
+const agents = ref<{ id: string; name: string }[]>([])
 
 const selectedNode = computed(() => workflowStore.selectedNode)
 
@@ -200,39 +200,56 @@ const apiMethod = ref<'GET' | 'POST' | 'PUT' | 'DELETE'>('POST')
 const apiHeaders = ref('')
 const apiBody = ref('')
 
+// 解析节点配置
+function parseConfig(config: string | null): Record<string, any> {
+  if (!config) return {}
+  try {
+    return JSON.parse(config)
+  } catch {
+    return {}
+  }
+}
+
 watch(selectedNode, (node) => {
   if (node) {
     nodeName.value = node.name
-    agentId.value = node.config?.agentId || ''
-    prompt.value = node.config?.prompt || ''
-    timeout.value = node.config?.timeout || 300
-    retryInterval.value = node.config?.retryInterval || 60
+    const config = parseConfig(node.config)
+    agentId.value = config.agentId || ''
+    prompt.value = config.prompt || ''
+    timeout.value = config.timeout || 300
+    retryInterval.value = config.retryInterval || 60
 
-    if (node.config?.apiConfig) {
-      apiUrl.value = node.config.apiConfig.url || ''
-      apiMethod.value = node.config.apiConfig.method || 'POST'
-      apiHeaders.value = JSON.stringify(node.config.apiConfig.headers || {}, null, 2)
-      apiBody.value = node.config.apiConfig.body || ''
+    if (config.apiConfig) {
+      apiUrl.value = config.apiConfig.url || ''
+      apiMethod.value = config.apiConfig.method || 'POST'
+      apiHeaders.value = JSON.stringify(config.apiConfig.headers || {}, null, 2)
+      apiBody.value = config.apiConfig.body || ''
     }
   }
 }, { immediate: true })
 
 async function loadAgents() {
   try {
-    const res = await agentApi.list()
-    agents.value = res.data
+    const res = await configApi.getAgents()
+    agents.value = res.data || []
   } catch (error) {
     console.error('Failed to load agents:', error)
   }
 }
 
 function getNodeTypeLabel(type: NodeType): string {
-  const labels: Record<NodeType, string> = {
+  const labels: Partial<Record<NodeType, string>> = {
     agent_execution: 'Agent执行',
     api_call: 'API调用',
-    finish: '结束节点'
+    finish: '结束节点',
+    start: '开始节点',
+    condition: '条件判断',
+    human_review: '人工审核',
+    parallel: '并行执行',
+    loop: '循环',
+    wait: '等待'
   }
-  return labels[type]
+  return labels[type] || type
 }
 
 function handleNameChange() {
@@ -244,28 +261,36 @@ function handleNameChange() {
 
 function handleAgentChange() {
   if (selectedNode.value) {
-    workflowStore.updateNodeConfig(selectedNode.value.id, { agentId: agentId.value })
+    const config = parseConfig(selectedNode.value.config)
+    config.agentId = agentId.value
+    workflowStore.updateNode(selectedNode.value.id, { config: JSON.stringify(config) })
     editorStore.markUnsaved()
   }
 }
 
 function handlePromptChange() {
   if (selectedNode.value) {
-    workflowStore.updateNodeConfig(selectedNode.value.id, { prompt: prompt.value })
+    const config = parseConfig(selectedNode.value.config)
+    config.prompt = prompt.value
+    workflowStore.updateNode(selectedNode.value.id, { config: JSON.stringify(config) })
     editorStore.markUnsaved()
   }
 }
 
 function handleTimeoutChange() {
   if (selectedNode.value) {
-    workflowStore.updateNodeConfig(selectedNode.value.id, { timeout: timeout.value })
+    const config = parseConfig(selectedNode.value.config)
+    config.timeout = timeout.value
+    workflowStore.updateNode(selectedNode.value.id, { config: JSON.stringify(config) })
     editorStore.markUnsaved()
   }
 }
 
 function handleRetryIntervalChange() {
   if (selectedNode.value) {
-    workflowStore.updateNodeConfig(selectedNode.value.id, { retryInterval: retryInterval.value })
+    const config = parseConfig(selectedNode.value.config)
+    config.retryInterval = retryInterval.value
+    workflowStore.updateNode(selectedNode.value.id, { config: JSON.stringify(config) })
     editorStore.markUnsaved()
   }
 }
@@ -277,15 +302,15 @@ function handleApiConfigChange() {
       if (apiHeaders.value) {
         headers = JSON.parse(apiHeaders.value)
       }
-      workflowStore.updateNodeConfig(selectedNode.value.id, {
-        apiConfig: {
-          url: apiUrl.value,
-          method: apiMethod.value,
-          headers,
-          body: apiBody.value,
-          timeout: timeout.value
-        }
-      })
+      const config = parseConfig(selectedNode.value.config)
+      config.apiConfig = {
+        url: apiUrl.value,
+        method: apiMethod.value,
+        headers,
+        body: apiBody.value,
+        timeout: timeout.value
+      }
+      workflowStore.updateNode(selectedNode.value.id, { config: JSON.stringify(config) })
       editorStore.markUnsaved()
     } catch (e) {
       // JSON解析错误

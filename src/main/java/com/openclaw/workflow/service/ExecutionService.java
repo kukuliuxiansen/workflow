@@ -49,9 +49,13 @@ public class ExecutionService {
      */
     public List<Execution> findActiveByWorkflowId(String workflowId) {
         List<Execution> allExecutions = executionRepository.findByWorkflowIdOrderByCreatedAtDesc(workflowId);
-        return allExecutions.stream()
-                .filter(e -> "running".equals(e.getStatus()) || "paused".equals(e.getStatus()))
-                .toList();
+        List<Execution> result = new java.util.ArrayList<>();
+        for (Execution e : allExecutions) {
+            if ("running".equals(e.getStatus()) || "paused".equals(e.getStatus())) {
+                result.add(e);
+            }
+        }
+        return result;
     }
 
     public Execution findById(String executionId) {

@@ -39,4 +39,16 @@ public class EdgeService {
     public void delete(String workflowId, String edgeId) {
         edgeRepository.deleteById(edgeId);
     }
+
+    @Transactional
+    public void deleteBySourceAndType(String workflowId, String sourceNodeId, String edgeType) {
+        List<WorkflowEdge> edges = edgeRepository.findByWorkflowId(workflowId);
+        for (WorkflowEdge edge : edges) {
+            if (edge.getSourceNodeId().equals(sourceNodeId)) {
+                if (edgeType == null || edgeType.equalsIgnoreCase(edge.getEdgeType().name())) {
+                    edgeRepository.deleteById(edge.getId());
+                }
+            }
+        }
+    }
 }

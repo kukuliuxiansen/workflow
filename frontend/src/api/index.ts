@@ -200,4 +200,24 @@ export const aiApi = {
   }
 }
 
+// ============ 审核 API ============
+
+export const reviewApi = {
+  // 获取审核列表
+  list(status?: string) {
+    const params = status ? `?status=${status}` : ''
+    return api.get<any, ApiResponse<any[]>>(`/reviews${params}`)
+  },
+
+  // 获取审核详情
+  get(reviewId: string) {
+    return api.get<any, ApiResponse<any>>(`/reviews/${reviewId}`)
+  },
+
+  // 提交审核决策
+  submit(reviewId: string, decision: string, comment?: string) {
+    return api.post<any, ApiResponse<void>>(`/reviews/${reviewId}/submit`, { decision, comment })
+  }
+}
+
 export default api

@@ -119,12 +119,11 @@ public class WorkflowService {
         cloned.setUpdatedAt(LocalDateTime.now());
         workflowRepository.save(cloned);
 
-        // 克隆节点
+        // 克隆节点 - 为所有节点生成新ID，避免主键冲突
         Map<String, String> nodeIdMap = new HashMap<>();
         for (WorkflowNode node : nodes) {
-            String newId = node.getId().equals("start") ? "start" :
-                          node.getId().equals("finish") ? "finish" :
-                          "node_" + UUID.randomUUID().toString().substring(0, 8);
+            // 所有节点都生成新ID，包括start和finish
+            String newId = "node_" + UUID.randomUUID().toString().substring(0, 8);
             nodeIdMap.put(node.getId(), newId);
 
             WorkflowNode clonedNode = new WorkflowNode();
