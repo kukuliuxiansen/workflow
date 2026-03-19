@@ -1,0 +1,4946 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OpenClaw 工作流编排</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      height: 100vh;
+      overflow: hidden;
+    }
+    /* 整体布局：canvas占据全屏，面板浮动在上面 */
+    .app {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* 左侧边栏 - 浮动在画布上方 */
+    .sidebar {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 280px;
+      background: #252525;
+      border-right: 1px solid #3a3a3a;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.3s ease;
+      z-index: 100;
+    }
+    .sidebar.collapsed {
+      transform: translateX(-100%);
+    }
+    .sidebar-header {
+      padding: 16px;
+      border-bottom: 1px solid #3a3a3a;
+      background: #2a2a2a;
+    }
+    .sidebar-header h1 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+    }
+    .sidebar-header p {
+      font-size: 11px;
+      color: #888;
+      margin-top: 4px;
+    }
+    .search-box {
+      padding: 10px 12px;
+      border-bottom: 1px solid #3a3a3a;
+    }
+    .search-box input {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #3a3a3a;
+      border-radius: 4px;
+      font-size: 13px;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      outline: none;
+    }
+    .search-box input:focus { border-color: #6b5ce7; }
+    .workflow-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px;
+    }
+    .workflow-item {
+      padding: 10px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-bottom: 4px;
+      transition: all 0.15s;
+      border: 1px solid transparent;
+      background: #2a2a2a;
+    }
+    .workflow-item:hover { background: #333; border-color: #444; }
+    .workflow-item.active {
+      background: #3a2f6e;
+      border-color: #6b5ce7;
+    }
+    .workflow-item .workflow-item-content {
+      flex: 1;
+    }
+    .workflow-item .workflow-actions {
+      display: none;
+      gap: 4px;
+    }
+    .workflow-item:hover .workflow-actions {
+      display: flex;
+    }
+    .workflow-action-btn {
+      padding: 4px 6px;
+      border: none;
+      border-radius: 4px;
+      background: #3a3a3a;
+      color: #888;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .workflow-action-btn:hover {
+      background: #444;
+      color: #fff;
+    }
+    .workflow-action-btn.danger:hover {
+      background: #4a2020;
+      color: #f88;
+    }
+    .workflow-item .name {
+      font-weight: 500;
+      font-size: 13px;
+      color: #e0e0e0;
+    }
+    .workflow-item .meta {
+      font-size: 11px;
+      color: #666;
+      margin-top: 3px;
+    }
+    .sidebar-footer {
+      padding: 10px;
+      border-top: 1px solid #3a3a3a;
+    }
+    .btn {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-primary {
+      background: #6b5ce7;
+      color: #fff;
+    }
+    .btn-primary:hover { background: #5849d4; }
+    .btn-secondary {
+      background: #3a3a3a;
+      color: #aaa;
+      margin-top: 6px;
+    }
+    .btn-secondary:hover { background: #444; color: #fff; }
+
+    /* 顶部工具栏 - 浮动在画布上方 */
+    .toolbar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      background: rgba(37, 37, 37, 0.95);
+      border-bottom: 1px solid #3a3a3a;
+      gap: 10px;
+      z-index: 50;
+    }
+    .toolbar-group {
+      display: flex;
+      gap: 6px;
+    }
+    .toolbar-btn {
+      padding: 6px 12px;
+      border: 1px solid #3a3a3a;
+      border-radius: 4px;
+      background: #2a2a2a;
+      color: #aaa;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .toolbar-btn:hover { background: #333; border-color: #555; color: #fff; }
+    .toolbar-btn.primary { background: #6b5ce7; border-color: #6b5ce7; color: #fff; }
+    .toolbar-btn.primary:hover { background: #5849d4; }
+    .toolbar-btn.danger { color: #f44; border-color: #5a2020; }
+    .toolbar-btn.danger:hover { background: #3a2020; }
+    .toolbar-divider {
+      width: 1px;
+      height: 20px;
+      background: #3a3a3a;
+      margin: 0 6px;
+    }
+    .status-indicator {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: #1a1a1a;
+      border-radius: 12px;
+      font-size: 12px;
+      color: #888;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #555;
+    }
+    .status-dot.running { background: #6b5ce7; animation: pulse 1.5s infinite; }
+    .status-dot.success { background: #4a4; }
+    .status-dot.error { background: #f44; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    /* 画布区域 - 覆盖整个屏幕 */
+    .canvas-container {
+      position: absolute;
+      top: 44px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      overflow: hidden;
+      background: #1a1a1a;
+    }
+    .canvas-container.full-height {
+      top: 0;
+    }
+    .canvas {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      overflow: hidden;
+    }
+    .canvas-grid {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-image:
+        linear-gradient(rgba(60,60,60,0.3) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(60,60,60,0.3) 1px, transparent 1px);
+      background-size: 20px 20px;
+      pointer-events: none;
+    }
+    /* 画布边界指示器 */
+    .canvas-boundary {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      border: 1px dashed rgba(107,92,231,0.2);
+      pointer-events: none;
+    }
+    /* 画布内容区域 - 覆盖整个可视区域 */
+    .canvas-content {
+      position: absolute;
+      transform-origin: 0 0;
+      /* 使用足够大的尺寸，让节点可以放置在任何位置 */
+      width: 10000px;
+      height: 10000px;
+    }
+
+    /* 节点样式 - ComfyUI风格 */
+    .node {
+      position: absolute;
+      min-width: 200px;
+      background: #2a2a2a;
+      border: 1px solid #444;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      cursor: move;
+      user-select: none;
+      transition: box-shadow 0.15s, border-color 0.15s;
+    }
+    .node:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.5); border-color: #555; }
+    .node.selected { border-color: #6b5ce7; box-shadow: 0 0 0 2px rgba(107,92,231,0.3); }
+    .node.running { border-color: #6b5ce7; animation: running-pulse 1.5s infinite; }
+    .node.success { border-color: #4a4; }
+    .node.failed { border-color: #f44; }
+    @keyframes running-pulse {
+      0%, 100% { box-shadow: 0 0 0 2px rgba(107,92,231,0.3); }
+      50% { box-shadow: 0 0 0 4px rgba(107,92,231,0.5); }
+    }
+    .node-header {
+      padding: 10px 12px;
+      border-bottom: 1px solid #3a3a3a;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-radius: 8px 8px 0 0;
+    }
+    .node-header.agent { background: #3a2f6e; }
+    .node-header.api { background: #3a3a2a; }
+    .node-header.start { background: #2a3a2a; }
+    .node-header.finish { background: #3a2a2a; }
+    .node-header.condition { background: #2a2a3a; }
+    .node-header.human_review { background: #3a302a; }
+    .node-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      background: rgba(0,0,0,0.2);
+    }
+    .node-info { flex: 1; }
+    .node-name { font-weight: 600; font-size: 12px; color: #fff; }
+    .node-type { font-size: 10px; color: #888; margin-top: 2px; }
+    .node-status-badge {
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 10px;
+      font-weight: 500;
+    }
+    .node-status-badge.running { background: #3a2f6e; color: #a99fff; }
+    .node-status-badge.success { background: #2a3a2a; color: #8f8; }
+    .node-status-badge.failed { background: #3a2a2a; color: #f88; }
+    .node-body {
+      padding: 8px 12px;
+      font-size: 11px;
+      color: #888;
+    }
+    .node-ports {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 12px;
+      border-top: 1px solid #3a3a3a;
+    }
+    .port {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #444;
+      cursor: crosshair;
+      transition: all 0.15s;
+      border: 1px solid #555;
+    }
+    .port:hover { transform: scale(1.3); background: #6b5ce7; }
+    .port.input { background: #6b5ce7; }
+    .port.success { background: #4a4; }
+    .port.fail { background: #f44; }
+
+    /* SVG 连线 */
+    .edges-svg {
+      position: absolute;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .edge-path {
+      fill: none;
+      stroke-width: 2;
+      pointer-events: stroke;
+      cursor: pointer;
+    }
+    .edge-path.success { stroke: #4a4; }
+    .edge-path.fail { stroke: #f44; }
+    .edge-path:hover { stroke-width: 3; }
+
+    /* 右侧面板 - 浮动在画布上方 */
+    .right-panel {
+      position: absolute;
+      right: 0;
+      top: 44px;
+      bottom: 0;
+      width: 300px;
+      background: rgba(37, 37, 37, 0.95);
+      border-left: 1px solid #3a3a3a;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.3s ease;
+      z-index: 100;
+    }
+    .right-panel.collapsed {
+      transform: translateX(100%);
+    }
+    .panel-header {
+      padding: 12px 14px;
+      border-bottom: 1px solid #3a3a3a;
+      font-weight: 600;
+      font-size: 13px;
+      color: #e0e0e0;
+      background: #2a2a2a;
+    }
+    .panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px;
+      display: none;
+    }
+    .panel-body.active {
+      display: block;
+    }
+    /* 面板标签页 */
+    .panel-tabs {
+      display: flex;
+      border-bottom: 1px solid #3a3a3a;
+      background: #2a2a2a;
+    }
+    .panel-tab {
+      flex: 1;
+      padding: 10px 8px;
+      font-size: 12px;
+      color: #888;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .panel-tab:hover {
+      color: #bbb;
+      background: #333;
+    }
+    .panel-tab.active {
+      color: #4a6aff;
+      border-bottom: 2px solid #4a6aff;
+    }
+    /* 历史列表小版本 */
+    .history-list-mini {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .history-item-mini {
+      padding: 8px 10px;
+      margin-bottom: 4px;
+      background: #2a2a2a;
+      border-radius: 4px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      font-size: 12px;
+    }
+    .history-item-mini:hover {
+      background: #333;
+      border-color: #4a4a4a;
+    }
+    .history-item-mini.selected {
+      background: #2a3a5a;
+      border-color: #4a6aff;
+    }
+    .history-item-mini .status {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 8px;
+      margin-left: 6px;
+    }
+    .history-item-mini .status.completed { background: #1a3a1a; color: #5f5; }
+    .history-item-mini .status.failed { background: #3a1a1a; color: #f66; }
+    .history-item-mini .status.running { background: #2a2a5a; color: #6af; }
+    .empty-state-mini {
+      padding: 20px;
+      text-align: center;
+      color: #666;
+      font-size: 12px;
+    }
+    /* 区块样式 */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      font-size: 12px;
+      font-weight: 500;
+      color: #888;
+      border-bottom: 1px solid #3a3a3a;
+      margin-bottom: 8px;
+    }
+    .btn-icon {
+      background: transparent;
+      border: none;
+      color: #888;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    .btn-icon:hover {
+      background: #333;
+      color: #fff;
+    }
+    /* 任务配置显示 */
+    .task-config-section {
+      font-size: 12px;
+    }
+    .task-config-display {
+      background: #2a2a2a;
+      border-radius: 6px;
+      padding: 12px;
+      margin: 8px 0;
+    }
+    .config-item {
+      margin-bottom: 10px;
+    }
+    .config-item:last-child {
+      margin-bottom: 0;
+    }
+    .config-item label {
+      display: block;
+      font-size: 11px;
+      color: #888;
+      margin-bottom: 2px;
+    }
+    .config-item span {
+      color: #e0e0e0;
+      word-break: break-all;
+    }
+    .task-config-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 11px;
+    }
+    .history-detail-content {
+      background: #2a2a2a;
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 11px;
+    }
+    .history-detail-content p {
+      margin: 4px 0;
+      color: #aaa;
+    }
+    .history-detail-content strong {
+      color: #e0e0e0;
+    }
+    .form-group { margin-bottom: 12px; }
+    .form-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      color: #888;
+      margin-bottom: 4px;
+    }
+    .form-input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #3a3a3a;
+      border-radius: 4px;
+      font-size: 12px;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      outline: none;
+    }
+    .form-input:focus { border-color: #6b5ce7; }
+    .form-select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #3a3a3a;
+      border-radius: 4px;
+      font-size: 12px;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      cursor: pointer;
+    }
+    .form-textarea {
+      min-height: 80px;
+      resize: vertical;
+      font-family: inherit;
+    }
+
+    /* 空状态 */
+    .empty-state {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: #666;
+    }
+    .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+    .empty-state .title { font-size: 14px; font-weight: 500; color: #888; }
+    .empty-state .desc { font-size: 12px; margin-top: 6px; }
+
+    /* 底部日志面板 - 浮动在画布上方 */
+    .log-panel {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 180px;
+      background: rgba(26, 26, 26, 0.95);
+      border-top: 1px solid #3a3a3a;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.3s ease;
+      z-index: 50;
+    }
+    .log-panel.collapsed {
+      transform: translateY(100%);
+    }
+    .log-header {
+      padding: 6px 12px;
+      background: #252525;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid #3a3a3a;
+    }
+    .log-main-tabs {
+      display: flex;
+      gap: 0;
+    }
+    .log-main-tab {
+      padding: 5px 16px;
+      border: none;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      color: #666;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .log-main-tab:hover { color: #aaa; }
+    .log-main-tab.active {
+      color: #6b5ce7;
+      border-bottom-color: #6b5ce7;
+    }
+    .log-main-tab .badge {
+      display: inline-block;
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      margin-left: 4px;
+      background: #3a3a3a;
+      border-radius: 8px;
+      font-size: 10px;
+      line-height: 16px;
+      text-align: center;
+      color: #888;
+    }
+    .log-main-tab.active .badge {
+      background: #6b5ce7;
+      color: #fff;
+    }
+    .log-actions {
+      margin-left: auto;
+      display: flex;
+      gap: 4px;
+    }
+    .log-action-btn {
+      padding: 2px 6px;
+      border: 1px solid #3a3a3a;
+      border-radius: 3px;
+      background: transparent;
+      color: #666;
+      font-size: 10px;
+      cursor: pointer;
+    }
+    .log-action-btn:hover { background: #3a3a3a; color: #aaa; }
+    .log-content-wrapper {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+    .log-content {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      overflow-y: auto;
+      padding: 6px 12px;
+      font-family: Monaco, Menlo, monospace;
+      font-size: 11px;
+      line-height: 1.5;
+      display: none;
+    }
+    .log-content.active { display: block; }
+    .log-entry { display: flex; gap: 6px; padding: 1px 0; }
+    .log-time { color: #555; min-width: 60px; }
+    .log-level { font-weight: 600; min-width: 40px; }
+    .log-level.info { color: #6b9fff; }
+    .log-level.success { color: #5f5; }
+    .log-level.error { color: #f66; }
+    .log-level.warn { color: #fb5; }
+    .log-message { color: #aaa; flex: 1; word-break: break-all; }
+    /* Agent交互日志特殊样式 */
+    .log-message .agent-from { color: #6b5ce7; font-weight: 500; }
+    .log-message .agent-to { color: #4ecdc4; font-weight: 500; }
+    .log-message .agent-name { color: #6b5ce7; font-weight: 500; }
+    .log-message .agent-action { color: #fb5; }
+    #agentLogContent .log-entry {
+      padding: 4px 0;
+      border-bottom: 1px solid #2a2a2a;
+    }
+    #agentLogContent .log-message {
+      background: #222;
+      padding: 4px 8px;
+      border-radius: 4px;
+      margin-top: 2px;
+    }
+
+    /* Toast */
+    .toast-container {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .toast {
+      padding: 10px 14px;
+      background: #2a2a2a;
+      border: 1px solid #3a3a3a;
+      border-radius: 4px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #e0e0e0;
+      animation: slideIn 0.3s ease;
+    }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+    .toast.success { border-left: 3px solid #4a4; }
+    .toast.error { border-left: 3px solid #f44; }
+    .toast.warn { border-left: 3px solid #fb5; }
+    .toast.info { border-left: 3px solid #6b5ce7; }
+
+    /* Modal - ComfyUI风格 */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+    .modal-overlay.show { opacity: 1; pointer-events: auto; }
+    .modal {
+      background: #2a2a2a;
+      border: 1px solid #3a3a3a;
+      border-radius: 8px;
+      width: 440px;
+      max-width: 90%;
+      max-height: 80vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+    .modal-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid #3a3a3a;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #252525;
+    }
+    .modal-title { font-size: 14px; font-weight: 600; color: #e0e0e0; }
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 18px;
+      color: #666;
+      cursor: pointer;
+    }
+    .modal-close:hover { color: #fff; }
+    .modal-body {
+      padding: 16px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .modal-footer {
+      padding: 12px 16px;
+      border-top: 1px solid #3a3a3a;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      background: #252525;
+    }
+
+    /* 节点类型选择 */
+    .node-types {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+    .node-type-card {
+      padding: 12px;
+      border: 1px solid #3a3a3a;
+      border-radius: 4px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: #1a1a1a;
+    }
+    .node-type-card:hover { border-color: #555; background: #222; }
+    .node-type-card.selected { border-color: #6b5ce7; background: #2a2050; }
+    .node-type-card .icon { font-size: 20px; margin-bottom: 6px; }
+    .node-type-card .name { font-size: 12px; font-weight: 500; color: #ccc; }
+
+    /* 模板列表 */
+    .template-list { display: flex; flex-direction: column; gap: 8px; }
+    .template-card {
+      padding: 12px;
+      border: 1px solid #3a3a3a;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: #1a1a1a;
+    }
+    .template-card:hover { border-color: #6b5ce7; background: #222; }
+    .template-card .name { font-weight: 500; font-size: 13px; color: #e0e0e0; }
+    .template-card .desc { font-size: 11px; color: #888; margin-top: 4px; }
+    .template-card .meta { font-size: 10px; color: #666; margin-top: 6px; }
+
+    /* 加载状态 */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid #3a3a3a;
+      border-top-color: #6b5ce7;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* 滚动条 */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #3a3a3a; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #555; }
+
+    /* 面板切换按钮 */
+    .panel-toggle {
+      position: absolute;
+      background: #2a2a2a;
+      border: 1px solid #3a3a3a;
+      border-radius: 4px;
+      width: 20px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 10px;
+      color: #666;
+      z-index: 100;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+    .panel-toggle:hover {
+      background: #3a3a3a;
+      color: #e0e0e0;
+    }
+    .sidebar > .panel-toggle {
+      right: -10px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    .right-panel > .panel-toggle {
+      left: -10px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+    .log-panel > .panel-toggle {
+      top: 6px;
+      right: 10px;
+      background: #333;
+      border-color: #444;
+      color: #888;
+    }
+    .log-panel > .panel-toggle:hover {
+      background: #444;
+      color: #fff;
+    }
+
+    /* 浮动切换按钮 */
+    .floating-toggle {
+      position: absolute;
+      background: #2a2a2a;
+      color: #888;
+      border: 1px solid #3a3a3a;
+      border-radius: 4px;
+      width: 24px;
+      height: 44px;
+      cursor: pointer;
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      transition: all 0.3s ease;
+    }
+    .floating-toggle:hover {
+      background: #3a3a3a;
+      color: #e0e0e0;
+    }
+    #toggleSidebarBtn {
+      left: 280px;
+      top: 50%;
+      margin-top: -22px;
+    }
+
+    #toggleRightPanelBtn {
+      right: 300px;
+      top: 50%;
+      margin-top: -22px;
+    }
+
+    #toggleLogPanelBtn {
+      right: 10px;
+      bottom: 180px;
+      width: 44px;
+      height: 24px;
+    }
+
+    /* 可调整大小 */
+    .resize-handle {
+      position: absolute;
+      background: transparent;
+      z-index: 50;
+    }
+    .sidebar > .resize-handle {
+      right: 0;
+      top: 0;
+      width: 4px;
+      height: 100%;
+      cursor: ew-resize;
+    }
+    .right-panel > .resize-handle {
+      left: 0;
+      top: 0;
+      width: 4px;
+      height: 100%;
+      cursor: ew-resize;
+    }
+    .log-panel > .resize-handle {
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 4px;
+      cursor: ns-resize;
+    }
+    .resize-handle:hover {
+      background: rgba(107, 92, 231, 0.4);
+    }
+
+    /* AI 生成按钮 */
+    .ai-gen-btn {
+      float: right;
+      padding: 2px 6px;
+      font-size: 10px;
+      background: linear-gradient(135deg, #6b5ce7 0%, #8b5ce7 100%);
+      color: #fff;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .ai-gen-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 2px 8px rgba(107, 92, 231, 0.4);
+    }
+    .ai-gen-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* 缩放控制 */
+    .zoom-controls {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      display: flex;
+      gap: 4px;
+      z-index: 100;
+    }
+    .zoom-btn {
+      width: 28px;
+      height: 28px;
+      background: #2a2a2a;
+      border: 1px solid #3a3a3a;
+      border-radius: 4px;
+      color: #888;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+    .zoom-btn:hover { background: #333; color: #fff; }
+    .zoom-level {
+      padding: 0 8px;
+      font-size: 11px;
+      color: #888;
+      display: flex;
+      align-items: center;
+    }
+
+    /* AI 生成样式 */
+    .ai-tips {
+      margin-top: 12px;
+      padding: 12px;
+      background: #1a1a1a;
+      border-radius: 6px;
+      border: 1px solid #3a3a3a;
+    }
+    .ai-tip-title {
+      font-size: 11px;
+      color: #888;
+      margin-bottom: 8px;
+    }
+    .ai-tip-items {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .ai-tip-tag {
+      padding: 4px 10px;
+      background: linear-gradient(135deg, #3a2f6e 0%, #2a2050 100%);
+      border: 1px solid #6b5ce7;
+      border-radius: 12px;
+      font-size: 11px;
+      color: #a99fff;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .ai-tip-tag:hover {
+      background: linear-gradient(135deg, #6b5ce7 0%, #8b5ce7 100%);
+      color: #fff;
+      transform: scale(1.05);
+    }
+    .toolbar-btn.ai-btn {
+      background: linear-gradient(135deg, #6b5ce7 0%, #8b5ce7 100%);
+      border-color: #6b5ce7;
+      color: #fff;
+    }
+    .toolbar-btn.ai-btn:hover {
+      background: linear-gradient(135deg, #8b5ce7 0%, #ab5ce7 100%);
+      box-shadow: 0 2px 8px rgba(107, 92, 231, 0.4);
+    }
+    .toolbar-btn.ai-btn:disabled {
+      background: #3a3a3a;
+      border-color: #444;
+      color: #666;
+      cursor: not-allowed;
+    }
+
+    /* 全局配置样式 */
+    .config-section {
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #3a3a3a;
+    }
+    .config-section:last-child {
+      border-bottom: none;
+      margin-bottom: 0;
+    }
+    .config-section-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e0e0e0;
+      margin-bottom: 12px;
+      padding-left: 8px;
+      border-left: 3px solid #6b5ce7;
+    }
+    .file-input-group {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .file-input-group .form-input {
+      flex: 1;
+      min-width: 0;
+    }
+    .file-input-group .btn {
+      flex-shrink: 0;
+      width: auto;
+      padding: 8px 12px;
+      white-space: nowrap;
+      font-size: 12px;
+    }
+    .file-input-group .btn:last-child {
+      padding: 8px 10px;
+    }
+    .form-hint {
+      font-size: 11px;
+      color: #666;
+      margin-top: 4px;
+    }
+    .form-row {
+      display: flex;
+      gap: 16px;
+    }
+    .agent-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 10px;
+      background: #1a1a1a;
+      border-radius: 6px;
+      border: 1px solid #3a3a3a;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+    .agent-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      background: #2a2a2a;
+      border: 1px solid #444;
+      border-radius: 4px;
+      font-size: 12px;
+      color: #aaa;
+    }
+    .agent-item .agent-id {
+      color: #6b5ce7;
+      font-family: Monaco, monospace;
+    }
+    .agent-item .agent-name {
+      color: #888;
+    }
+
+    /* 路径选择器样式 */
+    .path-divider {
+      text-align: center;
+      margin: 16px 0;
+      position: relative;
+    }
+    .path-divider::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 50%;
+      width: 100%;
+      height: 1px;
+      background: #3a3a3a;
+    }
+    .path-divider span {
+      background: #2a2a2a;
+      padding: 0 16px;
+      position: relative;
+      color: #666;
+      font-size: 12px;
+    }
+    .path-browser {
+      border: 1px solid #3a3a3a;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .path-browser-header {
+      display: flex;
+      gap: 8px;
+      padding: 8px;
+      background: #1a1a1a;
+      border-bottom: 1px solid #3a3a3a;
+      align-items: center;
+    }
+    .path-browser-header .form-input {
+      flex: 1;
+      background: #222;
+    }
+    .path-browser-content {
+      max-height: 300px;
+      overflow-y: auto;
+      padding: 4px;
+      background: #222;
+    }
+    .path-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .path-item:hover {
+      background: #333;
+    }
+    .path-item.selected {
+      background: #3a3a5a;
+    }
+    .path-item .icon {
+      font-size: 16px;
+    }
+    .path-item .name {
+      flex: 1;
+      font-size: 13px;
+    }
+    .path-item.dir .name {
+      color: #6b5ce7;
+    }
+    .path-item.file .name {
+      color: #aaa;
+    }
+    .btn-sm {
+      padding: 4px 8px;
+      font-size: 12px;
+    }
+
+    /* 执行历史面板样式 */
+    .history-panel {
+      position: fixed;
+      top: 0;
+      right: -700px;
+      width: 700px;
+      height: 100vh;
+      background: #1a1a1a;
+      border-left: 1px solid #3a3a3a;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      transition: right 0.3s ease;
+      box-shadow: -4px 0 20px rgba(0,0,0,0.5);
+    }
+    .history-panel.show {
+      right: 0;
+    }
+    .history-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid #3a3a3a;
+      background: #222;
+    }
+    .history-panel-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #e0e0e0;
+    }
+    .history-panel-body {
+      flex: 1;
+      display: flex;
+      overflow: hidden;
+    }
+    .history-list-section {
+      width: 280px;
+      border-right: 1px solid #3a3a3a;
+      display: flex;
+      flex-direction: column;
+    }
+    .history-list-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background: #222;
+      border-bottom: 1px solid #3a3a3a;
+      font-size: 13px;
+      color: #888;
+    }
+    .history-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+    .history-detail-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #1a1a1a;
+    }
+    .history-detail-header {
+      padding: 12px 16px;
+      background: #222;
+      border-bottom: 1px solid #3a3a3a;
+      font-size: 13px;
+      color: #888;
+    }
+    .history-detail-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+    .history-item {
+      padding: 12px;
+      margin-bottom: 6px;
+      background: #2a2a2a;
+      border-radius: 6px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.15s;
+    }
+    .history-item:hover {
+      background: #333;
+      border-color: #4a4a4a;
+    }
+    .history-item.selected {
+      background: #2a3a5a;
+      border-color: #4a6aff;
+    }
+    .history-item-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: #e0e0e0;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .history-item-meta {
+      display: flex;
+      gap: 12px;
+      font-size: 11px;
+      color: #666;
+    }
+    .history-item-status {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 8px;
+      background: #3a3a3a;
+      color: #888;
+    }
+    .history-item-status.completed { background: #1a3a1a; color: #5f5; }
+    .history-item-status.failed { background: #3a1a1a; color: #f66; }
+    .history-item-status.running { background: #2a2a5a; color: #6af; }
+    .history-detail-section .detail-block {
+      background: #2a2a2a;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .history-detail-section .detail-block-title {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .history-detail-section .detail-block-content {
+      font-size: 13px;
+      color: #e0e0e0;
+      word-break: break-all;
+    }
+    .history-detail-section .payload-item {
+      background: #333;
+      border-radius: 4px;
+      padding: 10px;
+      margin-bottom: 8px;
+    }
+    .history-detail-section .payload-item-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+    .history-detail-section .payload-text {
+      font-size: 12px;
+      color: #aaa;
+      max-height: 150px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* 历史记录卡片样式 */
+    .history-card {
+      background: #2a2a2a;
+      border: 1px solid #3a3a3a;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 8px;
+    }
+    .history-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .history-task {
+      font-weight: 600;
+      color: #e0e0e0;
+    }
+    .history-status {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: #3a3a3a;
+      color: #888;
+    }
+    .history-status.completed { background: #1a3a1a; color: #5f5; }
+    .history-status.failed { background: #3a1a1a; color: #f66; }
+    .history-status.running { background: #2a2a5a; color: #6af; }
+    .history-desc {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 8px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .history-meta {
+      display: flex;
+      gap: 16px;
+      font-size: 11px;
+      color: #666;
+      margin-bottom: 8px;
+    }
+    .history-actions {
+      display: flex;
+      gap: 8px;
+    }
+    .btn-small {
+      padding: 4px 10px;
+      font-size: 11px;
+    }
+
+    /* UX改进样式 */
+    .save-indicator {
+      font-size: 11px;
+      margin-left: 12px;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+    .save-indicator.saved {
+      color: #5f5;
+      background: rgba(0,100,0,0.2);
+    }
+    .save-indicator.dirty {
+      color: #fa5;
+      background: rgba(150,100,0,0.2);
+    }
+
+    /* 右键菜单 */
+    .context-menu {
+      position: fixed;
+      background: #2a2a2a;
+      border: 1px solid #4a4a4a;
+      border-radius: 6px;
+      padding: 4px 0;
+      min-width: 150px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      z-index: 2000;
+      display: none;
+    }
+    .context-menu.show {
+      display: block;
+    }
+    .context-menu-item {
+      padding: 8px 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #e0e0e0;
+    }
+    .context-menu-item:hover {
+      background: #3a3a3a;
+    }
+    .context-menu-item.danger {
+      color: #f66;
+    }
+    .context-menu-divider {
+      height: 1px;
+      background: #4a4a4a;
+      margin: 4px 0;
+    }
+
+    /* 节点状态徽章 */
+    .node-badge {
+      display: inline-block;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 8px;
+      margin-left: 6px;
+    }
+    .node-badge.pending { background: #3a3a3a; color: #888; }
+    .node-badge.running { background: #2a3a5a; color: #6af; animation: pulse 1s infinite; }
+    .node-badge.success { background: #1a3a1a; color: #5f5; }
+    .node-badge.failed { background: #3a1a1a; color: #f66; }
+    .node-badge.skipped { background: #2a2a2a; color: #666; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    /* 快速操作面板 */
+    .quick-actions {
+      position: fixed;
+      background: #2a2a2a;
+      border: 1px solid #4a4a4a;
+      border-radius: 6px;
+      padding: 4px;
+      display: none;
+      z-index: 1500;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .quick-actions.show {
+      display: flex;
+      gap: 4px;
+    }
+    .quick-action-btn {
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: #3a3a3a;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .quick-action-btn:hover {
+      background: #4a4a4a;
+    }
+    .quick-action-btn.danger:hover {
+      background: #4a2a2a;
+    }
+
+    /* 搜索高亮 */
+    .node.search-match {
+      box-shadow: 0 0 0 3px rgba(100, 180, 255, 0.5);
+    }
+    .node.search-dim {
+      opacity: 0.3;
+    }
+
+    /* 键盘快捷键提示 */
+    .shortcut-hint {
+      font-size: 10px;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    /* 小地图 */
+    .minimap {
+      position: absolute;
+      bottom: 60px;
+      right: 20px;
+      width: 150px;
+      height: 100px;
+      background: rgba(30,30,30,0.9);
+      border: 1px solid #3a3a3a;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .minimap-viewport {
+      position: absolute;
+      border: 2px solid #4a6aff;
+      background: rgba(74,106,255,0.1);
+    }
+    .minimap-node {
+      position: absolute;
+      width: 6px;
+      height: 4px;
+      background: #666;
+      border-radius: 1px;
+    }
+
+    /* 节点高亮效果 */
+    .node.highlight {
+      animation: highlight-pulse 0.5s ease-out;
+    }
+    @keyframes highlight-pulse {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(100,180,255,0.7); }
+      50% { transform: scale(1.02); box-shadow: 0 0 20px 5px rgba(100,180,255,0.3); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(100,180,255,0); }
+    }
+
+    /* 文件夹样式 */
+    .folder-item {
+      margin-bottom: 2px;
+    }
+    .folder-header {
+      display: flex;
+      align-items: center;
+      padding: 8px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: #2a2a2a;
+      border: 1px solid transparent;
+    }
+    .folder-header:hover {
+      background: #333;
+      border-color: #444;
+    }
+    .folder-header.drag-over {
+      background: #3a2f6e;
+      border-color: #6b5ce7;
+    }
+    .folder-toggle {
+      width: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 6px;
+      color: #888;
+      font-size: 10px;
+      transition: transform 0.2s;
+    }
+    .folder-toggle.expanded {
+      transform: rotate(90deg);
+    }
+    .folder-icon {
+      margin-right: 8px;
+      font-size: 14px;
+    }
+    .folder-name {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 500;
+      color: #e0e0e0;
+    }
+    .folder-count {
+      font-size: 11px;
+      color: #666;
+      margin-right: 8px;
+    }
+    .folder-actions {
+      display: none;
+      gap: 4px;
+    }
+    .folder-header:hover .folder-actions {
+      display: flex;
+    }
+    .folder-action-btn {
+      padding: 2px 6px;
+      border: none;
+      border-radius: 3px;
+      background: #3a3a3a;
+      color: #888;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .folder-action-btn:hover {
+      background: #444;
+      color: #fff;
+    }
+    .folder-action-btn.danger:hover {
+      background: #4a2020;
+      color: #f88;
+    }
+    .folder-content {
+      display: none;
+      padding-left: 16px;
+    }
+    .folder-content.expanded {
+      display: block;
+    }
+    .folder-drop-zone {
+      height: 4px;
+      margin: 2px 0;
+      border-radius: 2px;
+      transition: all 0.15s;
+    }
+    .folder-drop-zone.drag-over {
+      height: 30px;
+      background: rgba(107,92,231,0.2);
+      border: 2px dashed #6b5ce7;
+    }
+    .new-folder-btn {
+      display: flex;
+      align-items: center;
+      padding: 8px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+      color: #666;
+      font-size: 13px;
+      margin-top: 4px;
+    }
+    .new-folder-btn:hover {
+      background: #333;
+      color: #888;
+    }
+    .new-folder-btn .icon {
+      margin-right: 8px;
+      font-size: 14px;
+    }
+
+    /* 拖拽提示 */
+    .drop-zone {
+      position: absolute;
+      border: 2px dashed #4a6aff;
+      background: rgba(74,106,255,0.1);
+      border-radius: 8px;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- 左侧边栏 -->
+    <div class="sidebar" id="sidebar">
+      <div class="resize-handle" onmousedown="startResize(event,'sidebar')"></div>
+      <div class="sidebar-header">
+        <h1>OpenClaw 工作流</h1>
+        <p>可视化编排 Agent 协作</p>
+      </div>
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="搜索工作流..." oninput="filterWorkflows()">
+      </div>
+      <div class="workflow-list" id="workflowList">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+      <div class="sidebar-footer">
+        <button class="btn btn-primary" onclick="showCreateModal()">新建工作流</button>
+        <button class="btn btn-secondary" onclick="showTemplateModal()">从模板创建</button>
+      </div>
+    </div>
+
+    <!-- 主内容区 - 工具栏、画布、日志都是独立浮动层 -->
+    <div class="toolbar" id="toolbar">
+      <div class="toolbar-group">
+        <button class="toolbar-btn" onclick="saveWorkflow()">保存</button>
+        <button class="toolbar-btn" onclick="validateWorkflow()">验证</button>
+      </div>
+      <div class="toolbar-divider"></div>
+      <div class="toolbar-group">
+        <button class="toolbar-btn ai-btn" onclick="showAiGenerateModal()">✨ AI生成</button>
+        <button class="toolbar-btn" onclick="showAddNodeModal()">添加节点</button>
+        <button class="toolbar-btn danger" onclick="deleteSelectedNode()">删除节点</button>
+      </div>
+      <div class="toolbar-divider"></div>
+      <div class="toolbar-group">
+        <button class="toolbar-btn" onclick="showGlobalConfigModal()">⚙️ 全局配置</button>
+        <button class="toolbar-btn" onclick="showTaskConfigModal()">📋 任务配置</button>
+        <button class="toolbar-btn" onclick="openHistoryPanel()">历史</button>
+        <button class="toolbar-btn" onclick="exportYAML()">导出</button>
+      </div>
+      <div class="status-indicator">
+        <span id="saveIndicator" class="save-indicator saved">✓ 已保存</span>
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">就绪</span>
+      </div>
+      <button class="toolbar-btn primary" onclick="executeWorkflow()" id="btnExecute">执行</button>
+      <button class="toolbar-btn danger" onclick="stopExecution()" id="btnStop" style="display:none;">停止</button>
+    </div>
+
+    <div class="canvas-container" id="canvasContainer">
+      <div class="canvas-grid"></div>
+      <div class="canvas-boundary"></div>
+      <div class="canvas" id="canvas">
+        <div class="canvas-content" id="canvasContent">
+          <svg class="edges-svg" id="edgesSvg"></svg>
+        </div>
+      </div>
+      <div class="zoom-controls">
+        <button class="zoom-btn" onclick="zoomOut()">−</button>
+        <span class="zoom-level" id="zoomLevel">100%</span>
+        <button class="zoom-btn" onclick="zoomIn()">+</button>
+        <button class="zoom-btn" onclick="zoomReset()">⟲</button>
+      </div>
+    </div>
+
+    <div class="log-panel" id="logPanel">
+      <div class="resize-handle" onmousedown="startResize(event,'logPanel')"></div>
+      <div class="log-header">
+        <div class="log-main-tabs">
+          <button class="log-main-tab active" onclick="switchLogTab('execution')">
+            执行日志<span class="badge" id="execLogCount">0</span>
+          </button>
+          <button class="log-main-tab" onclick="switchLogTab('agent')">
+            Agent交互<span class="badge" id="agentLogCount">0</span>
+          </button>
+        </div>
+        <div class="log-actions">
+          <button class="log-action-btn" onclick="clearCurrentLogs()">清空</button>
+          <button class="log-action-btn" onclick="exportCurrentLogs()">导出</button>
+        </div>
+      </div>
+      <div class="log-content-wrapper">
+        <div class="log-content active" id="execLogContent"></div>
+        <div class="log-content" id="agentLogContent"></div>
+      </div>
+    </div>
+
+    <!-- 右侧面板 -->
+    <div class="right-panel" id="rightPanel">
+      <div class="resize-handle" onmousedown="startResize(event,'rightPanel')"></div>
+
+      <!-- 右侧面板标签页 -->
+      <div class="panel-tabs">
+        <button class="panel-tab active" onclick="switchRightPanelTab('property')" id="propertyTab">节点属性</button>
+        <button class="panel-tab" onclick="switchRightPanelTab('history')" id="historyTab">执行历史</button>
+        <button class="panel-tab" onclick="switchRightPanelTab('taskconfig')" id="taskconfigTab">任务配置</button>
+      </div>
+
+      <!-- 节点属性面板 -->
+      <div class="panel-body active" id="propertyPanel">
+        <div class="empty-state" style="position:relative;top:50%;transform:translateY(-50%);">
+          <div class="icon">📝</div>
+          <div class="title">选择节点查看属性</div>
+        </div>
+      </div>
+
+      <!-- 执行历史面板 -->
+      <div class="panel-body" id="executionHistoryPanel">
+        <div class="history-section">
+          <div class="section-header">
+            <span>执行记录</span>
+            <button class="btn-icon" onclick="refreshExecutionHistory()" title="刷新">🔄</button>
+          </div>
+          <div class="history-list-mini" id="executionHistoryList">
+            <div class="empty-state-mini">选择工作流查看执行历史</div>
+          </div>
+        </div>
+        <div class="history-detail-section" id="executionDetailSection" style="display:none;">
+          <div class="section-header">
+            <span>执行详情</span>
+          </div>
+          <div class="history-detail-content" id="executionDetailContent"></div>
+        </div>
+      </div>
+
+      <!-- 任务配置面板 -->
+      <div class="panel-body" id="taskConfigPanel">
+        <div class="task-config-section">
+          <div class="section-header">
+            <span>当前任务配置</span>
+            <button class="btn-icon" onclick="showTaskConfigModal()" title="编辑">✏️</button>
+          </div>
+          <div class="task-config-display" id="taskConfigDisplay">
+            <div class="config-item">
+              <label>执行ID</label>
+              <span id="displayExecutionId">-</span>
+            </div>
+            <div class="config-item">
+              <label>任务名称</label>
+              <span id="displayTaskName">-</span>
+            </div>
+            <div class="config-item">
+              <label>任务描述</label>
+              <span id="displayTaskDesc">-</span>
+            </div>
+            <div class="config-item">
+              <label>项目路径</label>
+              <span id="displayProjectPath">-</span>
+            </div>
+          </div>
+          <div class="task-config-actions">
+            <button class="btn btn-primary btn-sm" onclick="showTaskConfigModal()">修改配置</button>
+            <button class="btn btn-secondary btn-sm" onclick="saveCurrentTaskConfig()">保存配置</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 浮动切换按钮 -->
+    <button class="floating-toggle" id="toggleSidebarBtn" onclick="togglePanel('sidebar')" title="收起侧边栏">◀</button>
+    <button class="floating-toggle" id="toggleRightPanelBtn" onclick="togglePanel('rightPanel')" title="收起属性面板">▶</button>
+    <button class="floating-toggle" id="toggleLogPanelBtn" onclick="togglePanel('logPanel')" title="收起日志面板">▼</button>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- 右键菜单 -->
+  <div class="context-menu" id="contextMenu">
+    <div class="context-menu-item" onclick="contextMenuAction('edit')">✏️ 编辑节点</div>
+    <div class="context-menu-item" onclick="contextMenuAction('duplicate')">📋 复制节点</div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item" onclick="contextMenuAction('run-from')">▶️ 从此节点执行</div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item danger" onclick="contextMenuAction('delete')">🗑️ 删除节点</div>
+  </div>
+
+  <!-- 快速操作面板 -->
+  <div class="quick-actions" id="quickActions"></div>
+
+  <!-- 创建工作流模态框 -->
+  <div class="modal-overlay" id="createModal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">新建工作流</div>
+        <button class="modal-close" onclick="closeModal('createModal')">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">工作流名称</label>
+          <input type="text" class="form-input" id="newWorkflowName" placeholder="输入名称">
+        </div>
+        <div class="form-group">
+          <label class="form-label">描述</label>
+          <textarea class="form-input form-textarea" id="newWorkflowDesc" placeholder="输入描述"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('createModal')">取消</button>
+        <button class="btn btn-primary" onclick="createWorkflow()">创建</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI生成工作流模态框 -->
+  <div class="modal-overlay" id="aiGenerateModal">
+    <div class="modal" style="width: 520px;">
+      <div class="modal-header">
+        <div class="modal-title">✨ AI 生成工作流</div>
+        <button class="modal-close" onclick="closeModal('aiGenerateModal')">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">工作流名称（可选）</label>
+          <input type="text" class="form-input" id="aiWorkflowName" placeholder="不填则自动命名">
+        </div>
+        <div class="form-group">
+          <label class="form-label">描述您的需求</label>
+          <textarea class="form-input form-textarea" id="aiWorkflowDesc" style="min-height: 120px;" placeholder="例如：&#10;- 创建一个数据处理工作流，包含数据获取、转换和输出&#10;- 需要调用API获取数据，然后由Agent处理并人工审核&#10;- 并行执行多个任务，最后汇总结果"></textarea>
+        </div>
+        <div class="ai-tips">
+          <div class="ai-tip-title">💡 提示：可以描述</div>
+          <div class="ai-tip-items">
+            <span class="ai-tip-tag" onclick="appendAiDesc('Agent执行数据处理')">Agent执行</span>
+            <span class="ai-tip-tag" onclick="appendAiDesc('API调用')">API调用</span>
+            <span class="ai-tip-tag" onclick="appendAiDesc('条件判断')">条件判断</span>
+            <span class="ai-tip-tag" onclick="appendAiDesc('人工审核')">人工审核</span>
+            <span class="ai-tip-tag" onclick="appendAiDesc('并行执行')">并行执行</span>
+            <span class="ai-tip-tag" onclick="appendAiDesc('错误处理')">错误处理</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('aiGenerateModal')">取消</button>
+        <button class="btn btn-primary" id="aiGenerateBtn" onclick="generateWorkflowWithAI()">✨ 生成工作流</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 全局配置模态框 -->
+  <div class="modal-overlay" id="globalConfigModal">
+    <div class="modal" style="width: 640px;">
+      <div class="modal-header">
+        <div class="modal-title">⚙️ 全局配置</div>
+        <button class="modal-close" onclick="closeModal('globalConfigModal')">×</button>
+      </div>
+      <div class="modal-body">
+        <!-- OpenClaw配置文件 -->
+        <div class="config-section">
+          <div class="config-section-title">📁 OpenClaw 配置文件</div>
+          <div class="form-group">
+            <label class="form-label">openclaw.json 路径</label>
+            <div class="file-input-group">
+              <input type="text" class="form-input" id="openclawJsonPath" placeholder="/path/to/openclaw.json">
+              <button class="btn btn-secondary" onclick="selectOpenclawJson()">📁 选择文件</button>
+              <button class="btn btn-secondary" onclick="loadAgentsFromConfig()">🔄 加载</button>
+            </div>
+            <div class="form-hint">用于获取 AgentID 列表，支持手动输入或选择文件</div>
+          </div>
+          <div class="form-group" id="agentListSection" style="display:none;">
+            <label class="form-label">可用 Agents</label>
+            <div class="agent-list" id="availableAgents"></div>
+          </div>
+        </div>
+
+        <!-- 全局提示词 -->
+        <div class="config-section">
+          <div class="config-section-title">📝 全局提示词</div>
+          <div class="form-group">
+            <label class="form-label">提示词文件</label>
+            <div class="file-input-group">
+              <input type="text" class="form-input" id="globalPromptFile" placeholder="/path/to/project/prompt.md">
+              <button class="btn btn-secondary" onclick="selectPromptFile()">📄 选择文件</button>
+              <button class="btn btn-secondary" onclick="loadGlobalPrompt()">🔄 加载</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">提示词内容</label>
+            <textarea class="form-input form-textarea" id="globalPromptContent" style="min-height: 150px; font-family: Monaco, monospace; font-size: 12px;" placeholder="全局提示词内容，可从文件加载或直接编辑..."></textarea>
+          </div>
+        </div>
+
+        <!-- 其他全局设置 -->
+        <div class="config-section">
+          <div class="config-section-title">🔧 其他设置</div>
+          <div class="form-row">
+            <div class="form-group" style="flex:1;">
+              <label class="form-label">飞书 OpenID</label>
+              <input type="text" class="form-input" id="globalFeishuOpenId" placeholder="用于通知">
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label class="form-label">最大循环次数</label>
+              <input type="number" class="form-input" id="globalMaxLoop" value="3" min="1" max="10">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('globalConfigModal')">取消</button>
+        <button class="btn btn-primary" onclick="saveGlobalConfig()">💾 保存配置</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 任务配置模态框 -->
+  <div class="modal-overlay" id="taskConfigModal">
+    <div class="modal" style="width: 560px;">
+      <div class="modal-header">
+        <div class="modal-title">📋 任务配置</div>
+        <button class="modal-close" onclick="closeModal('taskConfigModal')">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">任务名称 <span style="color:#f66;">*</span></label>
+          <input type="text" class="form-input" id="taskName" placeholder="输入任务名称">
+        </div>
+        <div class="form-group">
+          <label class="form-label">任务描述 <span style="color:#f66;">*</span></label>
+          <textarea class="form-input form-textarea" id="taskDescription" style="min-height: 80px;" placeholder="描述任务目标和要求..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">项目路径 <span style="color:#f66;">*</span></label>
+          <div class="file-input-group">
+            <input type="text" class="form-input" id="taskProjectPath" placeholder="/path/to/project">
+            <button class="btn btn-secondary" onclick="selectTaskProjectPath()">📁 选择目录</button>
+          </div>
+          <div class="form-hint">Agent 生成的文件将保存到: {项目路径}/{agentId}/ 目录</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('taskConfigModal')">取消</button>
+        <button class="btn btn-primary" onclick="saveTaskConfig()">✅ 确认配置</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 添加节点模态框 -->
+  <div class="modal-overlay" id="addNodeModal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">添加节点</div>
+        <button class="modal-close" onclick="closeModal('addNodeModal')">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">节点名称</label>
+          <input type="text" class="form-input" id="newNodeName" placeholder="输入节点名称">
+        </div>
+        <div class="form-group">
+          <label class="form-label">节点类型</label>
+          <div class="node-types" id="nodeTypes">
+            <div class="node-type-card selected" data-type="agent_execution" onclick="selectNodeType(this)">
+              <div class="icon">🤖</div>
+              <div class="name">Agent 执行</div>
+            </div>
+            <div class="node-type-card" data-type="api_call" onclick="selectNodeType(this)">
+              <div class="icon">🔗</div>
+              <div class="name">API 调用</div>
+            </div>
+            <div class="node-type-card" data-type="condition" onclick="selectNodeType(this)">
+              <div class="icon">❓</div>
+              <div class="name">条件判断</div>
+            </div>
+            <div class="node-type-card" data-type="human_review" onclick="selectNodeType(this)">
+              <div class="icon">👤</div>
+              <div class="name">人工审核</div>
+            </div>
+            <div class="node-type-card" data-type="parallel" onclick="selectNodeType(this)">
+              <div class="icon">⚡</div>
+              <div class="name">并行执行</div>
+            </div>
+            <div class="node-type-card" data-type="loop" onclick="selectNodeType(this)">
+              <div class="icon">🔄</div>
+              <div class="name">循环执行</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('addNodeModal')">取消</button>
+        <button class="btn btn-primary" onclick="addNode()">添加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 模板选择模态框 -->
+  <div class="modal-overlay" id="templateModal">
+    <div class="modal" style="width:560px;">
+      <div class="modal-header">
+        <div class="modal-title">选择模板</div>
+        <button class="modal-close" onclick="closeModal('templateModal')">×</button>
+      </div>
+      <div class="modal-body" id="templateList">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 执行历史面板（右侧滑入，包含列表和详情） -->
+  <div class="history-panel" id="historyPanel">
+    <div class="history-panel-header">
+      <div class="history-panel-title">📋 执行历史</div>
+      <button class="modal-close" onclick="closeHistoryPanel()">×</button>
+    </div>
+    <div class="history-panel-body">
+      <div class="history-list-section">
+        <div class="history-list-header">
+          <span>执行记录</span>
+          <button class="log-action-btn" onclick="refreshHistoryList()">🔄</button>
+        </div>
+        <div class="history-list" id="historyList">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
+      <div class="history-detail-section" id="historyDetailSection">
+        <div class="history-detail-header">执行详情</div>
+        <div class="history-detail-content" id="historyDetailContent">
+          <div class="empty-state" style="position:relative;top:40%;">
+            <div class="icon">📋</div>
+            <div class="title">选择一条记录查看详情</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 路径选择模态框 -->
+  <div class="modal-overlay" id="pathSelectModal">
+    <div class="modal" style="width: 640px;">
+      <div class="modal-header">
+        <div class="modal-title" id="pathSelectTitle">📁 选择路径</div>
+        <button class="modal-close" onclick="closeModal('pathSelectModal')">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">手动输入路径</label>
+          <div class="file-input-group">
+            <input type="text" class="form-input" id="pathManualInput" placeholder="输入完整路径...">
+            <button class="btn btn-primary" onclick="confirmManualPath()">✓ 确认</button>
+          </div>
+        </div>
+        <div class="path-divider">
+          <span>或者浏览服务器目录</span>
+        </div>
+        <div class="form-group">
+          <div class="path-browser">
+            <div class="path-browser-header">
+              <button class="btn btn-sm" onclick="browseParentDir()">⬆️ 上级</button>
+              <input type="text" class="form-input" id="currentBrowsePath" placeholder="/" readonly>
+              <button class="btn btn-sm btn-secondary" onclick="refreshCurrentDir()">🔄 刷新</button>
+            </div>
+            <div class="path-browser-content" id="pathBrowserContent">
+              <div class="loading"><div class="spinner"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="form-group" id="pathLocalUploadGroup" style="display:none;">
+          <label class="form-label">或从本地上传文件</label>
+          <input type="file" class="form-input" id="pathLocalFile" style="padding: 8px;">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('pathSelectModal')">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 全局错误捕获
+    window.onerror = function(msg, url, lineNo, columnNo, error) {
+      console.error('全局错误:', msg, 'at line', lineNo);
+      alert('错误: ' + msg + '\n行号: ' + lineNo);
+      return false;
+    };
+    window.addEventListener('unhandledrejection', function(event) {
+      console.error('Promise错误:', event.reason);
+      alert('Promise错误: ' + event.reason);
+    });
+
+    const API = '/api';
+    const state = {
+      workflows: [],
+      folders: [],           // 文件夹列表
+      expandedFolders: new Set(), // 展开的文件夹ID
+      draggedWorkflowId: null,    // 正在拖拽的工作流ID
+      currentWorkflow: null,
+      selectedNode: null,
+      selectedNodeType: 'agent_execution',
+      execution: null,
+      logs: {
+        execution: [],  // 执行日志
+        agent: []       // Agent交互日志
+      },
+      currentLogTab: 'execution',  // 当前显示的日志tab
+      ws: null,
+      nodeStatus: new Map(),
+      zoom: 1,
+      panX: 0,
+      panY: 0,
+      // 路径选择状态
+      pathSelect: {
+        mode: 'file',        // 'file' 或 'directory'
+        targetId: '',        // 目标输入框ID
+        callback: null,      // 选择后的回调
+        currentPath: '/',    // 当前浏览路径
+        filters: []          // 文件过滤器
+      },
+      // UX改进状态
+      autoSaveTimer: null,
+      lastSaveTime: null,
+      isDirty: false,
+      undoStack: [],
+      redoStack: [],
+      maxUndoSize: 50,
+      searchQuery: '',
+      gridSnap: true,
+      gridSize: 20,
+      showMinimap: true,
+      clipboard: null,
+      contextMenuNode: null
+    };
+
+    // 用户偏好设置 (localStorage缓存)
+    const PREF_KEY = 'openclaw_workflow_prefs';
+
+    function getPrefs() {
+      try {
+        const saved = localStorage.getItem(PREF_KEY);
+        return saved ? JSON.parse(saved) : getDefaultPrefs();
+      } catch (e) {
+        return getDefaultPrefs();
+      }
+    }
+
+    function getDefaultPrefs() {
+      return {
+        panels: { sidebar: true, rightPanel: true, logPanel: true },
+        lastWorkflowId: null,
+        logPanelHeight: 200,
+        sidebarWidth: 280,
+        rightPanelWidth: 320
+      };
+    }
+
+    function savePrefs(prefs) {
+      try {
+        localStorage.setItem(PREF_KEY, JSON.stringify(prefs));
+      } catch (e) {}
+    }
+
+    // ========== 路径选择模态框功能 ==========
+
+    function openPathSelectModal(options) {
+      state.pathSelect = {
+        mode: options.mode || 'file',
+        targetId: options.targetId || '',
+        callback: options.onSelect || null,
+        currentPath: '/',
+        filters: options.filters || [],
+        showLocalUpload: options.showLocalUpload !== false,
+        localFileAccept: options.localFileAccept || '',
+        onLocalUpload: options.onLocalUpload || null
+      };
+
+      document.getElementById('pathSelectTitle').textContent = options.title || '📁 选择路径';
+      document.getElementById('pathManualInput').value = '';
+      document.getElementById('pathManualInput').placeholder = options.mode === 'directory' ? '输入目录完整路径...' : '输入文件完整路径...';
+
+      // 显示/隐藏本地文件上传
+      const localUploadGroup = document.getElementById('pathLocalUploadGroup');
+      if (state.pathSelect.showLocalUpload && options.mode === 'file') {
+        localUploadGroup.style.display = 'block';
+        document.getElementById('pathLocalFile').accept = state.pathSelect.localFileAccept;
+      } else {
+        localUploadGroup.style.display = 'none';
+      }
+
+      document.getElementById('pathSelectModal').classList.add('show');
+
+      // 加载初始目录
+      browseDirectory('/');
+    }
+
+    function confirmManualPath() {
+      const path = document.getElementById('pathManualInput').value.trim();
+      if (!path) {
+        showToast('warn', '请输入路径');
+        return;
+      }
+
+      if (state.pathSelect.targetId) {
+        document.getElementById(state.pathSelect.targetId).value = path;
+      }
+
+      closeModal('pathSelectModal');
+
+      if (state.pathSelect.callback) {
+        state.pathSelect.callback(path);
+      }
+    }
+
+    async function browseDirectory(dirPath) {
+      state.pathSelect.currentPath = dirPath;
+      document.getElementById('currentBrowsePath').value = dirPath;
+
+      const content = document.getElementById('pathBrowserContent');
+      content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+      try {
+        const res = await fetch(`${API}/system/browse-directory`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: dirPath, mode: state.pathSelect.mode, filters: state.pathSelect.filters })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          renderDirectoryContents(data.items);
+        } else {
+          content.innerHTML = `<div style="padding:20px;text-align:center;color:#f66;">${data.error || '无法读取目录'}</div>`;
+        }
+      } catch (e) {
+        content.innerHTML = `<div style="padding:20px;text-align:center;color:#f66;">请求失败: ${e.message}</div>`;
+      }
+    }
+
+    function renderDirectoryContents(items) {
+      const content = document.getElementById('pathBrowserContent');
+
+      if (!items || items.length === 0) {
+        content.innerHTML = '<div style="padding:20px;text-align:center;color:#666;">空目录</div>';
+        return;
+      }
+
+      const html = items.map(item => {
+        const icon = item.isDirectory ? '📁' : '📄';
+        const itemClass = item.isDirectory ? 'path-item dir' : 'path-item file';
+        const clickHandler = item.isDirectory
+          ? `onclick="browseDirectory('${item.path}')"`
+          : `onclick="selectPath('${item.path}')"`;
+        return `<div class="${itemClass}" ${clickHandler}>
+          <span class="icon">${icon}</span>
+          <span class="name">${item.name}</span>
+        </div>`;
+      }).join('');
+
+      content.innerHTML = html;
+    }
+
+    function browseParentDir() {
+      const current = state.pathSelect.currentPath;
+      if (current === '/' || !current) return;
+
+      const parts = current.split('/').filter(p => p);
+      parts.pop();
+      const parent = parts.length === 0 ? '/' : '/' + parts.join('/');
+      browseDirectory(parent);
+    }
+
+    function refreshCurrentDir() {
+      browseDirectory(state.pathSelect.currentPath);
+    }
+
+    function selectPath(path) {
+      if (state.pathSelect.mode === 'directory') {
+        // 目录模式下，点击目录进入，不能选择文件
+        showToast('warn', '请选择一个目录（点击进入子目录，或手动输入路径）');
+        return;
+      }
+
+      if (state.pathSelect.targetId) {
+        document.getElementById(state.pathSelect.targetId).value = path;
+      }
+
+      closeModal('pathSelectModal');
+
+      if (state.pathSelect.callback) {
+        state.pathSelect.callback(path);
+      }
+    }
+
+    // ========== 面板切换功能 ==========
+
+    function togglePanel(panelId) {
+      const panel = document.getElementById(panelId);
+      const isCollapsed = panel.classList.toggle('collapsed');
+
+      // 保存偏好
+      const prefs = getPrefs();
+      prefs.panels[panelId] = !isCollapsed;
+      savePrefs(prefs);
+
+      // 更新按钮位置和文本
+      updateButtonPositions();
+
+      // 重新渲染画布连线（确保连线位置正确）
+      setTimeout(() => renderEdges(), 50);
+    }
+
+    function updateButtonPositions() {
+      const sidebar = document.getElementById('sidebar');
+      const rightPanel = document.getElementById('rightPanel');
+      const logPanel = document.getElementById('logPanel');
+      const sidebarBtn = document.getElementById('toggleSidebarBtn');
+      const rightBtn = document.getElementById('toggleRightPanelBtn');
+      const logBtn = document.getElementById('toggleLogPanelBtn');
+
+      // 更新侧边栏按钮位置
+      if (sidebar.classList.contains('collapsed')) {
+        sidebarBtn.style.left = '10px';
+        sidebarBtn.textContent = '▶';
+      } else {
+        sidebarBtn.style.left = sidebar.offsetWidth + 'px';
+        sidebarBtn.textContent = '◀';
+      }
+
+      // 更新右侧面板按钮位置
+      if (rightPanel.classList.contains('collapsed')) {
+        rightBtn.style.right = '10px';
+        rightBtn.textContent = '◀';
+      } else {
+        rightBtn.style.right = rightPanel.offsetWidth + 'px';
+        rightBtn.textContent = '▶';
+      }
+
+      // 更新日志面板按钮位置
+      if (logPanel.classList.contains('collapsed')) {
+        logBtn.style.bottom = '10px';
+        logBtn.textContent = '▲';
+      } else {
+        logBtn.style.bottom = logPanel.offsetHeight + 'px';
+        logBtn.textContent = '▼';
+      }
+    }
+
+    function loadPanelStates() {
+      const prefs = getPrefs();
+      Object.entries(prefs.panels).forEach(([panelId, isOpen]) => {
+        const panel = document.getElementById(panelId);
+        if (!isOpen) {
+          panel.classList.add('collapsed');
+        }
+      });
+
+      // 恢复面板大小
+      if (prefs.sidebarWidth) {
+        document.getElementById('sidebar').style.width = prefs.sidebarWidth + 'px';
+      }
+      if (prefs.rightPanelWidth) {
+        document.getElementById('rightPanel').style.width = prefs.rightPanelWidth + 'px';
+      }
+      if (prefs.logPanelHeight) {
+        document.getElementById('logPanel').style.height = prefs.logPanelHeight + 'px';
+      }
+
+      // 初始化按钮位置
+      updateButtonPositions();
+
+      // 初始化画布缩放
+      initCanvasZoom();
+    }
+
+    // 画布缩放功能
+    function initCanvasZoom() {
+      const canvas = document.getElementById('canvas');
+      const content = document.getElementById('canvasContent');
+
+      // 鼠标滚轮缩放
+      canvas.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        const newZoom = Math.max(0.25, Math.min(2, state.zoom + delta));
+
+        // 以鼠标位置为中心缩放
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        const zoomRatio = newZoom / state.zoom;
+        state.panX = mouseX - (mouseX - state.panX) * zoomRatio;
+        state.panY = mouseY - (mouseY - state.panY) * zoomRatio;
+
+        state.zoom = newZoom;
+        updateCanvasTransform();
+      });
+
+      // 中键拖拽平移
+      let isPanning = false;
+      let lastX, lastY;
+
+      canvas.addEventListener('mousedown', (e) => {
+        if (e.button === 1 || (e.button === 0 && e.altKey)) {
+          isPanning = true;
+          lastX = e.clientX;
+          lastY = e.clientY;
+          canvas.style.cursor = 'grabbing';
+          e.preventDefault();
+        }
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (isPanning) {
+          state.panX += e.clientX - lastX;
+          state.panY += e.clientY - lastY;
+          lastX = e.clientX;
+          lastY = e.clientY;
+          updateCanvasTransform();
+        }
+      });
+
+      document.addEventListener('mouseup', () => {
+        if (isPanning) {
+          isPanning = false;
+          canvas.style.cursor = '';
+        }
+      });
+
+      // 双击画布添加节点
+      canvas.addEventListener('dblclick', (e) => {
+        if (e.target.closest('.node')) return; // 不在节点上响应
+        if (!state.currentWorkflow) {
+          showToast('warn', '请先选择工作流');
+          return;
+        }
+
+        // 计算画布坐标位置
+        const rect = canvas.getBoundingClientRect();
+        const x = (e.clientX - rect.left - state.panX) / state.zoom;
+        const y = (e.clientY - rect.top - state.panY) / state.zoom;
+
+        // 直接添加节点
+        addNodeAtPosition(x, y);
+      });
+    }
+
+    // 在指定位置添加节点
+    async function addNodeAtPosition(x, y) {
+      const name = '节点_' + (state.currentWorkflow.nodes?.length || 0);
+      try {
+        await fetch(`${API}/workflows/${state.currentWorkflow.id}/nodes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'agent_execution',
+            name,
+            position_x: Math.max(0, x),
+            position_y: Math.max(0, y)
+          })
+        });
+        await selectWorkflow(state.currentWorkflow.id);
+        showToast('success', '节点已添加');
+      } catch (e) {
+        showToast('error', '添加失败');
+      }
+    }
+
+    function updateCanvasTransform() {
+      const content = document.getElementById('canvasContent');
+      content.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
+      document.getElementById('zoomLevel').textContent = Math.round(state.zoom * 100) + '%';
+    }
+
+    function zoomIn() {
+      state.zoom = Math.min(2, state.zoom + 0.1);
+      updateCanvasTransform();
+    }
+
+    function zoomOut() {
+      state.zoom = Math.max(0.25, state.zoom - 0.1);
+      updateCanvasTransform();
+    }
+
+    function zoomReset() {
+      state.zoom = 1;
+      state.panX = 0;
+      state.panY = 0;
+      updateCanvasTransform();
+    }
+
+    // 初始化
+    document.addEventListener('DOMContentLoaded', async () => {
+      loadPanelStates();
+      loadSavedGlobalConfig();  // 加载全局配置
+      await loadWorkflows();  // 等待工作流加载完成
+      initUXFeatures();  // 初始化UX功能
+
+      // 恢复上次选择的工作流
+      const prefs = getPrefs();
+      if (prefs.lastWorkflowId) {
+        await selectWorkflow(prefs.lastWorkflowId);
+      }
+
+      // 设置本地文件上传事件监听
+      const pathLocalFile = document.getElementById('pathLocalFile');
+      if (pathLocalFile) {
+        pathLocalFile.addEventListener('change', async (e) => {
+          const file = e.target.files[0];
+          if (file && state.pathSelect.onLocalUpload) {
+            await state.pathSelect.onLocalUpload(file);
+            closeModal('pathSelectModal');
+          }
+        });
+      }
+    });
+
+    // 加载工作流列表
+    async function loadWorkflows() {
+      try {
+        const [workflowsRes, foldersRes] = await Promise.all([
+          fetch(`${API}/workflows`),
+          fetch(`${API}/folders`)
+        ]);
+        const workflowsData = await workflowsRes.json();
+        const foldersData = await foldersRes.json();
+
+        if (workflowsData.success && Array.isArray(workflowsData.data)) {
+          state.workflows = workflowsData.data;
+        } else {
+          state.workflows = [];
+        }
+        if (foldersData.success && Array.isArray(foldersData.data)) {
+          state.folders = foldersData.data;
+        } else {
+          state.folders = [];
+        }
+        renderWorkflowList();
+      } catch (e) {
+        console.error('loadWorkflows error:', e);
+        showToast('error', '加载失败: ' + e.message);
+      }
+    }
+
+    // 渲染工作流列表（支持文件夹分组）
+    function renderWorkflowList() {
+      const list = document.getElementById('workflowList');
+      const searchInput = document.getElementById('searchInput');
+      const search = searchInput ? searchInput.value.toLowerCase() : '';
+
+      // 过滤工作流
+      const workflows = state.workflows || [];
+      const folders = state.folders || [];
+      const filtered = workflows.filter(w =>
+        w && w.name && w.id && (w.name.toLowerCase().includes(search) || w.id.toLowerCase().includes(search))
+      );
+
+      if (filtered.length === 0 && folders.length === 0) {
+        list.innerHTML = '<div class="empty-state"><div class="icon">📭</div><div class="title">暂无工作流</div></div>';
+        return;
+      }
+
+      let html = '';
+
+      // 渲染文件夹
+      folders.forEach(folder => {
+        const isExpanded = state.expandedFolders.has(folder.id);
+        const folderWorkflows = filtered.filter(w => w.folderId === folder.id);
+
+        html += `
+          <div class="folder-item">
+            <div class="folder-header ${state.draggedWorkflowId ? 'drag-target' : ''}"
+                 data-folder-id="${folder.id}"
+                 onclick="toggleFolder('${folder.id}')"
+                 ondragover="handleFolderDragOver(event, '${folder.id}')"
+                 ondragleave="handleFolderDragLeave(event)"
+                 ondrop="handleFolderDrop(event, '${folder.id}')">
+              <div class="folder-toggle ${isExpanded ? 'expanded' : ''}">▶</div>
+              <span class="folder-icon">📁</span>
+              <span class="folder-name">${folder.name}</span>
+              <span class="folder-count">${folderWorkflows.length}</span>
+              <div class="folder-actions">
+                <button class="folder-action-btn" onclick="event.stopPropagation(); renameFolder('${folder.id}')" title="重命名">✏️</button>
+                <button class="folder-action-btn danger" onclick="event.stopPropagation(); deleteFolder('${folder.id}')" title="删除">🗑️</button>
+              </div>
+            </div>
+            <div class="folder-content ${isExpanded ? 'expanded' : ''}" id="folder-content-${folder.id}">
+              ${folderWorkflows.map(w => renderWorkflowItem(w)).join('')}
+            </div>
+          </div>
+        `;
+      });
+
+      // 渲染未分组的工作流（根目录）
+      const rootWorkflows = filtered.filter(w => !w.folderId || !folders.find(f => f.id === w.folderId));
+      if (rootWorkflows.length > 0) {
+        html += `<div class="folder-drop-zone" data-folder-id="root"
+                      ondragover="handleFolderDragOver(event, 'root')"
+                      ondragleave="handleFolderDragLeave(event)"
+                      ondrop="handleFolderDrop(event, 'root')"></div>`;
+        html += rootWorkflows.map(w => renderWorkflowItem(w)).join('');
+      }
+
+      // 新建文件夹按钮
+      html += `
+        <div class="new-folder-btn" onclick="createFolder()">
+          <span class="icon">➕</span>
+          <span>新建文件夹</span>
+        </div>
+      `;
+
+      list.innerHTML = html;
+    }
+
+    // 渲染单个工作流项
+    function renderWorkflowItem(w) {
+      return `
+        <div class="workflow-item ${state.currentWorkflow?.id === w.id ? 'active' : ''}"
+             data-id="${w.id}"
+             draggable="true"
+             ondragstart="handleWorkflowDragStart(event, '${w.id}')"
+             ondragend="handleWorkflowDragEnd(event)"
+             onclick="selectWorkflow('${w.id}')">
+          <div class="workflow-item-content">
+            <div class="name">${w.name}</div>
+            <div class="meta">${w.nodeCount} 个节点 · ${formatDate(w.updatedAt)}</div>
+          </div>
+          <div class="workflow-actions">
+            <button class="workflow-action-btn" onclick="event.stopPropagation(); cloneWorkflow('${w.id}')" title="克隆">📋</button>
+            <button class="workflow-action-btn danger" onclick="event.stopPropagation(); deleteWorkflow('${w.id}')" title="删除">🗑️</button>
+          </div>
+        </div>
+      `;
+    }
+
+    // 切换文件夹展开状态
+    function toggleFolder(folderId) {
+      if (state.expandedFolders.has(folderId)) {
+        state.expandedFolders.delete(folderId);
+      } else {
+        state.expandedFolders.add(folderId);
+      }
+      renderWorkflowList();
+    }
+
+    // 创建文件夹
+    async function createFolder() {
+      const name = prompt('请输入文件夹名称:', '新文件夹');
+      if (!name) return;
+
+      try {
+        const res = await fetch(`${API}/folders`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name })
+        });
+        const data = await res.json();
+        if (data.success) {
+          await loadWorkflows();
+          showToast('success', '文件夹创建成功');
+        } else {
+          showToast('error', data.message || '创建失败');
+        }
+      } catch (e) {
+        showToast('error', '创建失败: ' + e.message);
+      }
+    }
+
+    // 重命名文件夹
+    async function renameFolder(folderId) {
+      const folder = state.folders.find(f => f.id === folderId);
+      if (!folder) return;
+
+      const name = prompt('请输入新的文件夹名称:', folder.name);
+      if (!name || name === folder.name) return;
+
+      try {
+        const res = await fetch(`${API}/folders/${folderId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name })
+        });
+        const data = await res.json();
+        if (data.success) {
+          await loadWorkflows();
+          showToast('success', '文件夹已重命名');
+        } else {
+          showToast('error', data.message || '重命名失败');
+        }
+      } catch (e) {
+        showToast('error', '重命名失败: ' + e.message);
+      }
+    }
+
+    // 删除文件夹
+    async function deleteFolder(folderId) {
+      const folder = state.folders.find(f => f.id === folderId);
+      if (!folder) return;
+
+      if (!confirm(`确定要删除文件夹"${folder.name}"吗？文件夹内的工作流将移至根目录。`)) return;
+
+      try {
+        const res = await fetch(`${API}/folders/${folderId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+          await loadWorkflows();
+          showToast('success', '文件夹已删除');
+        } else {
+          showToast('error', data.message || '删除失败');
+        }
+      } catch (e) {
+        showToast('error', '删除失败: ' + e.message);
+      }
+    }
+
+    // 文件夹拖拽处理
+    function handleFolderDragOver(e, folderId) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (state.draggedWorkflowId) {
+        e.currentTarget.classList.add('drag-over');
+      }
+    }
+
+    function handleFolderDragLeave(e) {
+      e.currentTarget.classList.remove('drag-over');
+    }
+
+    async function handleFolderDrop(e, folderId) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.currentTarget.classList.remove('drag-over');
+
+      const workflowId = state.draggedWorkflowId || e.dataTransfer.getData('workflowId');
+      if (!workflowId) return;
+
+      // 移动到文件夹或根目录
+      const targetFolderId = folderId === 'root' ? null : folderId;
+
+      try {
+        const res = await fetch(`${API}/workflows/${workflowId}/move`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ folderId: targetFolderId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          // 更新本地状态
+          const workflow = state.workflows.find(w => w.id === workflowId);
+          if (workflow) {
+            workflow.folderId = targetFolderId;
+          }
+          renderWorkflowList();
+          showToast('success', '工作流已移动');
+        } else {
+          showToast('error', data.message || '移动失败');
+        }
+      } catch (e) {
+        showToast('error', '移动失败: ' + e.message);
+      }
+    }
+
+    // 工作流拖拽处理
+    function handleWorkflowDragStart(e, workflowId) {
+      e.dataTransfer.setData('workflowId', workflowId);
+      e.dataTransfer.effectAllowed = 'move';
+      state.draggedWorkflowId = workflowId;
+      e.target.style.opacity = '0.5';
+      // 高亮可放置区域
+      document.querySelectorAll('.folder-header').forEach(el => {
+        el.style.borderColor = '#6b5ce7';
+      });
+    }
+
+    function handleWorkflowDragEnd(e) {
+      e.target.style.opacity = '1';
+      state.draggedWorkflowId = null;
+      // 移除高亮
+      document.querySelectorAll('.folder-header').forEach(el => {
+        el.style.borderColor = '';
+      });
+      document.querySelectorAll('.drag-over').forEach(el => {
+        el.classList.remove('drag-over');
+      });
+    }
+
+    // 删除工作流
+    async function deleteWorkflow(id) {
+      if (!confirm('确定要删除此工作流吗？此操作不可恢复。')) return;
+
+      try {
+        const res = await fetch(`${API}/workflows/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+          // 如果删除的是当前工作流，清空选择
+          if (state.currentWorkflow?.id === id) {
+            state.currentWorkflow = null;
+            state.selectedNode = null;
+            renderCanvas();
+            renderPropertyPanel();
+          }
+          await loadWorkflows();
+          showToast('success', '工作流已删除');
+        } else {
+          showToast('error', data.message || '删除失败');
+        }
+      } catch (e) {
+        showToast('error', '删除失败: ' + e.message);
+      }
+    }
+
+    // 克隆工作流
+    async function cloneWorkflow(id) {
+      const name = prompt('请输入新工作流名称:', '副本');
+      if (!name) return;
+
+      try {
+        const res = await fetch(`${API}/workflows/${id}/clone`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name })
+        });
+        const data = await res.json();
+        if (data.success) {
+          await loadWorkflows();
+          await selectWorkflow(data.data.id);
+          showToast('success', '工作流已克隆');
+        } else {
+          showToast('error', data.message || '克隆失败');
+        }
+      } catch (e) {
+        showToast('error', '克隆失败: ' + e.message);
+      }
+    }
+
+    function filterWorkflows() {
+      renderWorkflowList();
+    }
+
+    // 选择工作流
+    async function selectWorkflow(id) {
+      try {
+        const res = await fetch(`${API}/workflows/${id}`);
+        const data = await res.json();
+        if (data.success) {
+          state.currentWorkflow = data.data;
+          state.selectedNode = null;
+
+          // 清空当前日志和任务配置
+          state.logs = { execution: [], agent: [] };
+          state.selectedHistoryId = null;
+
+          renderWorkflowList();
+          renderCanvas();
+          renderPropertyPanel();
+          addLog('info', `已加载: ${data.data.name}`);
+
+          // 保存最后选择的工作流
+          const prefs = getPrefs();
+          prefs.lastWorkflowId = id;
+          savePrefs(prefs);
+
+          // 自动加载该工作流的最新执行历史
+          await loadLatestExecutionHistory(id);
+        }
+      } catch (e) {
+        showToast('error', '加载失败');
+      }
+    }
+
+    // 加载工作流的最新执行历史
+    async function loadLatestExecutionHistory(workflowId) {
+      try {
+        // 刷新执行历史列表
+        await refreshExecutionHistory();
+
+        const res = await fetch(`${API}/executions/records?workflowId=${workflowId}&limit=1`);
+        const data = await res.json();
+        if (data.success && data.data && data.data.length > 0) {
+          const latest = data.data[0];
+          // 自动选择最新的执行历史
+          await selectHistoryItemMini(latest.executionId || latest.id);
+          // 切换到历史标签页
+          switchRightPanelTab('history');
+        } else {
+          // 没有执行历史，清空任务配置
+          taskConfig = {
+            executionId: null,
+            name: '',
+            description: '',
+            projectPath: '',
+            contextFilePath: ''
+          };
+          updateTaskConfigDisplay();
+        }
+      } catch (e) {
+        console.error('加载执行历史失败:', e);
+      }
+    }
+
+    // 渲染画布
+    function renderCanvas() {
+      const content = document.getElementById('canvasContent');
+      const workflow = state.currentWorkflow;
+
+      if (!workflow || !workflow.nodes || workflow.nodes.length === 0) {
+        content.innerHTML = `
+          <svg class="edges-svg" id="edgesSvg"></svg>
+          <div class="empty-state">
+            <div class="icon">📝</div>
+            <div class="title">暂无节点</div>
+            <div class="desc">双击画布添加节点 · 或点击工具栏"添加节点"</div>
+          </div>
+        `;
+        return;
+      }
+
+      let html = '<svg class="edges-svg" id="edgesSvg"></svg>';
+
+      workflow.nodes.forEach((node, i) => {
+        const x = node.position_x || 50 + (i % 3) * 280;
+        const y = node.position_y || 50 + Math.floor(i / 3) * 180;
+        const type = node.type || 'agent_execution';
+        const status = state.nodeStatus.get(node.id) || '';
+
+        html += `
+          <div class="node ${state.selectedNode?.id === node.id ? 'selected' : ''} ${status}"
+               id="node-${node.id}" style="left:${x}px;top:${y}px;"
+               onclick="selectNode('${node.id}')" onmousedown="startDrag(event,'${node.id}')">
+            <div class="node-header">
+              <div class="node-icon ${type.split('_')[0]}">${getIcon(type)}</div>
+              <div class="node-info">
+                <div class="node-name">${node.name || node.id}</div>
+                <div class="node-type">${getTypeName(type)}</div>
+              </div>
+              ${status ? `<div class="node-status-badge ${status}">${getStatusText(status)}</div>` : ''}
+            </div>
+            <div class="node-body">${getNodeDesc(node)}</div>
+            <div class="node-ports">
+              <div class="port input" title="输入"></div>
+              <div style="display:flex;gap:4px;">
+                <div class="port fail" title="失败" onclick="startConnect(event,'${node.id}','fail')"></div>
+                <div class="port success" title="成功" onclick="startConnect(event,'${node.id}','success')"></div>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      content.innerHTML = html;
+      renderEdges();
+    }
+
+    // 渲染连线
+    function renderEdges() {
+      const svg = document.getElementById('edgesSvg');
+      const workflow = state.currentWorkflow;
+      if (!workflow || !workflow.nodes) { svg.innerHTML = ''; return; }
+
+      // 构建节点位置映射（使用与 renderCanvas 相同的默认位置计算）
+      const nodePositions = {};
+      workflow.nodes.forEach((node, i) => {
+        nodePositions[node.id] = {
+          x: node.position_x || 50 + (i % 3) * 280,
+          y: node.position_y || 50 + Math.floor(i / 3) * 180
+        };
+      });
+
+      let paths = '';
+      workflow.nodes.forEach((node, i) => {
+        const nodeEl = document.getElementById(`node-${node.id}`);
+        if (!nodeEl) return;
+
+        // 源节点位置
+        const srcPos = nodePositions[node.id];
+        const x1 = srcPos.x + nodeEl.offsetWidth;
+        const y1 = srcPos.y + 50;
+
+        if (node.on_success) {
+          const targetPos = nodePositions[node.on_success];
+          if (targetPos) {
+            const x2 = targetPos.x;
+            const y2 = targetPos.y;
+            paths += `<path class="edge-path success" d="M${x1},${y1} C${(x1+x2)/2},${y1} ${(x1+x2)/2},${y2} ${x2},${y2}" onclick="deleteEdge('${node.id}','success')"/>`;
+          }
+        }
+        if (node.on_fail) {
+          const targetPos = nodePositions[node.on_fail];
+          if (targetPos) {
+            const x2 = targetPos.x;
+            const y2 = targetPos.y;
+            paths += `<path class="edge-path fail" d="M${x1},${y1+20} C${(x1+x2)/2},${y1+20} ${(x1+x2)/2},${y2} ${x2},${y2}" onclick="deleteEdge('${node.id}','fail')"/>`;
+          }
+        }
+      });
+
+      svg.innerHTML = paths;
+    }
+
+    // 切换右侧面板标签页
+    function switchRightPanelTab(tabName) {
+      // 更新标签页状态
+      document.querySelectorAll('.panel-tab').forEach(tab => tab.classList.remove('active'));
+      document.getElementById(tabName + 'Tab').classList.add('active');
+
+      // 更新面板内容显示
+      document.getElementById('propertyPanel').classList.remove('active');
+      document.getElementById('executionHistoryPanel').classList.remove('active');
+      document.getElementById('taskConfigPanel').classList.remove('active');
+
+      document.getElementById(tabName === 'property' ? 'propertyPanel' :
+                              tabName === 'history' ? 'executionHistoryPanel' : 'taskConfigPanel').classList.add('active');
+    }
+
+    // 刷新执行历史列表（右侧面板版本）
+    async function refreshExecutionHistory() {
+      const list = document.getElementById('executionHistoryList');
+      const workflowId = state.currentWorkflow?.id;
+
+      if (!workflowId) {
+        list.innerHTML = '<div class="empty-state-mini">请先选择工作流</div>';
+        return;
+      }
+
+      list.innerHTML = '<div class="empty-state-mini">加载中...</div>';
+
+      try {
+        const res = await fetch(`${API}/executions/records?workflowId=${workflowId}&limit=10`);
+        const data = await res.json();
+
+        if (data.success && data.data.length > 0) {
+          state.historyRecords = data.data;
+          list.innerHTML = data.data.map(e => {
+            const execId = e.executionId || e.id;
+            return `
+              <div class="history-item-mini ${state.selectedHistoryId === execId ? 'selected' : ''}"
+                   onclick="selectHistoryItemMini('${execId}')">
+                <span>${e.taskConfig?.name || '未命名任务'}</span>
+                <span class="status ${e.status}">${getStatusText(e.status)}</span>
+              </div>
+            `;
+          }).join('');
+        } else {
+          list.innerHTML = '<div class="empty-state-mini">暂无执行记录</div>';
+        }
+      } catch (e) {
+        list.innerHTML = '<div class="empty-state-mini">加载失败</div>';
+      }
+    }
+
+    // 选择历史记录项（右侧面板版本）
+    async function selectHistoryItemMini(executionId) {
+      // 更新选中状态
+      document.querySelectorAll('.history-item-mini').forEach(el => {
+        el.classList.toggle('selected', el.onclick.toString().includes(executionId));
+      });
+      state.selectedHistoryId = executionId;
+
+      try {
+        // 并行加载数据
+        const [recordRes, taskConfigRes] = await Promise.all([
+          fetch(`${API}/executions/records/${executionId}`),
+          fetch(`${API}/executions/${executionId}/task-config`)
+        ]);
+
+        const recordData = await recordRes.json();
+        const taskConfigData = await taskConfigRes.json();
+
+        if (recordData.success && recordData.data) {
+          const record = recordData.data;
+
+          // 显示详情
+          const detailSection = document.getElementById('executionDetailSection');
+          const detailContent = document.getElementById('executionDetailContent');
+          if (detailSection) detailSection.style.display = 'block';
+          if (detailContent) {
+            detailContent.innerHTML = `
+              <p><strong>执行ID:</strong> ${record.executionId || record.id}</p>
+              <p><strong>状态:</strong> ${getStatusText(record.status)}</p>
+              <p><strong>开始时间:</strong> ${formatDate(record.startTime)}</p>
+              ${record.endTime ? `<p><strong>结束时间:</strong> ${formatDate(record.endTime)}</p>` : ''}
+            `;
+          }
+
+          // 更新任务配置
+          if (taskConfigData.success && taskConfigData.data) {
+            taskConfig = {
+              executionId: executionId,
+              name: taskConfigData.data.name || '',
+              description: taskConfigData.data.description || '',
+              projectPath: taskConfigData.data.projectPath || '',
+              contextFilePath: record.contextFilePath || ''
+            };
+          } else if (record.taskConfig) {
+            taskConfig = {
+              executionId: executionId,
+              name: record.taskConfig.name || '',
+              description: record.taskConfig.description || '',
+              projectPath: record.taskConfig.projectPath || '',
+              contextFilePath: record.contextFilePath || ''
+            };
+          }
+
+          // 更新任务配置显示
+          updateTaskConfigDisplay();
+        }
+      } catch (e) {
+        console.error('加载历史详情失败:', e);
+      }
+    }
+
+    // 更新任务配置显示
+    function updateTaskConfigDisplay() {
+      document.getElementById('displayExecutionId').textContent = taskConfig.executionId || '-';
+      document.getElementById('displayTaskName').textContent = taskConfig.name || '-';
+      document.getElementById('displayTaskDesc').textContent = taskConfig.description || '-';
+      document.getElementById('displayProjectPath').textContent = taskConfig.projectPath || '-';
+    }
+
+    // 保存当前任务配置
+    async function saveCurrentTaskConfig() {
+      if (!taskConfig.executionId) {
+        showToast('warn', '请先选择一条执行记录');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/executions/${taskConfig.executionId}/task-config`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: taskConfig.name,
+            description: taskConfig.description,
+            projectPath: taskConfig.projectPath,
+            workflowId: state.currentWorkflow?.id
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('success', '任务配置已保存');
+        } else {
+          showToast('error', data.message || '保存失败');
+        }
+      } catch (e) {
+        showToast('error', '保存失败');
+      }
+    }
+
+    // 渲染属性面板
+    function renderPropertyPanel() {
+      const panel = document.getElementById('propertyPanel');
+      const node = state.selectedNode;
+
+      if (!node) {
+        panel.innerHTML = '<div class="empty-state" style="position:relative;top:50%;transform:translateY(-50%);"><div class="icon">📝</div><div class="title">选择节点查看属性</div></div>';
+        return;
+      }
+
+      panel.innerHTML = `
+        <div class="form-group">
+          <label class="form-label">节点名称</label>
+          <input type="text" class="form-input" value="${node.name || ''}" onchange="updateNode('name',this.value)">
+        </div>
+        <div class="form-group">
+          <label class="form-label">节点类型</label>
+          <select class="form-select" onchange="updateNode('type',this.value)">
+            <option value="agent_execution" ${node.type==='agent_execution'?'selected':''}>Agent 执行</option>
+            <option value="api_call" ${node.type==='api_call'?'selected':''}>API 调用</option>
+            <option value="start" ${node.type==='start'?'selected':''}>开始</option>
+            <option value="finish" ${node.type==='finish'?'selected':''}>结束</option>
+            <option value="condition" ${node.type==='condition'?'selected':''}>条件判断</option>
+            <option value="human_review" ${node.type==='human_review'?'selected':''}>人工审核</option>
+            <option value="parallel" ${node.type==='parallel'?'selected':''}>并行执行</option>
+            <option value="loop" ${node.type==='loop'?'selected':''}>循环执行</option>
+          </select>
+        </div>
+        ${node.type === 'agent_execution' ? `
+          <div class="form-group">
+            <label class="form-label">Agent ID</label>
+            <select class="form-select" id="agentIdSelect" onchange="handleAgentSelect(this)">
+              ${getAgentSelectOptions(node.agent_id)}
+            </select>
+            <input type="text" class="form-input" id="agentIdCustom" style="display:none;margin-top:8px;" placeholder="输入自定义 Agent ID" onchange="updateNode('agent_id',this.value)">
+          </div>
+          <div class="form-group">
+            <label class="form-label">提示词 <button class="ai-gen-btn" onclick="generatePrompt(event)">✨ AI生成</button></label>
+            <textarea class="form-input form-textarea" id="promptTextarea" onchange="updateNode('prompt',this.value)">${node.prompt || ''}</textarea>
+          </div>
+        ` : ''}
+        ${node.type === 'api_call' ? `
+          <div class="form-group">
+            <label class="form-label">URL</label>
+            <input type="text" class="form-input" value="${node.url || ''}" onchange="updateNode('url',this.value)" placeholder="https://api.example.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label">方法</label>
+            <select class="form-select" onchange="updateNode('method',this.value)">
+              <option value="GET" ${node.method==='GET'?'selected':''}>GET</option>
+              <option value="POST" ${node.method==='POST'?'selected':''}>POST</option>
+            </select>
+          </div>
+        ` : ''}
+        ${node.type === 'loop' ? `
+          <div class="form-group">
+            <label class="form-label">循环类型</label>
+            <select class="form-select" onchange="updateNode('loop_type',this.value)">
+              <option value="count" ${node.loop_type==='count' || !node.loop_type?'selected':''}>计数循环</option>
+              <option value="condition" ${node.loop_type==='condition'?'selected':''}>条件循环</option>
+              <option value="foreach" ${node.loop_type==='foreach'?'selected':''}>遍历循环</option>
+            </select>
+          </div>
+          ${node.loop_type === 'count' || !node.loop_type ? `
+            <div class="form-group">
+              <label class="form-label">循环次数</label>
+              <input type="number" class="form-input" value="${node.count || 1}" onchange="updateNode('count',parseInt(this.value))" min="1">
+            </div>
+          ` : ''}
+          ${node.loop_type === 'condition' ? `
+            <div class="form-group">
+              <label class="form-label">循环条件</label>
+              <input type="text" class="form-input" value="${node.condition || ''}" onchange="updateNode('condition',this.value)" placeholder="$node1.status === 'success'">
+            </div>
+            <div class="form-group">
+              <label class="form-label">循环模式</label>
+              <select class="form-select" onchange="updateNode('loop_mode',this.value)">
+                <option value="while" ${node.loop_mode==='while' || !node.loop_mode?'selected':''}>While (条件为真继续)</option>
+                <option value="until" ${node.loop_mode==='until'?'selected':''}>Until (条件为真停止)</option>
+              </select>
+            </div>
+          ` : ''}
+          ${node.loop_type === 'foreach' ? `
+            <div class="form-group">
+              <label class="form-label">遍历数组 (变量或JSON)</label>
+              <textarea class="form-input form-textarea" onchange="updateNode('items',this.value)" placeholder='["item1","item2"] 或 $node1.output.items'>${typeof node.items === 'string' ? node.items : JSON.stringify(node.items || [])}</textarea>
+            </div>
+          ` : ''}
+          <div class="form-group">
+            <label class="form-label">循环体节点</label>
+            <select class="form-select" onchange="updateNode('body_node',this.value)">
+              <option value="">无</option>
+              ${(state.currentWorkflow?.nodes || []).filter(n=>n.id!==node.id).map(n=>`<option value="${n.id}" ${node.body_node===n.id?'selected':''}>${n.name||n.id}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">最大迭代次数</label>
+            <input type="number" class="form-input" value="${node.max_iterations || 100}" onchange="updateNode('max_iterations',parseInt(this.value))" min="1">
+          </div>
+          <div class="form-group">
+            <label class="form-label">循环间隔(秒)</label>
+            <input type="number" class="form-input" value="${node.interval || 0}" onchange="updateNode('interval',parseInt(this.value))" min="0">
+          </div>
+        ` : ''}
+        ${node.type === 'parallel' ? `
+          <div class="form-group">
+            <label class="form-label">最大并发数</label>
+            <input type="number" class="form-input" value="${node.max_concurrency || 5}" onchange="updateNode('max_concurrency',parseInt(this.value))" min="1" max="10">
+          </div>
+          <div class="form-group">
+            <label class="form-label">失败策略</label>
+            <select class="form-select" onchange="updateNode('failure_strategy',this.value)">
+              <option value="all" ${node.failure_strategy==='all' || !node.failure_strategy?'selected':''}>全部成功才算成功</option>
+              <option value="any" ${node.failure_strategy==='any'?'selected':''}>任意成功就算成功</option>
+              <option value="majority" ${node.failure_strategy==='majority'?'selected':''}>多数成功就算成功</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">并行分支 (JSON数组)</label>
+            <textarea class="form-input form-textarea" onchange="updateNode('branches',JSON.parse(this.value))" placeholder='[{"id":"branch1","target_node":"node1"}]'>${JSON.stringify(node.branches || [], null, 2)}</textarea>
+            <div class="form-hint">格式: [{"id":"分支ID","target_node":"目标节点ID"}]</div>
+          </div>
+        ` : ''}
+        <div class="form-group">
+          <label class="form-label">超时(秒)</label>
+          <input type="number" class="form-input" value="${node.timeout || 600}" onchange="updateNode('timeout',parseInt(this.value))">
+        </div>
+        <div class="form-group">
+          <label class="form-label">成功跳转</label>
+          <select class="form-select" onchange="updateNode('on_success',this.value)">
+            <option value="">无</option>
+            ${(state.currentWorkflow?.nodes || []).filter(n=>n.id!==node.id).map(n=>`<option value="${n.id}" ${node.on_success===n.id?'selected':''}>${n.name||n.id}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">失败跳转</label>
+          <select class="form-select" onchange="updateNode('on_fail',this.value)">
+            <option value="">无</option>
+            ${(state.currentWorkflow?.nodes || []).filter(n=>n.id!==node.id).map(n=>`<option value="${n.id}" ${node.on_fail===n.id?'selected':''}>${n.name||n.id}</option>`).join('')}
+          </select>
+        </div>
+      `;
+    }
+
+    // 选择节点
+    function selectNode(id) {
+      state.selectedNode = state.currentWorkflow?.nodes?.find(n => n.id === id);
+      renderCanvas();
+      renderPropertyPanel();
+    }
+
+    // 更新节点
+    function updateNode(key, value) {
+      if (!state.selectedNode) return;
+      pushUndo();  // 保存当前状态到撤销栈
+      state.selectedNode[key] = value;
+      markDirty();  // 标记为已修改
+      renderCanvas();
+      addLog('info', `更新: ${key} = ${value}`);
+    }
+
+    // 保存工作流
+    async function saveWorkflow(silent = false) {
+      if (!state.currentWorkflow) {
+        if (!silent) showToast('warn', '请先选择工作流');
+        return;
+      }
+      try {
+        await fetch(`${API}/workflows/${state.currentWorkflow.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(state.currentWorkflow)
+        });
+        state.isDirty = false;
+        state.lastSaveTime = Date.now();
+        updateSaveIndicator();
+        if (!silent) {
+          showToast('success', '保存成功');
+          addLog('success', '工作流已保存');
+        }
+      } catch (e) {
+        if (!silent) showToast('error', '保存失败');
+      }
+    }
+
+    // 执行工作流
+    async function executeWorkflow() {
+      if (!state.currentWorkflow) {
+        showToast('warn', '请先选择工作流');
+        return;
+      }
+
+      // 检查任务配置
+      if (!taskConfig.projectPath || !taskConfig.name) {
+        showToast('warn', '请先配置任务（点击"任务配置"按钮）');
+        showTaskConfigModal();
+        return;
+      }
+
+      // 确认执行
+      const confirmed = confirm(`确认执行任务？\n\n任务名称: ${taskConfig.name}\n项目路径: ${taskConfig.projectPath}`);
+      if (!confirmed) return;
+
+      try {
+        updateStatus('running');
+        const res = await fetch(`${API}/workflows/${state.currentWorkflow.id}/executions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            input: {
+              task_description: taskConfig.description,
+              task_name: taskConfig.name
+            },
+            taskConfig: {
+              name: taskConfig.name,
+              description: taskConfig.description,
+              projectPath: taskConfig.projectPath,
+              workflowPath: taskConfig.workflowPath,
+              globalPrompt: globalConfig.globalPromptContent || ''
+            }
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          state.execution = data.data;
+          // 保存上下文文件路径
+          taskConfig.contextFilePath = data.data.contextFilePath || '';
+          connectWS(data.data.executionId);
+          document.getElementById('btnExecute').style.display = 'none';
+          document.getElementById('btnStop').style.display = 'inline-flex';
+          addLog('info', '开始执行: ' + data.data.executionId);
+          addLog('info', '上下文文件: ' + (data.data.contextFilePath || '未创建'), 'execution');
+        }
+      } catch (e) {
+        updateStatus('error');
+        showToast('error', '启动失败');
+      }
+    }
+
+    // 停止执行
+    async function stopExecution() {
+      if (!state.execution) return;
+      try {
+        await fetch(`${API}/executions/${state.execution.executionId}/stop`, { method: 'POST' });
+        addLog('warn', '执行已停止');
+        resetExecution();
+      } catch (e) {
+        showToast('error', '停止失败');
+      }
+    }
+
+    function resetExecution() {
+      document.getElementById('btnExecute').style.display = 'inline-flex';
+      document.getElementById('btnStop').style.display = 'none';
+      updateStatus('idle');
+      state.execution = null;
+      state.nodeStatus.clear();
+    }
+
+    // WebSocket
+    function connectWS(executionId) {
+      const ws = new WebSocket(`ws://${location.host}/ws/executions?executionId=${executionId}`);
+      ws.onmessage = (e) => {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'log') {
+          // 根据logType区分日志类型，默认为execution
+          const logType = msg.data.logType || 'execution';
+          addLog(msg.data.level, msg.data.message, logType);
+        }
+        else if (msg.type === 'agentMessage') {
+          // Agent交互消息
+          addAgentMessage(msg.data.agentId, msg.data.message, msg.data.messageType);
+        }
+        else if (msg.type === 'agentInteraction') {
+          // Agent间交互
+          addAgentLog(msg.data.fromAgent, msg.data.toAgent, msg.data.action, msg.data.detail);
+        }
+        else if (msg.type === 'status') {
+          if (msg.data.status === 'completed') {
+            updateStatus('success');
+            addLog('success', '执行完成');
+            resetExecution();
+          } else if (msg.data.status === 'failed') {
+            updateStatus('error');
+            addLog('error', '执行失败: ' + (msg.data.error || ''));
+            resetExecution();
+          }
+        } else if (msg.type === 'nodeStatus') {
+          state.nodeStatus.set(msg.data.nodeId, msg.data.status);
+          renderCanvas();
+        }
+      };
+      ws.onclose = () => addLog('info', '连接关闭');
+      state.ws = ws;
+    }
+
+    // 验证工作流
+    async function validateWorkflow() {
+      if (!state.currentWorkflow) {
+        showToast('warn', '请先选择工作流');
+        return;
+      }
+      try {
+        const res = await fetch(`${API}/workflows/${state.currentWorkflow.id}/validate`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          const r = data.data;
+          if (r.valid) {
+            showToast('success', '验证通过');
+            addLog('success', `验证通过 (${r.nodeCount}节点, ${r.edgeCount}连线)`);
+          } else {
+            showToast('error', `验证失败: ${r.errors.length}个错误`);
+            r.errors.forEach(e => addLog('error', e.message));
+          }
+          r.warnings.forEach(w => addLog('warn', w.message));
+        }
+      } catch (e) {
+        showToast('error', '验证失败');
+      }
+    }
+
+    // 导出YAML
+    async function exportYAML() {
+      if (!state.currentWorkflow) {
+        showToast('warn', '请先选择工作流');
+        return;
+      }
+      const res = await fetch(`${API}/workflows/${state.currentWorkflow.id}/export`);
+      const yaml = await res.text();
+      const blob = new Blob([yaml], { type: 'text/yaml' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${state.currentWorkflow.id}.yaml`;
+      a.click();
+      showToast('success', '导出成功');
+    }
+
+    // 打开执行历史面板
+    async function openHistoryPanel() {
+      const panel = document.getElementById('historyPanel');
+      panel.classList.add('show');
+      await refreshHistoryList();
+    }
+
+    // 关闭执行历史面板
+    function closeHistoryPanel() {
+      document.getElementById('historyPanel').classList.remove('show');
+    }
+
+    // 刷新历史记录列表
+    async function refreshHistoryList() {
+      const list = document.getElementById('historyList');
+      list.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+      try {
+        // 根据当前工作流过滤执行历史
+        const workflowId = state.currentWorkflow?.id;
+        const url = workflowId
+          ? `${API}/executions/records?workflowId=${workflowId}`
+          : `${API}/executions/records`;
+
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.success && data.data.length > 0) {
+          state.historyRecords = data.data;
+          list.innerHTML = data.data.map(e => `
+            <div class="history-item" data-id="${e.executionId || e.id}" onclick="selectHistoryItem('${e.executionId || e.id}')">
+              <div class="history-item-title">${e.taskConfig?.name || e.task_name || '未命名任务'}</div>
+              <div class="history-item-meta">
+                <span class="history-item-status ${e.status}">${getStatusText(e.status)}</span>
+                <span>${formatDate(e.startTime || e.created_at)}</span>
+              </div>
+            </div>
+          `).join('');
+        } else {
+          list.innerHTML = '<div class="empty-state" style="padding:20px;"><div class="title">暂无执行记录</div></div>';
+        }
+      } catch (e) {
+        list.innerHTML = '<div class="empty-state" style="padding:20px;"><div class="title">加载失败</div></div>';
+      }
+    }
+
+    // 当前选中的历史记录
+    state.historyRecords = [];
+    state.selectedHistoryId = null;
+
+    // 选择历史记录项
+    async function selectHistoryItem(executionId) {
+      // 更新选中状态
+      document.querySelectorAll('.history-item').forEach(el => {
+        el.classList.toggle('selected', el.dataset.id === executionId);
+      });
+      state.selectedHistoryId = executionId;
+
+      // 加载详情
+      const content = document.getElementById('historyDetailContent');
+      content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
+      try {
+        // 并行加载执行记录、日志和任务配置
+        const [recordRes, execLogsRes, agentLogsRes, taskConfigRes] = await Promise.all([
+          fetch(`${API}/executions/records/${executionId}`),
+          fetch(`${API}/executions/${executionId}/logs/execution`),
+          fetch(`${API}/executions/${executionId}/logs/agent`),
+          fetch(`${API}/executions/${executionId}/task-config`)
+        ]);
+
+        const recordData = await recordRes.json();
+        const execLogsData = await execLogsRes.json();
+        const agentLogsData = await agentLogsRes.json();
+        const taskConfigData = await taskConfigRes.json();
+
+        if (recordData.success) {
+          const record = recordData.data;
+
+          // 更新日志状态
+          if (execLogsData.success) {
+            state.logs.execution = execLogsData.data;
+          }
+          if (agentLogsData.success) {
+            state.logs.agent = agentLogsData.data;
+          }
+          renderLogs();
+
+          // 更新任务配置
+          if (taskConfigData.success && taskConfigData.data) {
+            taskConfig = {
+              executionId: executionId,
+              name: taskConfigData.data.name || '',
+              description: taskConfigData.data.description || '',
+              projectPath: taskConfigData.data.projectPath || '',
+              contextFilePath: record.contextFilePath || ''
+            };
+          } else if (record.taskConfig) {
+            taskConfig = {
+              executionId: executionId,
+              name: record.taskConfig.name || '',
+              description: record.taskConfig.description || '',
+              projectPath: record.taskConfig.projectPath || '',
+              contextFilePath: record.contextFilePath || ''
+            };
+          } else {
+            taskConfig = {
+              executionId: executionId,
+              name: '',
+              description: '',
+              projectPath: '',
+              contextFilePath: record.contextFilePath || ''
+            };
+          }
+
+          let detailHtml = `
+            <div class="detail-block">
+              <div class="detail-block-title">
+                <span>基本信息</span>
+                <button class="log-action-btn" onclick="restartExecution('${executionId}')">🔄 重新执行</button>
+              </div>
+              <div class="detail-block-content">
+                <p><strong>执行ID:</strong> ${record.executionId || record.id}</p>
+                <p><strong>状态:</strong> <span class="history-item-status ${record.status}">${getStatusText(record.status)}</span></p>
+                <p><strong>任务名称:</strong> ${record.taskConfig?.name || '未命名'}</p>
+                <p><strong>任务描述:</strong> ${record.taskConfig?.description || '无描述'}</p>
+                <p><strong>项目路径:</strong> ${record.taskConfig?.projectPath || '未设置'}</p>
+                <p><strong>开始时间:</strong> ${formatDate(record.startTime)}</p>
+                ${record.endTime ? `<p><strong>结束时间:</strong> ${formatDate(record.endTime)}</p>` : ''}
+              </div>
+            </div>
+          `;
+
+          // Agent执行记录
+          if (record.contextData?.agentPayloads?.length > 0) {
+            detailHtml += `
+              <div class="detail-block">
+                <div class="detail-block-title">
+                  <span>Agent执行记录 (${record.contextData.agentPayloads.length}条)</span>
+                </div>
+                <div class="detail-block-content">
+                  ${record.contextData.agentPayloads.map((p, i) => `
+                    <div class="payload-item">
+                      <div class="payload-item-header">
+                        <span><strong>Agent:</strong> ${p.agentId}</span>
+                        <span><strong>节点:</strong> ${p.nodeName}</span>
+                      </div>
+                      <div class="payload-text">${escapeHtml(p.payloadText || '(无内容)').substring(0, 500)}${(p.payloadText || '').length > 500 ? '...' : ''}</div>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            `;
+          }
+
+          content.innerHTML = detailHtml;
+        }
+      } catch (e) {
+        content.innerHTML = '<div class="empty-state" style="padding:20px;"><div class="title">加载详情失败</div></div>';
+      }
+    }
+
+    // HTML转义
+    function escapeHtml(text) {
+      if (!text) return '';
+      return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    // 显示历史(兼容旧代码)
+    async function showHistoryModal() {
+      await openHistoryPanel();
+    }
+
+    function getStatusText(status) {
+      const map = {
+        'running': '执行中',
+        'completed': '已完成',
+        'failed': '失败',
+        'stopped': '已停止'
+      };
+      return map[status] || status;
+    }
+
+    async function viewExecutionRecord(executionId) {
+      try {
+        const res = await fetch(`${API}/executions/records/${executionId}`);
+        const data = await res.json();
+        if (data.success) {
+          const record = data.data;
+          let detail = `执行ID: ${record.executionId || record.id}\n`;
+          detail += `状态: ${getStatusText(record.status)}\n`;
+          detail += `任务名称: ${record.taskConfig?.name || '未命名'}\n`;
+          detail += `项目路径: ${record.taskConfig?.projectPath || '未设置'}\n`;
+          detail += `上下文文件: ${record.contextFilePath || '未创建'}\n`;
+          detail += `开始时间: ${formatDate(record.startTime)}\n`;
+          if (record.endTime) {
+            detail += `结束时间: ${formatDate(record.endTime)}\n`;
+          }
+          if (record.contextData?.agentPayloads?.length > 0) {
+            detail += `\nAgent执行记录(${record.contextData.agentPayloads.length}条):\n`;
+            record.contextData.agentPayloads.slice(0, 3).forEach(p => {
+              detail += `  - ${p.agentId}: ${p.nodeName}\n`;
+            });
+            if (record.contextData.agentPayloads.length > 3) {
+              detail += `  ... 还有${record.contextData.agentPayloads.length - 3}条\n`;
+            }
+          }
+          alert(detail);
+        }
+      } catch (e) {
+        showToast('error', '加载详情失败');
+      }
+    }
+
+    async function restartExecution(executionId) {
+      if (!confirm('确定要重新执行此任务吗？')) return;
+
+      try {
+        const res = await fetch(`${API}/executions/records/${executionId}/restart`, {
+          method: 'POST'
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('success', '已启动重新执行');
+          closeHistoryPanel();  // 关闭历史面板
+
+          // 连接到新的执行
+          state.execution = data.data;
+          taskConfig.contextFilePath = data.data.contextFilePath || '';
+          connectWS(data.data.executionId);
+          document.getElementById('btnExecute').style.display = 'none';
+          document.getElementById('btnStop').style.display = 'inline-flex';
+          addLog('info', '重新执行: ' + data.data.executionId);
+        }
+      } catch (e) {
+        showToast('error', '重新执行失败');
+      }
+    }
+
+    async function showExecutionDetail(id) {
+      // 改用新的查看详情函数
+      await viewExecutionRecord(id);
+    }
+
+    // 创建工作流
+    async function createWorkflow() {
+      const name = document.getElementById('newWorkflowName').value;
+      if (!name) { showToast('warn', '请输入名称'); return; }
+
+      const id = 'wf_' + Date.now();
+      try {
+        await fetch(`${API}/workflows`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id,
+            name,
+            description: document.getElementById('newWorkflowDesc').value,
+            nodes: [
+              { id: 'start', type: 'start', name: '开始', position_x: 100, position_y: 100 },
+              { id: 'finish', type: 'finish', name: '结束', position_x: 500, position_y: 100 }
+            ]
+          })
+        });
+        closeModal('createModal');
+        await loadWorkflows();
+        await selectWorkflow(id);
+        showToast('success', '创建成功');
+      } catch (e) {
+        showToast('error', '创建失败');
+      }
+    }
+
+    // 添加节点
+    async function addNode() {
+      if (!state.currentWorkflow) {
+        showToast('warn', '请先选择工作流');
+        return;
+      }
+
+      const name = document.getElementById('newNodeName').value || '新节点';
+      try {
+        await fetch(`${API}/workflows/${state.currentWorkflow.id}/nodes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: state.selectedNodeType,
+            name,
+            position_x: 100 + ((state.currentWorkflow.nodes?.length || 0) % 3) * 280,
+            position_y: 100 + Math.floor((state.currentWorkflow.nodes?.length || 0) / 3) * 180
+          })
+        });
+        closeModal('addNodeModal');
+        await selectWorkflow(state.currentWorkflow.id);
+        showToast('success', '节点已添加');
+      } catch (e) {
+        showToast('error', '添加失败');
+      }
+    }
+
+    // 删除节点
+    async function deleteSelectedNode() {
+      if (!state.selectedNode) {
+        showToast('warn', '请先选择节点');
+        return;
+      }
+      if (!confirm('确定删除此节点？')) return;
+
+      try {
+        await fetch(`${API}/workflows/${state.currentWorkflow.id}/nodes/${state.selectedNode.id}`, { method: 'DELETE' });
+        state.selectedNode = null;
+        await selectWorkflow(state.currentWorkflow.id);
+        showToast('success', '节点已删除');
+      } catch (e) {
+        showToast('error', '删除失败');
+      }
+    }
+
+    // 模板
+    async function showTemplateModal() {
+      document.getElementById('templateModal').classList.add('show');
+      const list = document.getElementById('templateList');
+      try {
+        const res = await fetch(`${API}/templates`);
+        const data = await res.json();
+        if (data.success && data.data.length > 0) {
+          list.innerHTML = data.data.map(t => `
+            <div class="template-card" onclick="createFromTemplate('${t.id}')">
+              <div class="name">${t.name}</div>
+              <div class="desc">${t.description}</div>
+              <div class="meta">${t.nodeCount} 个节点</div>
+            </div>
+          `).join('');
+        } else {
+          list.innerHTML = '<div class="empty-state"><div class="title">暂无模板</div></div>';
+        }
+      } catch (e) {
+        list.innerHTML = '<div class="empty-state"><div class="title">加载失败</div></div>';
+      }
+    }
+
+    async function createFromTemplate(id) {
+      const name = prompt('请输入名称:', '新工作流');
+      if (!name) return;
+      try {
+        const res = await fetch(`${API}/templates/${id}/create-workflow`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name })
+        });
+        const data = await res.json();
+        if (data.success) {
+          closeModal('templateModal');
+          await loadWorkflows();
+          await selectWorkflow(data.data.id);
+          showToast('success', '创建成功');
+        }
+      } catch (e) {
+        showToast('error', '创建失败');
+      }
+    }
+
+    // 连线
+    let connectingFrom = null;
+    function startConnect(e, nodeId, type) {
+      e.stopPropagation();
+      connectingFrom = { nodeId, type };
+      addLog('info', `开始连线: ${nodeId} (${type})`);
+      document.getElementById('canvas').onclick = handleConnect;
+    }
+
+    async function handleConnect(e) {
+      const node = e.target.closest('.node');
+      if (node && connectingFrom) {
+        const targetId = node.id.replace('node-', '');
+        if (targetId !== connectingFrom.nodeId) {
+          try {
+            await fetch(`${API}/workflows/${state.currentWorkflow.id}/edges`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ source: connectingFrom.nodeId, target: targetId, type: connectingFrom.type })
+            });
+            await selectWorkflow(state.currentWorkflow.id);
+            showToast('success', '连线创建成功');
+          } catch (e) {
+            showToast('error', '创建连线失败');
+          }
+        }
+      }
+      connectingFrom = null;
+      document.getElementById('canvas').onclick = null;
+    }
+
+    async function deleteEdge(source, type) {
+      if (!confirm('删除此连线？')) return;
+      try {
+        await fetch(`${API}/workflows/${state.currentWorkflow.id}/edges`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ source, type })
+        });
+        await selectWorkflow(state.currentWorkflow.id);
+        showToast('success', '连线已删除');
+      } catch (e) {
+        showToast('error', '删除失败');
+      }
+    }
+
+    // 拖拽
+    let dragging = null;
+    function startDrag(e, id) {
+      if (e.button !== 0 || e.altKey) return;
+      e.stopPropagation();
+      const el = document.getElementById(`node-${id}`);
+      const rect = el.getBoundingClientRect();
+      dragging = {
+        id,
+        startX: e.clientX,
+        startY: e.clientY,
+        nodeX: parseInt(el.style.left) || 0,
+        nodeY: parseInt(el.style.top) || 0
+      };
+      document.addEventListener('mousemove', onDrag);
+      document.addEventListener('mouseup', stopDrag);
+    }
+
+    function onDrag(e) {
+      if (!dragging) return;
+      const node = state.currentWorkflow?.nodes?.find(n => n.id === dragging.id);
+      const el = document.getElementById(`node-${dragging.id}`);
+      if (node && el) {
+        const dx = (e.clientX - dragging.startX) / state.zoom;
+        const dy = (e.clientY - dragging.startY) / state.zoom;
+        node.position_x = Math.max(0, dragging.nodeX + dx);
+        node.position_y = Math.max(0, dragging.nodeY + dy);
+        el.style.left = node.position_x + 'px';
+        el.style.top = node.position_y + 'px';
+        renderEdges();
+      }
+    }
+
+    async function stopDrag() {
+      if (dragging) {
+        const node = state.currentWorkflow?.nodes?.find(n => n.id === dragging.id);
+        if (node) {
+          await fetch(`${API}/workflows/${state.currentWorkflow.id}/nodes/${dragging.id}/position`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ x: node.position_x, y: node.position_y })
+          });
+        }
+      }
+      dragging = null;
+      document.removeEventListener('mousemove', onDrag);
+      document.removeEventListener('mouseup', stopDrag);
+    }
+
+    // 节点类型选择
+    function selectNodeType(el) {
+      document.querySelectorAll('.node-type-card').forEach(c => c.classList.remove('selected'));
+      el.classList.add('selected');
+      state.selectedNodeType = el.dataset.type;
+    }
+
+    // 工具函数
+    function showCreateModal() {
+      document.getElementById('newWorkflowName').value = '';
+      document.getElementById('newWorkflowDesc').value = '';
+      document.getElementById('createModal').classList.add('show');
+    }
+
+    function showAddNodeModal() {
+      if (!state.currentWorkflow) {
+        showToast('warn', '请先选择工作流');
+        return;
+      }
+      document.getElementById('newNodeName').value = '';
+      document.getElementById('addNodeModal').classList.add('show');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('show');
+    }
+
+    // ==================== 全局配置 ====================
+    let globalConfig = {
+      openclawJsonPath: '',
+      globalPromptFile: '',
+      globalPromptContent: '',
+      feishuOpenId: '',
+      maxGlobalLoop: 3,
+      availableAgents: []
+    };
+
+    // 任务配置（每次执行前配置）
+    let taskConfig = {
+      executionId: null,    // 关联的执行ID
+      name: '',
+      description: '',
+      projectPath: '',
+      contextFilePath: ''  // 上下文文件路径（执行时生成）
+    };
+
+    function showGlobalConfigModal() {
+      // 加载当前配置到表单
+      document.getElementById('openclawJsonPath').value = globalConfig.openclawJsonPath || '';
+      document.getElementById('globalPromptFile').value = globalConfig.globalPromptFile || '';
+      document.getElementById('globalPromptContent').value = globalConfig.globalPromptContent || '';
+      document.getElementById('globalFeishuOpenId').value = globalConfig.feishuOpenId || '';
+      document.getElementById('globalMaxLoop').value = globalConfig.maxGlobalLoop || 3;
+
+      // 显示已加载的agents
+      renderAvailableAgents();
+
+      document.getElementById('globalConfigModal').classList.add('show');
+    }
+
+    function renderAvailableAgents() {
+      const container = document.getElementById('availableAgents');
+      if (globalConfig.availableAgents && globalConfig.availableAgents.length > 0) {
+        container.innerHTML = globalConfig.availableAgents.map(a =>
+          `<div class="agent-item">
+            <span class="agent-id">${a.id}</span>
+            <span class="agent-name">${a.name || ''}</span>
+          </div>`
+        ).join('');
+        document.getElementById('agentListSection').style.display = 'block';
+      } else {
+        container.innerHTML = '<span style="color:#666;">尚未加载 Agent</span>';
+        document.getElementById('agentListSection').style.display = 'block';
+      }
+    }
+
+    // 选择 openclaw.json 文件
+    async function selectOpenclawJson() {
+      openPathSelectModal({
+        mode: 'file',
+        targetId: 'openclawJsonPath',
+        title: '📁 选择 openclaw.json 配置文件',
+        filters: [{ name: 'JSON Files', extensions: ['json'] }],
+        showLocalUpload: true,
+        localFileAccept: '.json',
+        onLocalUpload: async (file) => {
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            try {
+              const json = JSON.parse(ev.target.result);
+              parseOpenclawJson(json);
+              showToast('success', '已从本地文件加载 Agent');
+            } catch (err) {
+              showToast('error', '解析 JSON 文件失败');
+            }
+          };
+          reader.readAsText(file);
+        },
+        onSelect: async (path) => {
+          await loadAgentsFromConfig();
+        }
+      });
+    }
+
+    // 从配置文件加载agents
+    async function loadAgentsFromConfig() {
+      const path = document.getElementById('openclawJsonPath').value.trim();
+      if (!path) {
+        showToast('warn', '请先输入或选择配置文件路径');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/config/load-agents`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path })
+        });
+        const data = await res.json();
+        if (data.success) {
+          globalConfig.availableAgents = data.agents || [];
+          globalConfig.openclawJsonPath = path;
+          renderAvailableAgents();
+          showToast('success', `已加载 ${globalConfig.availableAgents.length} 个 Agent`);
+        } else {
+          showToast('error', data.error || '加载失败');
+        }
+      } catch (e) {
+        showToast('error', '加载失败: ' + e.message);
+      }
+    }
+
+    // 解析 openclaw.json 内容
+    function parseOpenclawJson(json) {
+      const agents = [];
+      if (json.agents) {
+        json.agents.forEach(a => agents.push({ id: a.id || a.agentId, name: a.name || a.description || '' }));
+      } else if (json.agentIds) {
+        json.agentIds.forEach(id => agents.push({ id, name: '' }));
+      } else if (Array.isArray(json)) {
+        json.forEach(a => agents.push({ id: a.id || a.agentId, name: a.name || '' }));
+      }
+      globalConfig.availableAgents = agents;
+      renderAvailableAgents();
+      showToast('success', `已解析 ${agents.length} 个 Agent`);
+    }
+
+    // 选择提示词文件
+    async function selectPromptFile() {
+      openPathSelectModal({
+        mode: 'file',
+        targetId: 'globalPromptFile',
+        title: '📄 选择提示词文件',
+        filters: [{ name: 'Text Files', extensions: ['md', 'txt'] }],
+        showLocalUpload: true,
+        localFileAccept: '.md,.txt',
+        onLocalUpload: async (file) => {
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            document.getElementById('globalPromptContent').value = ev.target.result;
+            showToast('success', '已从本地文件加载提示词');
+          };
+          reader.readAsText(file);
+        },
+        onSelect: async (path) => {
+          await loadGlobalPrompt();
+        }
+      });
+    }
+
+    // 加载全局提示词
+    async function loadGlobalPrompt() {
+      const path = document.getElementById('globalPromptFile').value.trim();
+      if (!path) {
+        showToast('warn', '请先输入或选择提示词文件路径');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/config/load-file`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path })
+        });
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('globalPromptContent').value = data.content;
+          showToast('success', '已加载提示词文件');
+        } else {
+          showToast('error', data.error || '加载失败');
+        }
+      } catch (e) {
+        showToast('error', '加载失败: ' + e.message);
+      }
+    }
+
+    // 保存全局配置
+    async function saveGlobalConfig() {
+      globalConfig = {
+        openclawJsonPath: document.getElementById('openclawJsonPath').value.trim(),
+        globalPromptFile: document.getElementById('globalPromptFile').value.trim(),
+        globalPromptContent: document.getElementById('globalPromptContent').value,
+        feishuOpenId: document.getElementById('globalFeishuOpenId').value.trim(),
+        maxGlobalLoop: parseInt(document.getElementById('globalMaxLoop').value) || 3,
+        availableAgents: globalConfig.availableAgents || []
+      };
+
+      // 保存到localStorage
+      localStorage.setItem('openclaw_global_config', JSON.stringify(globalConfig));
+
+      // 保存到后端
+      try {
+        await fetch(`${API}/config/global`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(globalConfig)
+        });
+      } catch (e) {}
+
+      closeModal('globalConfigModal');
+      showToast('success', '全局配置已保存');
+      addLog('success', '全局配置已更新');
+    }
+
+    // 加载保存的全局配置
+    function loadSavedGlobalConfig() {
+      const saved = localStorage.getItem('openclaw_global_config');
+      if (saved) {
+        try {
+          globalConfig = JSON.parse(saved);
+        } catch (e) {
+          globalConfig = {};
+        }
+      }
+    }
+
+    // ==================== 任务配置 ====================
+
+    function showTaskConfigModal() {
+      // 检查是否选择了工作流
+      if (!state.currentWorkflow) {
+        showToast('warn', '请先选择一个工作流');
+        return;
+      }
+
+      // 加载当前任务配置
+      document.getElementById('taskName').value = taskConfig.name || '';
+      document.getElementById('taskDescription').value = taskConfig.description || '';
+      document.getElementById('taskProjectPath').value = taskConfig.projectPath || '';
+
+      document.getElementById('taskConfigModal').classList.add('show');
+    }
+
+    // 选择任务项目路径
+    async function selectTaskProjectPath() {
+      openPathSelectModal({
+        mode: 'directory',
+        targetId: 'taskProjectPath',
+        title: '📁 选择项目目录',
+        showLocalUpload: false
+      });
+    }
+
+    // 保存任务配置
+    async function saveTaskConfig() {
+      const name = document.getElementById('taskName').value.trim();
+      const description = document.getElementById('taskDescription').value.trim();
+      const projectPath = document.getElementById('taskProjectPath').value.trim();
+
+      if (!name) {
+        showToast('warn', '请输入任务名称');
+        return;
+      }
+      if (!description) {
+        showToast('warn', '请输入任务描述');
+        return;
+      }
+      if (!projectPath) {
+        showToast('warn', '请输入项目路径');
+        return;
+      }
+
+      taskConfig = {
+        ...taskConfig,
+        name,
+        description,
+        projectPath
+      };
+
+      // 如果有执行ID，保存到数据库
+      if (taskConfig.executionId && state.currentWorkflow) {
+        try {
+          await fetch(`${API}/executions/${taskConfig.executionId}/task-config`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name,
+              description,
+              projectPath,
+              workflowId: state.currentWorkflow.id
+            })
+          });
+        } catch (e) {
+          console.error('保存任务配置到数据库失败:', e);
+        }
+      }
+
+      closeModal('taskConfigModal');
+      showToast('success', '任务配置已保存');
+      addLog('success', `任务配置: ${name}`);
+    }
+
+    // 获取Agent下拉选项HTML
+    function getAgentSelectOptions(selectedId) {
+      const agents = globalConfig.availableAgents || [];
+      let html = '<option value="">请选择 Agent</option>';
+      agents.forEach(a => {
+        const selected = a.id === selectedId ? 'selected' : '';
+        html += `<option value="${a.id}" ${selected}>${a.id}${a.name ? ' - ' + a.name : ''}</option>`;
+      });
+      // 添加手动输入选项
+      if (selectedId && !agents.find(a => a.id === selectedId)) {
+        html += `<option value="${selectedId}" selected>${selectedId} (自定义)</option>`;
+      }
+      html += '<option value="__custom__">✏️ 手动输入...</option>';
+      return html;
+    }
+
+    // 处理Agent下拉选择
+    function handleAgentSelect(select) {
+      const customInput = document.getElementById('agentIdCustom');
+      if (select.value === '__custom__') {
+        select.style.display = 'none';
+        customInput.style.display = 'block';
+        customInput.focus();
+      } else if (select.value) {
+        updateNode('agent_id', select.value);
+      }
+    }
+
+    // AI 生成工作流
+    function showAiGenerateModal() {
+      document.getElementById('aiWorkflowName').value = '';
+      document.getElementById('aiWorkflowDesc').value = '';
+      document.getElementById('aiGenerateModal').classList.add('show');
+    }
+
+    function appendAiDesc(text) {
+      const textarea = document.getElementById('aiWorkflowDesc');
+      if (textarea.value && !textarea.value.endsWith('、') && !textarea.value.endsWith('，')) {
+        textarea.value += '、';
+      }
+      textarea.value += text;
+      textarea.focus();
+    }
+
+    async function generateWorkflowWithAI() {
+      const description = document.getElementById('aiWorkflowDesc').value.trim();
+      const name = document.getElementById('aiWorkflowName').value.trim();
+
+      if (!description) {
+        showToast('warn', '请描述您的需求');
+        return;
+      }
+
+      const btn = document.getElementById('aiGenerateBtn');
+      btn.disabled = true;
+      btn.textContent = '⏳ 生成中...';
+
+      try {
+        const res = await fetch(`${API}/ai/generate-workflow`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ description, name })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          const workflow = data.data;
+
+          // 保存工作流到后端
+          const saveRes = await fetch(`${API}/workflows`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(workflow)
+          });
+          const saveData = await saveRes.json();
+
+          if (saveData.success) {
+            closeModal('aiGenerateModal');
+            await loadWorkflows();
+            await selectWorkflow(workflow.id);
+            showToast('success', '工作流已生成');
+            addLog('success', `AI生成工作流: ${workflow.name}`);
+          } else {
+            showToast('error', '保存失败: ' + (saveData.error || '未知错误'));
+          }
+        } else {
+          showToast('error', '生成失败: ' + (data.error || '未知错误'));
+        }
+      } catch (e) {
+        showToast('error', '生成失败: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '✨ 生成工作流';
+      }
+    }
+
+    function getIcon(type) {
+      return { agent_execution:'🤖', api_call:'🔗', start:'▶️', finish:'⏹️', condition:'❓', human_review:'👤' }[type] || '📦';
+    }
+
+    function getTypeName(type) {
+      return { agent_execution:'Agent执行', api_call:'API调用', start:'开始', finish:'结束', condition:'条件判断', human_review:'人工审核', parallel:'并行执行', loop:'循环执行' }[type] || type;
+    }
+
+    function getNodeDesc(node) {
+      if (node.type === 'agent_execution') return node.agent_id ? `Agent: ${node.agent_id}` : '未配置 Agent';
+      if (node.type === 'api_call') return node.url || '未配置 URL';
+      return node.description || '';
+    }
+
+    function getStatusText(s) {
+      return { running:'执行中', success:'成功', failed:'失败' }[s] || '';
+    }
+
+    function updateStatus(s) {
+      const dot = document.getElementById('statusDot');
+      const text = document.getElementById('statusText');
+      dot.className = 'status-dot ' + (s === 'idle' ? '' : s);
+      text.textContent = { idle:'就绪', running:'执行中', success:'完成', error:'失败' }[s] || s;
+    }
+
+    function formatDate(d) {
+      return d ? new Date(d).toLocaleDateString('zh-CN') : '';
+    }
+
+    // ==================== UX改进功能 ====================
+
+    // 1. 键盘快捷键
+    function setupKeyboardShortcuts() {
+      document.addEventListener('keydown', (e) => {
+        // Ctrl/Cmd + S: 保存
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+          e.preventDefault();
+          saveWorkflow();
+        }
+        // Ctrl/Cmd + Z: 撤销
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+          e.preventDefault();
+          undo();
+        }
+        // Ctrl/Cmd + Shift + Z: 重做
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) {
+          e.preventDefault();
+          redo();
+        }
+        // Ctrl/Cmd + C: 复制节点
+        if ((e.ctrlKey || e.metaKey) && e.key === 'c' && state.selectedNode) {
+          e.preventDefault();
+          copyNode();
+        }
+        // Ctrl/Cmd + V: 粘贴节点
+        if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+          e.preventDefault();
+          pasteNode();
+        }
+        // Delete/Backspace: 删除选中节点
+        if ((e.key === 'Delete' || e.key === 'Backspace') && state.selectedNode) {
+          // 确保不是在输入框中
+          if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+            e.preventDefault();
+            deleteSelectedNode();
+          }
+        }
+        // Escape: 取消选择
+        if (e.key === 'Escape') {
+          state.selectedNode = null;
+          renderCanvas();
+          renderPropertyPanel();
+          closeContextMenu();
+        }
+        // Ctrl/Cmd + F: 搜索节点
+        if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+          e.preventDefault();
+          document.getElementById('searchInput').focus();
+        }
+      });
+    }
+
+    // 2. 自动保存
+    function setupAutoSave() {
+      if (state.autoSaveTimer) {
+        clearInterval(state.autoSaveTimer);
+      }
+      state.autoSaveTimer = setInterval(() => {
+        if (state.isDirty && state.currentWorkflow) {
+          saveWorkflow(true);  // true = 静默保存
+        }
+      }, 30000);  // 30秒自动保存
+    }
+
+    function markDirty() {
+      state.isDirty = true;
+      updateSaveIndicator();
+    }
+
+    function updateSaveIndicator() {
+      const indicator = document.getElementById('saveIndicator');
+      if (indicator) {
+        if (state.isDirty) {
+          indicator.textContent = '● 未保存';
+          indicator.className = 'save-indicator dirty';
+        } else {
+          indicator.textContent = state.lastSaveTime ? `✓ 已保存 ${new Date(state.lastSaveTime).toLocaleTimeString()}` : '✓ 已保存';
+          indicator.className = 'save-indicator saved';
+        }
+      }
+    }
+
+    // 3. 撤销/重做
+    function pushUndo() {
+      if (state.currentWorkflow) {
+        state.undoStack.push(JSON.stringify(state.currentWorkflow));
+        if (state.undoStack.length > state.maxUndoSize) {
+          state.undoStack.shift();
+        }
+        state.redoStack = [];  // 新操作清空重做栈
+      }
+    }
+
+    function undo() {
+      if (state.undoStack.length > 0) {
+        state.redoStack.push(JSON.stringify(state.currentWorkflow));
+        state.currentWorkflow = JSON.parse(state.undoStack.pop());
+        renderCanvas();
+        renderPropertyPanel();
+        showToast('info', '已撤销');
+      }
+    }
+
+    function redo() {
+      if (state.redoStack.length > 0) {
+        state.undoStack.push(JSON.stringify(state.currentWorkflow));
+        state.currentWorkflow = JSON.parse(state.redoStack.pop());
+        renderCanvas();
+        renderPropertyPanel();
+        showToast('info', '已重做');
+      }
+    }
+
+    // 4. 复制/粘贴节点
+    function copyNode() {
+      if (state.selectedNode) {
+        state.clipboard = JSON.parse(JSON.stringify(state.selectedNode));
+        showToast('success', '节点已复制');
+      }
+    }
+
+    function pasteNode() {
+      if (state.clipboard && state.currentWorkflow) {
+        pushUndo();
+        const newNode = {
+          ...state.clipboard,
+          id: 'node-' + Date.now(),
+          position_x: state.clipboard.position_x + 40,
+          position_y: state.clipboard.position_y + 40,
+          name: state.clipboard.name + ' (副本)'
+        };
+        state.currentWorkflow.nodes.push(newNode);
+        renderCanvas();
+        selectNode(newNode.id);
+        markDirty();
+        showToast('success', '节点已粘贴');
+      }
+    }
+
+    // 5. 节点搜索
+    function searchNodes(query) {
+      state.searchQuery = query.toLowerCase();
+      renderCanvas();
+    }
+
+    // 6. 网格吸附
+    function snapToGrid(value) {
+      if (state.gridSnap) {
+        return Math.round(value / state.gridSize) * state.gridSize;
+      }
+      return value;
+    }
+
+    // 7. 右键上下文菜单
+    function showContextMenu(event, nodeId) {
+      event.preventDefault();
+      const menu = document.getElementById('contextMenu');
+      state.contextMenuNode = nodeId;
+
+      menu.style.left = event.clientX + 'px';
+      menu.style.top = event.clientY + 'px';
+      menu.classList.add('show');
+    }
+
+    function closeContextMenu() {
+      const menu = document.getElementById('contextMenu');
+      if (menu) menu.classList.remove('show');
+      state.contextMenuNode = null;
+    }
+
+    function contextMenuAction(action) {
+      const nodeId = state.contextMenuNode;
+      closeContextMenu();
+
+      if (!nodeId) return;
+
+      switch(action) {
+        case 'edit':
+          selectNode(nodeId);
+          break;
+        case 'duplicate':
+          selectNode(nodeId);
+          copyNode();
+          pasteNode();
+          break;
+        case 'delete':
+          selectNode(nodeId);
+          deleteSelectedNode();
+          break;
+        case 'run-from':
+          if (state.currentWorkflow && confirm('是否从此节点开始执行？')) {
+            executeWorkflow(nodeId);
+          }
+          break;
+      }
+    }
+
+    // 8. 节点状态徽章
+    function getNodeStatusBadge(nodeId) {
+      const status = state.nodeStatus.get(nodeId);
+      if (!status) return '';
+
+      const statusMap = {
+        'pending': '<span class="node-badge pending">等待</span>',
+        'running': '<span class="node-badge running">执行中</span>',
+        'success': '<span class="node-badge success">成功</span>',
+        'failed': '<span class="node-badge failed">失败</span>',
+        'skipped': '<span class="node-badge skipped">跳过</span>'
+      };
+
+      return statusMap[status] || '';
+    }
+
+    // 9. 快速操作按钮
+    function showQuickActions(nodeId, event) {
+      event.stopPropagation();
+      const panel = document.getElementById('quickActions');
+      const node = state.currentWorkflow?.nodes?.find(n => n.id === nodeId);
+
+      if (!panel || !node) return;
+
+      panel.innerHTML = `
+        <button class="quick-action-btn" onclick="selectNode('${nodeId}')" title="编辑">✏️</button>
+        <button class="quick-action-btn" onclick="duplicateNodeById('${nodeId}')" title="复制">📋</button>
+        <button class="quick-action-btn danger" onclick="deleteNodeById('${nodeId}')" title="删除">🗑️</button>
+      `;
+
+      const rect = event.target.getBoundingClientRect();
+      panel.style.left = (rect.right + 5) + 'px';
+      panel.style.top = rect.top + 'px';
+      panel.classList.add('show');
+    }
+
+    function hideQuickActions() {
+      const panel = document.getElementById('quickActions');
+      if (panel) panel.classList.remove('show');
+    }
+
+    function duplicateNodeById(nodeId) {
+      selectNode(nodeId);
+      copyNode();
+      pasteNode();
+    }
+
+    function deleteNodeById(nodeId) {
+      selectNode(nodeId);
+      deleteSelectedNode();
+    }
+
+    // 10. 双击编辑节点
+    function handleNodeDoubleClick(nodeId) {
+      selectNode(nodeId);
+      // 聚焦到名称输入框
+      const nameInput = document.querySelector('.panel-body input[type="text"]');
+      if (nameInput) nameInput.focus();
+    }
+
+    // 初始化UX功能
+    function initUXFeatures() {
+      setupKeyboardShortcuts();
+      setupAutoSave();
+
+      // 点击其他地方关闭上下文菜单
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('#contextMenu')) {
+          closeContextMenu();
+        }
+        if (!e.target.closest('.quick-action-btn')) {
+          hideQuickActions();
+        }
+      });
+    }
+
+    // ==================== 结束 UX改进功能 ====================
+
+    // 渲染日志内容
+    function renderLogs() {
+      // 渲染执行日志
+      const execContent = document.getElementById('execLogContent');
+      if (execContent && state.logs.execution) {
+        execContent.innerHTML = state.logs.execution.map(l => {
+          const time = l.timestamp || l.time || new Date().toLocaleTimeString();
+          const level = l.level || 'info';
+          const msg = l.message || l.msg || '';
+          return `<div class="log-entry"><span class="log-time">${time}</span><span class="log-level ${level}">[${level.toUpperCase()}]</span><span class="log-message">${msg}</span></div>`;
+        }).join('');
+        execContent.scrollTop = execContent.scrollHeight;
+      }
+
+      // 渲染Agent日志
+      const agentContent = document.getElementById('agentLogContent');
+      if (agentContent && state.logs.agent) {
+        agentContent.innerHTML = state.logs.agent.map(l => {
+          const time = l.timestamp || l.time || new Date().toLocaleTimeString();
+          const level = l.level || 'info';
+          const msg = l.message || l.msg || '';
+          const agentId = l.agentId || '';
+          const agentPrefix = agentId ? `<span class="agent-name">🤖 ${agentId}</span>: ` : '';
+          return `<div class="log-entry"><span class="log-time">${time}</span><span class="log-level ${level}">[${level.toUpperCase()}]</span><span class="log-message">${agentPrefix}${msg}</span></div>`;
+        }).join('');
+        agentContent.scrollTop = agentContent.scrollHeight;
+      }
+
+      updateLogCounts();
+    }
+
+    // 添加日志 - type: 'execution' 或 'agent'
+    function addLog(level, msg, type = 'execution') {
+      const time = new Date().toLocaleTimeString();
+      const logEntry = { level, msg, time, type };
+
+      // 存储到对应类型的日志数组
+      if (!state.logs[type]) state.logs[type] = [];
+      state.logs[type].push(logEntry);
+
+      // 更新对应的内容区
+      const contentId = type === 'agent' ? 'agentLogContent' : 'execLogContent';
+      const content = document.getElementById(contentId);
+      if (content) {
+        content.innerHTML += `<div class="log-entry"><span class="log-time">${time}</span><span class="log-level ${level}">[${level.toUpperCase()}]</span><span class="log-message">${msg}</span></div>`;
+        content.scrollTop = content.scrollHeight;
+      }
+
+      // 更新计数
+      updateLogCounts();
+    }
+
+    // 更新日志计数显示
+    function updateLogCounts() {
+      document.getElementById('execLogCount').textContent = state.logs.execution.length;
+      document.getElementById('agentLogCount').textContent = state.logs.agent.length;
+    }
+
+    // 切换日志tab
+    function switchLogTab(tab) {
+      state.currentLogTab = tab;
+      document.querySelectorAll('.log-main-tab').forEach(t => t.classList.remove('active'));
+      event.target.closest('.log-main-tab').classList.add('active');
+
+      document.querySelectorAll('.log-content').forEach(c => c.classList.remove('active'));
+      const contentId = tab === 'agent' ? 'agentLogContent' : 'execLogContent';
+      document.getElementById(contentId).classList.add('active');
+    }
+
+    // 清空当前tab的日志
+    function clearCurrentLogs() {
+      const tab = state.currentLogTab;
+      state.logs[tab] = [];
+      const contentId = tab === 'agent' ? 'agentLogContent' : 'execLogContent';
+      document.getElementById(contentId).innerHTML = '';
+      updateLogCounts();
+    }
+
+    // 导出当前tab的日志
+    function exportCurrentLogs() {
+      const tab = state.currentLogTab;
+      const logs = state.logs[tab];
+      const text = logs.map(l => `[${l.time}] [${l.level.toUpperCase()}] ${l.msg}`).join('\n');
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${tab === 'agent' ? 'agent' : 'execution'}_log_${new Date().toISOString().slice(0,10)}.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // 添加Agent交互日志（便捷方法）
+    function addAgentLog(fromAgent, toAgent, action, detail) {
+      const msg = `<span class="agent-from">[${fromAgent}]</span> → <span class="agent-to">[${toAgent}]</span> ${action}: ${detail}`;
+      addLog('info', msg, 'agent');
+    }
+
+    // 添加Agent消息日志
+    function addAgentMessage(agentId, message, messageType = 'response') {
+      const icon = messageType === 'response' ? '📤' : messageType === 'request' ? '📥' : '💬';
+      const msg = `<span class="agent-name">${icon} ${agentId}</span>: ${message}`;
+      addLog('info', msg, 'agent');
+    }
+
+    // 面板大小调整
+    let resizing = null;
+    function startResize(e, panelId) {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      resizing = { panelId, startX: e.clientX, startY: e.clientY };
+      document.addEventListener('mousemove', onResize);
+      document.addEventListener('mouseup', stopResize);
+    }
+
+    function onResize(e) {
+      if (!resizing) return;
+      const panel = document.getElementById(resizing.panelId);
+
+      if (resizing.panelId === 'sidebar') {
+        const newWidth = Math.max(200, Math.min(400, e.clientX));
+        panel.style.width = newWidth + 'px';
+      } else if (resizing.panelId === 'rightPanel') {
+        const newWidth = Math.max(250, Math.min(500, window.innerWidth - e.clientX));
+        panel.style.width = newWidth + 'px';
+      } else if (resizing.panelId === 'logPanel') {
+        const newHeight = Math.max(100, Math.min(400, window.innerHeight - e.clientY));
+        panel.style.height = newHeight + 'px';
+      }
+    }
+
+    function stopResize() {
+      if (resizing) {
+        // 保存面板大小
+        const panel = document.getElementById(resizing.panelId);
+        const prefs = getPrefs();
+        if (resizing.panelId === 'sidebar') {
+          prefs.sidebarWidth = panel.offsetWidth;
+        } else if (resizing.panelId === 'rightPanel') {
+          prefs.rightPanelWidth = panel.offsetWidth;
+        } else if (resizing.panelId === 'logPanel') {
+          prefs.logPanelHeight = panel.offsetHeight;
+        }
+        savePrefs(prefs);
+      }
+      resizing = null;
+      document.removeEventListener('mousemove', onResize);
+      document.removeEventListener('mouseup', stopResize);
+    }
+
+    // AI 生成提示词
+    async function generatePrompt(e) {
+      e.preventDefault();
+      const btn = e.target;
+      const node = state.selectedNode;
+      if (!node) return;
+
+      btn.disabled = true;
+      btn.textContent = '⏳ 生成中...';
+
+      try {
+        const res = await fetch(`${API}/ai/generate-prompt`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nodeInfo: {
+              id: node.id,
+              name: node.name,
+              type: node.type,
+              on_success: node.on_success,
+              on_fail: node.on_fail
+            },
+            workflowContext: {
+              name: state.currentWorkflow?.name,
+              nodes: state.currentWorkflow?.nodes
+            }
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          const textarea = document.getElementById('promptTextarea');
+          if (textarea) {
+            textarea.value = data.data.prompt;
+            updateNode('prompt', data.data.prompt);
+          }
+          showToast('success', '提示词已生成');
+        }
+      } catch (e) {
+        showToast('error', '生成失败: ' + e.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '✨ AI生成';
+      }
+    }
+
+    function showToast(type, msg) {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.textContent = msg;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+  </script>
+</body>
+</html>

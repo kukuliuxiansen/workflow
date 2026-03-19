@@ -1,0 +1,56 @@
+server:
+  port: 3001
+
+spring:
+  application:
+    name: workflow-engine
+  datasource:
+    url: jdbc:sqlite:${user.dir}/data/workflow.db
+    driver-class-name: org.sqlite.JDBC
+  jpa:
+    database-platform: org.sqlite.hibernate.dialect.SQLiteDialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+  jackson:
+    date-format: yyyy-MM-dd'T'HH:mm:ss
+    time-zone: Asia/Shanghai
+    serialization:
+      write-dates-as-timestamps: false
+    property-naming-strategy: SNAKE_CASE
+
+# OpenClaw配置
+openclaw:
+  enabled: true
+  base-url: http://localhost:8080
+  api-key: ${OPENCLAW_API_KEY:}
+
+# 飞书配置
+feishu:
+  enabled: true
+  app-id: ${FEISHU_APP_ID:}
+  app-secret: ${FEISHU_APP_SECRET:}
+  webhook-url: ${FEISHU_WEBHOOK_URL:}
+
+# 工作流配置
+workflow:
+  executions-dir: ${user.dir}/executions
+  workflows-dir: ${user.dir}/workflows
+  logs-dir: ${user.dir}/logs
+  max-retries: 3
+  max-global-retries: 10
+  max-global-loop: 100
+
+# AI配置
+ai:
+  base-url: https://coding.dashscope.aliyuncs.com/v1
+  api-key: ${AI_API_KEY:}
+  model: qwen3-max-2026-01-23
+
+logging:
+  level:
+    root: INFO
+    com.openclaw: DEBUG
+  file:
+    name: ${user.dir}/logs/app.log

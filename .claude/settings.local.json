@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//usr/local/bin/**)",
+      "Read(//opt/homebrew/bin/**)",
+      "Bash(find / -name claude -type f)",
+      "Bash(source ~/.zshrc)",
+      "Bash(zsh -c \"source ~/.zshrc && which claude\")",
+      "Bash(zsh -c \"source ~/.zshrc && claude --version\")",
+      "Bash(npm list:*)",
+      "Bash(npm config:*)",
+      "Bash(node /Users/weidian/.npm-global/lib/node_modules/@anthropic-ai/claude-code/cli.js --help)",
+      "Bash(/Users/weidian/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/arm64-darwin/rg --version)",
+      "Bash(ls -la /Users/weidian/.npm-global/lib/node_modules/@anthropic-ai/claude-code/*.mjs /Users/weidian/.npm-global/lib/node_modules/@anthropic-ai/claude-code/*.js)",
+      "Bash(npm install:*)"
+    ]
+  }
+}
