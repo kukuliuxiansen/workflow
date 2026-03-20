@@ -741,6 +741,22 @@
     .toast.error { border-left: 3px solid #f44; }
     .toast.warn { border-left: 3px solid #fb5; }
     .toast.info { border-left: 3px solid #6b5ce7; }
+    .toast-msg { flex: 1; word-break: break-word; }
+    .toast-copy-btn {
+      padding: 2px 8px;
+      background: #444;
+      border: 1px solid #555;
+      border-radius: 4px;
+      color: #aaa;
+      font-size: 11px;
+      cursor: pointer;
+      margin-left: 8px;
+      transition: all 0.2s;
+    }
+    .toast-copy-btn:hover {
+      background: #555;
+      color: #fff;
+    }
 
     /* Modal - ComfyUI风格 */
     .modal-overlay {
@@ -3148,6 +3164,7 @@
       loadSavedGlobalConfig();  // 加载全局配置
       await loadWorkflows();  // 等待工作流加载完成
       initUXFeatures();  // 初始化UX功能
+      refreshOperationLogs();  // 加载操作日志
 
       // 恢复上次选择的工作流
       const prefs = getPrefs();
@@ -3542,11 +3559,22 @@
           prefs.lastWorkflowId = id;
           savePrefs(prefs);
 
-          // 自动加载该工作流的最新执行历史
-          await loadLatestExecutionHistory(id);
+          // 自动加载该工作流的最新执行历史（不阻塞，独立处理错误）
+          loadLatestExecutionHistory(id).catch(e => {
+            console.error('加载执行历史失败:', e);
+          });
+        } else {
+          // 工作流不存在，清除保存的ID
+          const prefs = getPrefs();
+          if (prefs.lastWorkflowId === id) {
+            prefs.lastWorkflowId = null;
+            savePrefs(prefs);
+          }
+          showToast('warn', '工作流不存在或已被删除');
         }
       } catch (e) {
-        showToast('error', '加载失败');
+        console.error('selectWorkflow error:', e);
+        showToast('error', '加载失败: ' + e.message);
       }
     }
 
@@ -3900,10 +3928,16 @@
 
     // 更新任务配置显示
     function updateTaskConfigDisplay() {
-      document.getElementById('displayExecutionId').textContent = taskConfig.executionId || '-';
-      document.getElementById('displayTaskName').textContent = taskConfig.name || '-';
-      document.getElementById('displayTaskDesc').textContent = taskConfig.description || '-';
-      document.getElementById('displayProjectPath').textContent = taskConfig.projectPath || '-';
+      const elements = {
+        displayExecutionId: taskConfig.executionId || '-',
+        displayTaskName: taskConfig.name || '-',
+        displayTaskDesc: taskConfig.description || '-',
+        displayProjectPath: taskConfig.projectPath || '-'
+      };
+      for (const [id, value] of Object.entries(elements)) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+      }
     }
 
     // 保存当前任务配置
@@ -6011,9 +6045,12 @@
 
     // 更新日志计数显示
     function updateLogCounts() {
-      document.getElementById('execLogCount').textContent = state.logs.execution.length;
-      document.getElementById('agentLogCount').textContent = state.logs.agent.length;
-      document.getElementById('opLogCount').textContent = state.operationLogs.length;
+      const el1 = document.getElementById('execLogCount');
+      const el2 = document.getElementById('agentLogCount');
+      const el3 = document.getElementById('opLogCount');
+      if (el1) el1.textContent = state.logs.execution.length;
+      if (el2) el2.textContent = state.logs.agent.length;
+      if (el3) el3.textContent = state.operationLogs.length;
     }
 
     // 切换日志tab
@@ -7191,9 +7228,16 @@
       const container = document.getElementById('toastContainer');
       const toast = document.createElement('div');
       toast.className = `toast ${type}`;
-      toast.innerHTML = `<span style="margin-right:8px;">${type === 'success' ? '✓' : type === 'error' ? '✕' : type === 'warn' ? '⚠' : 'ℹ'}</span>${msg}`;
+      const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : type === 'warn' ? '⚠' : 'ℹ';
+      const duration = type === 'error' ? 5000 : 2000; // 错误弹窗显示5秒，其他2秒
+
+      toast.innerHTML = `
+        <span style="margin-right:8px;">${icon}</span>
+        <span class="toast-msg">${msg}</span>
+        ${type === 'error' ? `<button class="toast-copy-btn" onclick="navigator.clipboard.writeText('${msg.replace(/'/g, "\\'")}');this.textContent='已复制';setTimeout(()=>this.textContent='复制',1500);" title="复制错误信息">复制</button>` : ''}
+      `;
       container.appendChild(toast);
-      setTimeout(() => toast.remove(), 3000);
+      setTimeout(() => toast.remove(), duration);
     }
 
     // 确认对话框（替代confirm）
