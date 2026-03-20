@@ -2140,6 +2140,9 @@
           <button class="log-main-tab active" onclick="switchLogTab('execution')">
             执行日志<span class="badge" id="execLogCount">0</span>
           </button>
+          <button class="log-main-tab" onclick="switchLogTab('api')">
+            API日志<span class="badge" id="apiLogCount">0</span>
+          </button>
           <button class="log-main-tab" onclick="switchLogTab('agent')">
             Agent交互<span class="badge" id="agentLogCount">0</span>
           </button>
@@ -2155,6 +2158,7 @@
       </div>
       <div class="log-content-wrapper">
         <div class="log-content active" id="execLogContent"></div>
+        <div class="log-content" id="apiLogContent"></div>
         <div class="log-content" id="agentLogContent"></div>
         <div class="log-content" id="operationLogContent">
           <div class="op-log-filters" style="padding:8px;background:#252525;border-bottom:1px solid #3a3a3a;">
@@ -2512,6 +2516,14 @@
               <div class="icon">🔄</div>
               <div class="name">循环执行</div>
             </div>
+            <div class="node-type-card" data-type="start" onclick="selectNodeType(this)">
+              <div class="icon">▶️</div>
+              <div class="name">开始节点</div>
+            </div>
+            <div class="node-type-card" data-type="finish" onclick="selectNodeType(this)">
+              <div class="icon">⏹️</div>
+              <div class="name">结束节点</div>
+            </div>
           </div>
         </div>
       </div>
@@ -2622,6 +2634,107 @@
     });
 
     const API = '/api';
+
+    // API调用日志记录
+    const apiLogs = [];
+    const MAX_API_LOGS = 500;
+
+    // 封装fetch，自动记录API调用日志
+    async function apiFetch(url, options = {}) {
+      const startTime = Date.now();
+      const method = options.method || 'GET';
+      const requestBody = options.body ? (typeof options.body === 'string' ? JSON.parse(options.body) : options.body) : null;
+
+      let response, data, error = null;
+
+      try {
+        response = await fetch(url, options);
+        const text = await response.text();
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          data = text;
+        }
+      } catch (e) {
+        error = e.message;
+      }
+
+      const endTime = Date.now();
+      const duration = endTime - startTime;
+
+      // 记录API日志
+      const logEntry = {
+        timestamp: new Date().toLocaleTimeString(),
+        method,
+        url: url.replace(API, ''),  // 简化URL显示
+        fullUrl: url,
+        request: requestBody,
+        response: data,
+        status: response?.status || (error ? 'ERROR' : 'N/A'),
+        duration: duration + 'ms',
+        error
+      };
+
+      apiLogs.unshift(logEntry);
+      if (apiLogs.length > MAX_API_LOGS) {
+        apiLogs.pop();
+      }
+
+      // 更新API日志显示
+      renderApiLogs();
+
+      if (error) {
+        throw new Error(error);
+      }
+
+      return { ok: response?.ok, status: response?.status, data, json: () => Promise.resolve(data) };
+    }
+
+    // 渲染API日志
+    function renderApiLogs() {
+      const container = document.getElementById('apiLogContent');
+      if (!container) return;
+
+      if (apiLogs.length === 0) {
+        container.innerHTML = '<div class="empty-state" style="text-align:center;padding:20px;color:#888;">暂无API调用日志</div>';
+        return;
+      }
+
+      container.innerHTML = apiLogs.map((log, idx) => {
+        const statusColor = log.status === 200 ? '#4CAF50' : (log.error ? '#f44336' : '#FF9800');
+        const methodColor = log.method === 'GET' ? '#4CAF50' : (log.method === 'POST' ? '#2196F3' : (log.method === 'DELETE' ? '#f44336' : '#FF9800'));
+
+        return `
+          <div class="api-log-item" style="padding:10px;border-bottom:1px solid #333;font-size:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="background:${methodColor};color:#fff;padding:2px 6px;border-radius:3px;font-size:11px;font-weight:bold;">${log.method}</span>
+                <span style="color:#89b4fa;font-family:monospace;">${log.url}</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="background:${statusColor};color:#fff;padding:2px 6px;border-radius:3px;font-size:11px;">${log.status}</span>
+                <span style="color:#888;font-size:11px;">${log.duration}</span>
+              </div>
+            </div>
+            <div style="font-size:11px;color:#888;">${log.timestamp}</div>
+            ${log.request ? `
+              <details style="margin-top:6px;">
+                <summary style="cursor:pointer;color:#4CAF50;font-weight:500;">📤 请求参数</summary>
+                <pre style="background:#1a1a1a;padding:8px;margin:6px 0;border-radius:4px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;font-size:11px;color:#a6e3a1;">${escapeHtml(JSON.stringify(log.request, null, 2))}</pre>
+              </details>
+            ` : ''}
+            ${log.response ? `
+              <details style="margin-top:4px;">
+                <summary style="cursor:pointer;color:#2196F3;font-weight:500;">📥 响应数据</summary>
+                <pre style="background:#1a1a1a;padding:8px;margin:6px 0;border-radius:4px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;font-size:11px;color:#89b4fa;max-height:300px;">${escapeHtml(typeof log.response === 'string' ? log.response : JSON.stringify(log.response, null, 2))}</pre>
+              </details>
+            ` : ''}
+            ${log.error ? `<div style="color:#f44336;margin-top:6px;padding:6px;background:rgba(244,67,54,0.1);border-radius:4px;">❌ ${escapeHtml(log.error)}</div>` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
     const state = {
       workflows: [],
       folders: [],           // 文件夹列表
@@ -6048,9 +6161,11 @@
       const el1 = document.getElementById('execLogCount');
       const el2 = document.getElementById('agentLogCount');
       const el3 = document.getElementById('opLogCount');
+      const el4 = document.getElementById('apiLogCount');
       if (el1) el1.textContent = state.logs.execution.length;
       if (el2) el2.textContent = state.logs.agent.length;
       if (el3) el3.textContent = state.operationLogs.length;
+      if (el4) el4.textContent = apiLogs.length;
     }
 
     // 切换日志tab
@@ -6060,12 +6175,17 @@
       event.target.closest('.log-main-tab').classList.add('active');
 
       document.querySelectorAll('.log-content').forEach(c => c.classList.remove('active'));
-      const contentId = tab === 'agent' ? 'agentLogContent' : (tab === 'operation' ? 'operationLogContent' : 'execLogContent');
+      let contentId = 'execLogContent';
+      if (tab === 'agent') contentId = 'agentLogContent';
+      else if (tab === 'operation') contentId = 'operationLogContent';
+      else if (tab === 'api') contentId = 'apiLogContent';
       document.getElementById(contentId).classList.add('active');
 
       // 如果切换到操作日志tab，刷新日志
       if (tab === 'operation') {
         refreshOperationLogs();
+      } else if (tab === 'api') {
+        renderApiLogs();
       }
     }
 
