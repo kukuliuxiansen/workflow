@@ -3472,9 +3472,26 @@
           state.currentWorkflow = data.data;
           state.selectedNode = null;
 
-          // 清空当前日志和任务配置
+          // 清空当前日志
           state.logs = { execution: [], agent: [] };
           state.selectedHistoryId = null;
+
+          // 从工作流数据中加载任务配置
+          if (state.currentWorkflow.taskConfig) {
+            taskConfig = {
+              executionId: null,
+              ...state.currentWorkflow.taskConfig
+            };
+          } else {
+            taskConfig = {
+              executionId: null,
+              name: '',
+              description: '',
+              projectPath: '',
+              contextFilePath: ''
+            };
+          }
+          updateTaskConfigDisplay();
 
           renderWorkflowList();
           renderCanvas();
@@ -3508,17 +3525,8 @@
           await selectHistoryItemMini(latest.executionId || latest.id);
           // 切换到历史标签页
           switchRightPanelTab('history');
-        } else {
-          // 没有执行历史，清空任务配置
-          taskConfig = {
-            executionId: null,
-            name: '',
-            description: '',
-            projectPath: '',
-            contextFilePath: ''
-          };
-          updateTaskConfigDisplay();
         }
+        // 不再清空任务配置，保持从工作流加载的配置
       } catch (e) {
         console.error('加载执行历史失败:', e);
       }
@@ -5412,27 +5420,21 @@
         projectPath
       };
 
-      // 如果有执行ID，保存到数据库
-      if (taskConfig.executionId && state.currentWorkflow) {
-        try {
-          await fetch(`${API}/executions/${taskConfig.executionId}/task-config`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name,
-              description,
-              projectPath,
-              workflowId: state.currentWorkflow.id
-            })
-          });
-        } catch (e) {
-          console.error('保存任务配置到数据库失败:', e);
-        }
+      // 保存到工作流数据中
+      if (state.currentWorkflow) {
+        state.currentWorkflow.taskConfig = {
+          name,
+          description,
+          projectPath
+        };
+        // 自动保存工作流
+        await saveWorkflow(true);
       }
 
       closeModal('taskConfigModal');
       showToast('success', '任务配置已保存');
       addLog('success', `任务配置: ${name}`);
+      updateTaskConfigDisplay();
     }
 
     // 获取Agent下拉选项HTML

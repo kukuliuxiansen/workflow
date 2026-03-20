@@ -273,7 +273,8 @@ public class AIService {
                     String nodeName = (String) nodeData.get("name");
                     if (nodeName == null) nodeName = (String) nodeData.get("nodeName");
                     if (nodeName == null) nodeName = (String) nodeData.get("label");
-                    if (nodeName == null) nodeName = nodeId;
+                    // 如果没有名称，从ID生成友好的名称（如 validate_order -> 验证订单）
+                    if (nodeName == null) nodeName = generateFriendlyName(nodeId);
                     node.setName(nodeName);
 
                     node.setType(parseNodeType((String) nodeData.get("type")));
@@ -409,6 +410,72 @@ public class AIService {
             case "human_review": return WorkflowNode.NodeType.HUMAN_REVIEW;
             default: return WorkflowNode.NodeType.AGENT_EXECUTION;
         }
+    }
+
+    /**
+     * 从节点ID生成友好的中文名称
+     * 如: validate_order -> 验证订单, check_stock -> 检查库存
+     */
+    private String generateFriendlyName(String nodeId) {
+        if (nodeId == null || nodeId.isEmpty()) return "节点";
+
+        // 特殊节点
+        if ("start".equalsIgnoreCase(nodeId)) return "开始";
+        if ("finish".equalsIgnoreCase(nodeId)) return "结束";
+
+        // 常见英文词汇翻译映射
+        Map<String, String> wordMap = new HashMap<>();
+        wordMap.put("validate", "验证");
+        wordMap.put("check", "检查");
+        wordMap.put("process", "处理");
+        wordMap.put("create", "创建");
+        wordMap.put("send", "发送");
+        wordMap.put("notify", "通知");
+        wordMap.put("review", "审核");
+        wordMap.put("calculate", "计算");
+        wordMap.put("update", "更新");
+        wordMap.put("delete", "删除");
+        wordMap.put("get", "获取");
+        wordMap.put("post", "提交");
+        wordMap.put("order", "订单");
+        wordMap.put("stock", "库存");
+        wordMap.put("payment", "支付");
+        wordMap.put("user", "用户");
+        wordMap.put("email", "邮箱");
+        wordMap.put("code", "验证码");
+        wordMap.put("welcome", "欢迎");
+        wordMap.put("verification", "验证");
+        wordMap.put("inventory", "库存");
+        wordMap.put("price", "价格");
+        wordMap.put("condition", "条件");
+        wordMap.put("result", "结果");
+        wordMap.put("success", "成功");
+        wordMap.put("failed", "失败");
+        wordMap.put("fail", "失败");
+        wordMap.put("insufficient", "不足");
+        wordMap.put("article", "文章");
+        wordMap.put("content", "内容");
+        wordMap.put("quality", "质量");
+        wordMap.put("publish", "发布");
+        wordMap.put("reject", "拒绝");
+        wordMap.put("analyze", "分析");
+        wordMap.put("analysis", "分析");
+
+        // 分割ID并翻译
+        String[] parts = nodeId.split("_");
+        StringBuilder name = new StringBuilder();
+        for (String part : parts) {
+            String translated = wordMap.get(part.toLowerCase());
+            if (translated != null) {
+                name.append(translated);
+            } else if (part.length() > 0) {
+                // 首字母大写
+                name.append(Character.toUpperCase(part.charAt(0)))
+                    .append(part.substring(1));
+            }
+        }
+
+        return name.length() > 0 ? name.toString() : nodeId;
     }
 
     private WorkflowDto createFallbackWorkflow(String description, String name) {
