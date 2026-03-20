@@ -114,11 +114,34 @@ public class WorkflowNode {
     }
 
     /**
+     * 从数据库加载后，将config解析到extraConfig
+     */
+    @PostLoad
+    public void loadConfigFromDb() {
+        if (config != null && !config.isEmpty()) {
+            try {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> configMap = objectMapper.readValue(config, Map.class);
+                extraConfig.putAll(configMap);
+            } catch (Exception e) {
+                // 解析失败，忽略
+            }
+        }
+    }
+
+    /**
      * 将extraConfig序列化到config字段（保存前调用）
      */
     @PrePersist
     @PreUpdate
     public void saveExtraConfigToDb() {
+        serializeExtraConfig();
+    }
+
+    /**
+     * 手动序列化extraConfig到config字段
+     */
+    public void serializeExtraConfig() {
         if (!extraConfig.isEmpty()) {
             try {
                 this.config = objectMapper.writeValueAsString(extraConfig);

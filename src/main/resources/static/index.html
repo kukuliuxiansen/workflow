@@ -1625,31 +1625,6 @@
       margin-top: 4px;
     }
 
-    /* 小地图 */
-    .minimap {
-      position: absolute;
-      bottom: 60px;
-      right: 20px;
-      width: 150px;
-      height: 100px;
-      background: rgba(30,30,30,0.9);
-      border: 1px solid #3a3a3a;
-      border-radius: 6px;
-      overflow: hidden;
-    }
-    .minimap-viewport {
-      position: absolute;
-      border: 2px solid #4a6aff;
-      background: rgba(74,106,255,0.1);
-    }
-    .minimap-node {
-      position: absolute;
-      width: 6px;
-      height: 4px;
-      background: #666;
-      border-radius: 1px;
-    }
-
     /* 节点高亮效果 */
     .node.highlight {
       animation: highlight-pulse 0.5s ease-out;
@@ -1822,36 +1797,6 @@
     /* 多选节点样式 */
     .node.selected-multi {
       box-shadow: 0 0 0 2px #89b4fa, 0 4px 12px rgba(0,0,0,0.3);
-    }
-
-    /* 小地图 */
-    .minimap {
-      position: absolute;
-      right: 10px;
-      bottom: 50px;
-      width: 180px;
-      height: 120px;
-      background: #1a1a1a;
-      border: 1px solid #3a3a3a;
-      border-radius: 6px;
-      overflow: hidden;
-      z-index: 100;
-      transition: opacity 0.2s;
-    }
-    .minimap.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-    .minimap-viewport {
-      position: absolute;
-      border: 2px solid #89b4fa;
-      background: rgba(137, 180, 250, 0.1);
-      pointer-events: none;
-    }
-    .minimap-node {
-      position: absolute;
-      background: #4a4a6a;
-      border-radius: 2px;
     }
 
     /* 节点颜色样式 */
@@ -2147,11 +2092,6 @@
         <span class="zoom-level" id="zoomLevel">100%</span>
         <button class="zoom-btn" onclick="zoomIn()">+</button>
         <button class="zoom-btn" onclick="zoomReset()">⟲</button>
-      </div>
-      <!-- 小地图 -->
-      <div class="minimap" id="minimap">
-        <canvas id="minimapCanvas" width="180" height="120"></canvas>
-        <div class="minimap-viewport" id="minimapViewport"></div>
       </div>
       <!-- 画布信息统计 -->
       <div class="canvas-info" id="canvasInfo">
@@ -2715,7 +2655,9 @@
 
       // 只记录API调用（排除静态资源等）
       if (typeof url === 'string' && url.startsWith(API)) {
+        const traceId = 'TRC-' + Date.now() + '-' + Math.random().toString(16).slice(2, 6);
         const logEntry = {
+          traceId,
           timestamp: new Date().toLocaleTimeString(),
           method,
           url: url.replace(API, ''),
@@ -2770,7 +2712,10 @@
                 <span style="color:#888;font-size:11px;">${log.duration}</span>
               </div>
             </div>
-            <div style="font-size:11px;color:#888;">${log.timestamp}</div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:#888;">
+              <span style="font-family:monospace;color:#6b5ce7;">${log.traceId || '-'}</span>
+              <span>${log.timestamp}</span>
+            </div>
             ${log.request ? `
               <details style="margin-top:6px;">
                 <summary style="cursor:pointer;color:#4CAF50;font-weight:500;">📤 请求参数</summary>
@@ -7656,13 +7601,11 @@
       const container = document.getElementById('toastContainer');
       const toast = document.createElement('div');
       toast.className = `toast ${type}`;
-      const icon = type === 'success' ? '✓' : type === 'error' ? '✕' : type === 'warn' ? '⚠' : 'ℹ';
       const duration = type === 'error' ? 5000 : 2000; // 错误弹窗显示5秒，其他2秒
 
       toast.innerHTML = `
-        <span style="margin-right:8px;">${icon}</span>
         <span class="toast-msg">${msg}</span>
-        ${type === 'error' ? `<button class="toast-copy-btn" onclick="navigator.clipboard.writeText('${msg.replace(/'/g, "\\'")}');this.textContent='已复制';setTimeout(()=>this.textContent='复制',1500);" title="复制错误信息">复制</button>` : ''}
+        ${type === 'error' ? `<button class="toast-copy-btn" onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent);this.textContent='已复制';setTimeout(()=>this.textContent='复制',1500);">复制</button>` : ''}
       `;
       container.appendChild(toast);
       setTimeout(() => toast.remove(), duration);
