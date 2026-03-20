@@ -32,7 +32,7 @@ public class WorkflowController {
 
     @Operation(summary = "获取工作流列表")
     @GetMapping
-    public ApiResponse<List<Workflow>> list(
+    public ApiResponse<List<WorkflowListItem>> list(
             @RequestParam(required = false) String folderId) {
         List<Workflow> workflows;
         if (folderId != null) {
@@ -40,7 +40,60 @@ public class WorkflowController {
         } else {
             workflows = workflowService.findAll();
         }
-        return ApiResponse.success(workflows);
+
+        // 转换为包含节点数量的DTO
+        List<WorkflowListItem> items = new java.util.ArrayList<>();
+        for (Workflow w : workflows) {
+            WorkflowListItem item = new WorkflowListItem();
+            item.setId(w.getId());
+            item.setName(w.getName());
+            item.setDescription(w.getDescription());
+            item.setVersion(w.getVersion());
+            item.setStatus(w.getStatus());
+            item.setFolderId(w.getFolderId());
+            item.setCreatedAt(w.getCreatedAt());
+            item.setUpdatedAt(w.getUpdatedAt());
+            // 查询节点数量
+            int nodeCount = nodeRepository.findByWorkflowIdOrderByCreatedAtAsc(w.getId()).size();
+            item.setNodeCount(nodeCount);
+            items.add(item);
+        }
+
+        return ApiResponse.success(items);
+    }
+
+    /**
+     * 工作流列表项DTO（包含节点数量）
+     */
+    public static class WorkflowListItem {
+        private String id;
+        private String name;
+        private String description;
+        private String version;
+        private Workflow.WorkflowStatus status;
+        private String folderId;
+        private java.time.LocalDateTime createdAt;
+        private java.time.LocalDateTime updatedAt;
+        private int nodeCount;
+
+        public String getId() { return id; }
+        public void setId(String id) { this.id = id; }
+        public String getName() { return name; }
+        public void setName(String name) { this.name = name; }
+        public String getDescription() { return description; }
+        public void setDescription(String description) { this.description = description; }
+        public String getVersion() { return version; }
+        public void setVersion(String version) { this.version = version; }
+        public Workflow.WorkflowStatus getStatus() { return status; }
+        public void setStatus(Workflow.WorkflowStatus status) { this.status = status; }
+        public String getFolderId() { return folderId; }
+        public void setFolderId(String folderId) { this.folderId = folderId; }
+        public java.time.LocalDateTime getCreatedAt() { return createdAt; }
+        public void setCreatedAt(java.time.LocalDateTime createdAt) { this.createdAt = createdAt; }
+        public java.time.LocalDateTime getUpdatedAt() { return updatedAt; }
+        public void setUpdatedAt(java.time.LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+        public int getNodeCount() { return nodeCount; }
+        public void setNodeCount(int nodeCount) { this.nodeCount = nodeCount; }
     }
 
     @Operation(summary = "获取工作流详情")

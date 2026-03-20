@@ -3234,6 +3234,7 @@
 
     // 渲染单个工作流项
     function renderWorkflowItem(w) {
+      const nodeCount = w.nodeCount ?? w.nodes?.length ?? '-';
       return `
         <div class="workflow-item ${state.currentWorkflow?.id === w.id ? 'active' : ''}"
              data-id="${w.id}"
@@ -3243,7 +3244,7 @@
              onclick="selectWorkflow('${w.id}')">
           <div class="workflow-item-content">
             <div class="name">${w.name}</div>
-            <div class="meta">${w.nodeCount} 个节点 · ${formatDate(w.updatedAt)}</div>
+            <div class="meta">${nodeCount} 个节点 · ${formatDate(w.updated_at || w.updatedAt)}</div>
           </div>
           <div class="workflow-actions">
             <button class="workflow-action-btn" onclick="event.stopPropagation(); cloneWorkflow('${w.id}')" title="克隆">📋</button>
