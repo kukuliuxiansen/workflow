@@ -60,8 +60,27 @@ public class WorkflowEngine {
         this.executionRepository = executionRepository;
     }
 
+    private void resetEngineState() {
+        this.executionId = null;
+        this.workflowId = null;
+        this.status = ExecutionStatus.PENDING;
+        this.currentNodeId = null;
+        this.previousNodeId = null;
+        this.nodeRetryCount.clear();
+        this.globalRetryCount = 0;
+        this.globalLoopCount = 0;
+        this.isPaused = false;
+        this.isWaitingRetry = false;
+        this.isStopped = false;
+        this.options = new ExecutionOptions();
+        logger.debug("引擎状态已重置");
+    }
+
     public ExecutionResult execute(String workflowId, String startNodeId,
                                     Map<String, Object> input, ExecutionOptions options) {
+        // 重置引擎状态（解决单例Bean状态复用问题）
+        resetEngineState();
+
         this.workflowId = workflowId;
         this.options = options != null ? options : new ExecutionOptions();
         this.executionId = this.options.getExecutionId() != null ?
@@ -195,7 +214,7 @@ public class WorkflowEngine {
         if ("success".equals(resultStatus) || "completed".equals(resultStatus)) {
             nodeRetryCount.put(node.getId(), 0);
 
-            Optional<WorkflowEdge> edge = edgeRepository.findBySourceNodeId(node.getId())
+            Optional<WorkflowEdge> edge = edgeRepository.findByWorkflowIdAndSourceNodeId(workflowId, node.getId())
                     .stream()
                     .filter(e -> e.getEdgeType() == WorkflowEdge.EdgeType.SUCCESS)
                     .findFirst();
@@ -210,7 +229,7 @@ public class WorkflowEngine {
                 return null;
             }
 
-            Optional<WorkflowEdge> edge = edgeRepository.findBySourceNodeId(node.getId())
+            Optional<WorkflowEdge> edge = edgeRepository.findByWorkflowIdAndSourceNodeId(workflowId, node.getId())
                     .stream()
                     .filter(e -> e.getEdgeType() == WorkflowEdge.EdgeType.FAIL)
                     .findFirst();
@@ -322,7 +341,7 @@ public class WorkflowEngine {
         }
 
         for (WorkflowNode node : nodes) {
-            List<WorkflowEdge> incoming = edgeRepository.findByTargetNodeId(node.getId());
+            List<WorkflowEdge> incoming = edgeRepository.findByWorkflowIdAndTargetNodeId(workflow.getId(), node.getId());
             if (incoming.isEmpty()) {
                 return node.getId();
             }

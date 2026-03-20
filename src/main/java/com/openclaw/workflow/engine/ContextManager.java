@@ -27,6 +27,16 @@ public class ContextManager {
      * 初始化上下文
      */
     public void init(Map<String, Object> input, Map<String, Object> workflowInput) {
+        // 重置状态（解决单例Bean状态复用问题）
+        this.input.clear();
+        this.nodeOutputs.clear();
+        this.variables.clear();
+        this.previousNodeId = null;
+        this.taskName = null;
+        this.taskDescription = null;
+        this.projectPath = null;
+        this.globalPrompt = null;
+
         if (input != null) {
             this.input.putAll(input);
         }

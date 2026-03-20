@@ -16,6 +16,10 @@ public interface WorkflowEdgeRepository extends JpaRepository<WorkflowEdge, Stri
 
     List<WorkflowEdge> findByTargetNodeId(String targetNodeId);
 
+    List<WorkflowEdge> findByWorkflowIdAndSourceNodeId(String workflowId, String sourceNodeId);
+
+    List<WorkflowEdge> findByWorkflowIdAndTargetNodeId(String workflowId, String targetNodeId);
+
     Optional<WorkflowEdge> findByWorkflowIdAndId(String workflowId, String id);
 
     void deleteByWorkflowId(String workflowId);
