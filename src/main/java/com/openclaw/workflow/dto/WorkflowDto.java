@@ -18,6 +18,7 @@ public class WorkflowDto {
     private Workflow.WorkflowStatus status;
     private String folderId;
     private String globalConfig;
+    private String taskConfig;
     private List<WorkflowNode> nodes;
     private List<WorkflowEdge> edges;
 
@@ -44,6 +45,9 @@ public class WorkflowDto {
 
     public String getGlobalConfig() { return globalConfig; }
     public void setGlobalConfig(String globalConfig) { this.globalConfig = globalConfig; }
+
+    public String getTaskConfig() { return taskConfig; }
+    public void setTaskConfig(String taskConfig) { this.taskConfig = taskConfig; }
 
     public List<WorkflowNode> getNodes() { return nodes; }
     public void setNodes(List<WorkflowNode> nodes) { this.nodes = nodes; }

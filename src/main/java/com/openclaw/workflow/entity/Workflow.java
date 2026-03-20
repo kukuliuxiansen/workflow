@@ -37,6 +37,9 @@ public class Workflow {
     @Column(name = "global_config", columnDefinition = "TEXT")
     private String globalConfig; // JSON格式
 
+    @Column(name = "task_config", columnDefinition = "TEXT")
+    private String taskConfig; // JSON格式存储任务配置
+
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
@@ -74,6 +77,9 @@ public class Workflow {
 
     public String getGlobalConfig() { return globalConfig; }
     public void setGlobalConfig(String globalConfig) { this.globalConfig = globalConfig; }
+
+    public String getTaskConfig() { return taskConfig; }
+    public void setTaskConfig(String taskConfig) { this.taskConfig = taskConfig; }
 
     public enum WorkflowStatus {
         DRAFT,

@@ -54,6 +54,9 @@ public class ContextManager {
         if (this.input.containsKey("project_path")) {
             this.projectPath = (String) this.input.get("project_path");
         }
+        if (this.input.containsKey("global_prompt")) {
+            this.globalPrompt = (String) this.input.get("global_prompt");
+        }
     }
 
     /**

@@ -3478,9 +3478,18 @@
 
           // 从工作流数据中加载任务配置
           if (state.currentWorkflow.taskConfig) {
+            // 如果是字符串，先解析
+            let config = state.currentWorkflow.taskConfig;
+            if (typeof config === 'string') {
+              try {
+                config = JSON.parse(config);
+              } catch (e) {
+                config = {};
+              }
+            }
             taskConfig = {
               executionId: null,
-              ...state.currentWorkflow.taskConfig
+              ...config
             };
           } else {
             taskConfig = {
@@ -4265,10 +4274,18 @@
         return;
       }
       try {
+        // 准备保存数据，将 taskConfig 对象转换为 JSON 字符串
+        const workflowData = {
+          ...state.currentWorkflow,
+          taskConfig: state.currentWorkflow.taskConfig
+            ? JSON.stringify(state.currentWorkflow.taskConfig)
+            : null
+        };
+
         await fetch(`${API}/workflows/${state.currentWorkflow.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(state.currentWorkflow)
+          body: JSON.stringify(workflowData)
         });
         state.isDirty = false;
         state.lastSaveTime = Date.now();

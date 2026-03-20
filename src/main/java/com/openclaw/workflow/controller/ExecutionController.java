@@ -28,7 +28,13 @@ public class ExecutionController {
     @PostMapping("/workflows/{workflowId}/executions")
     public ApiResponse<Execution> start(@PathVariable String workflowId,
                                          @RequestBody StartExecutionRequest request) {
-        Execution execution = executionService.start(workflowId, request.getInputData(), request.getTaskDescription());
+        Execution execution = executionService.start(
+            workflowId,
+            request.getInputData(),
+            request.getTaskDescription(),
+            request.getProjectPath(),
+            request.getGlobalPrompt()
+        );
         return ApiResponse.success(execution);
     }
 

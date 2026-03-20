@@ -70,7 +70,8 @@ public class ExecutionService {
     }
 
     @Async
-    public Execution start(String workflowId, Map<String, Object> inputData, String taskDescription) {
+    public Execution start(String workflowId, Map<String, Object> inputData, String taskDescription,
+                           String projectPath, String globalPrompt) {
         // 创建执行记录
         Execution execution = new Execution();
         execution.setId(generateExecutionId());
@@ -101,6 +102,12 @@ public class ExecutionService {
         if (taskDescription != null) {
             inputData.put("task_description", taskDescription);
         }
+        if (projectPath != null) {
+            inputData.put("project_path", projectPath);
+        }
+        if (globalPrompt != null) {
+            inputData.put("global_prompt", globalPrompt);
+        }
 
         try {
             ExecutionResult result = workflowEngine.execute(workflowId, null, inputData, options);
@@ -116,6 +123,11 @@ public class ExecutionService {
 
         execution.setEndTime(LocalDateTime.now());
         return executionRepository.save(execution);
+    }
+
+    // 兼容旧的方法签名
+    public Execution start(String workflowId, Map<String, Object> inputData, String taskDescription) {
+        return start(workflowId, inputData, taskDescription, null, null);
     }
 
     public void pause(String executionId) {

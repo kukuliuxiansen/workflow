@@ -219,34 +219,58 @@ public class AgentNodeHandler extends BaseNodeHandler {
     private String buildPrompt(WorkflowNode node, NodeExecutionContext context) {
         StringBuilder prompt = new StringBuilder();
 
-        if (context.getTaskDescription() != null) {
+        // 工作流上下文信息
+        prompt.append("## 工作流上下文\n");
+        prompt.append("- 工作流ID: ").append(context.getWorkflowId()).append("\n");
+        prompt.append("- 执行ID: ").append(context.getExecutionId()).append("\n");
+        if (context.getWorkflowName() != null) {
+            prompt.append("- 工作流名称: ").append(context.getWorkflowName()).append("\n");
+        }
+        prompt.append("- 当前节点: ").append(node.getName()).append(" (").append(node.getId()).append(")\n");
+        if (context.getProjectPath() != null) {
+            prompt.append("- 项目路径: ").append(context.getProjectPath()).append("\n");
+        }
+        prompt.append("\n");
+
+        // 任务描述
+        if (context.getTaskDescription() != null && !context.getTaskDescription().isEmpty()) {
             prompt.append("## 任务描述\n").append(context.getTaskDescription()).append("\n\n");
         }
 
-        if (context.getGlobalPrompt() != null) {
+        // 全局提示
+        if (context.getGlobalPrompt() != null && !context.getGlobalPrompt().isEmpty()) {
             prompt.append("## 全局提示\n").append(context.getGlobalPrompt()).append("\n\n");
         }
 
+        // 节点配置的提示词（这是最重要的部分）
         try {
             if (node.getConfig() != null) {
                 JsonNode config = objectMapper.readTree(node.getConfig());
-                if (config.has("prompt")) {
+                if (config.has("prompt") && config.get("prompt").asText() != null && !config.get("prompt").asText().isEmpty()) {
                     prompt.append("## 执行任务\n").append(config.get("prompt").asText()).append("\n\n");
                 }
             }
         } catch (Exception e) {
-            // ignore
+            logger.warn("解析节点配置失败: {}", e.getMessage());
         }
 
+        // 上游节点输出
         Map<String, NodeResult> previousOutputs = context.getPreviousOutputs();
         if (previousOutputs != null && !previousOutputs.isEmpty()) {
             prompt.append("## 上游节点输出\n");
             for (Map.Entry<String, NodeResult> entry : previousOutputs.entrySet()) {
                 prompt.append("### ").append(entry.getKey()).append("\n");
                 if (entry.getValue() != null && entry.getValue().getOutput() != null) {
-                    prompt.append(entry.getValue().getOutput().toString()).append("\n");
+                    String output = entry.getValue().getOutput().toString();
+                    // 如果输出太长，截断显示
+                    if (output.length() > 2000) {
+                        prompt.append(output.substring(0, 2000)).append("\n... (输出已截断)\n");
+                    } else {
+                        prompt.append(output).append("\n");
+                    }
                 }
             }
+            prompt.append("\n");
         }
 
         // 添加决策提示（如果配置了下游节点）
@@ -258,6 +282,7 @@ public class AgentNodeHandler extends BaseNodeHandler {
             prompt.append(decisionPrompt);
         }
 
+        logger.debug("构建的Agent提示词长度: {}", prompt.length());
         return prompt.toString();
     }
 

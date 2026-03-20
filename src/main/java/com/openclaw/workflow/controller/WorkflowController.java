@@ -111,6 +111,7 @@ public class WorkflowController {
         dto.setStatus(workflow.getStatus());
         dto.setFolderId(workflow.getFolderId());
         dto.setGlobalConfig(workflow.getGlobalConfig());
+        dto.setTaskConfig(workflow.getTaskConfig());
         dto.setNodes(nodes);
         dto.setEdges(edges);
 
@@ -128,8 +129,15 @@ public class WorkflowController {
     @PutMapping("/{id}")
     public ApiResponse<Workflow> update(@PathVariable String id,
                                          @RequestBody UpdateWorkflowRequest request) {
-        Workflow workflow = workflowService.update(id, request.getName(),
-                request.getDescription(), request.getGlobalConfig());
+        Workflow workflow = workflowService.updateWithNodesAndEdges(
+                id,
+                request.getName(),
+                request.getDescription(),
+                request.getGlobalConfig(),
+                request.getTaskConfig(),
+                request.getNodes(),
+                request.getEdges()
+        );
         return ApiResponse.success(workflow);
     }
 

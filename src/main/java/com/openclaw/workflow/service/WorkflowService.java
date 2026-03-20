@@ -84,13 +84,72 @@ public class WorkflowService {
     }
 
     @Transactional
-    public Workflow update(String id, String name, String description, String globalConfig) {
+    public Workflow update(String id, String name, String description, String globalConfig, String taskConfig) {
         Workflow workflow = findById(id);
         if (name != null) workflow.setName(name);
         if (description != null) workflow.setDescription(description);
         if (globalConfig != null) workflow.setGlobalConfig(globalConfig);
+        if (taskConfig != null) workflow.setTaskConfig(taskConfig);
         workflow.setUpdatedAt(LocalDateTime.now());
         return workflowRepository.save(workflow);
+    }
+
+    /**
+     * 更新工作流，同时保存节点和边
+     */
+    @Transactional
+    public Workflow updateWithNodesAndEdges(String id, String name, String description, String globalConfig,
+                                            String taskConfig, List<WorkflowNode> nodes, List<WorkflowEdge> edges) {
+        Workflow workflow = findById(id);
+
+        // 更新工作流基本信息
+        if (name != null) workflow.setName(name);
+        if (description != null) workflow.setDescription(description);
+        if (globalConfig != null) workflow.setGlobalConfig(globalConfig);
+        if (taskConfig != null) workflow.setTaskConfig(taskConfig);
+        workflow.setUpdatedAt(LocalDateTime.now());
+        workflowRepository.save(workflow);
+
+        // 保存节点和边
+        if (nodes != null) {
+            saveNodes(id, nodes);
+        }
+        if (edges != null) {
+            saveEdges(id, edges);
+        }
+
+        return workflow;
+    }
+
+    /**
+     * 保存节点列表
+     */
+    private void saveNodes(String workflowId, List<WorkflowNode> nodes) {
+        for (WorkflowNode node : nodes) {
+            if (node.getWorkflowId() == null) {
+                node.setWorkflowId(workflowId);
+            }
+            if (node.getCreatedAt() == null) {
+                node.setCreatedAt(LocalDateTime.now());
+            }
+            node.setUpdatedAt(LocalDateTime.now());
+            nodeRepository.save(node);
+        }
+    }
+
+    /**
+     * 保存边列表
+     */
+    private void saveEdges(String workflowId, List<WorkflowEdge> edges) {
+        for (WorkflowEdge edge : edges) {
+            if (edge.getWorkflowId() == null) {
+                edge.setWorkflowId(workflowId);
+            }
+            if (edge.getCreatedAt() == null) {
+                edge.setCreatedAt(LocalDateTime.now());
+            }
+            edgeRepository.save(edge);
+        }
     }
 
     @Transactional
