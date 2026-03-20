@@ -6293,7 +6293,7 @@
     }
 
     // 删除选中节点
-    function deleteSelectedNodes() {
+    async function deleteSelectedNodes() {
       if (!state.currentWorkflow) return;
 
       const nodeIdsToDelete = [];
@@ -6305,25 +6305,27 @@
 
       if (nodeIdsToDelete.length === 0) return;
 
-      pushUndo();
-
-      // 删除节点
-      state.currentWorkflow.nodes = state.currentWorkflow.nodes.filter(
-        node => !nodeIdsToDelete.includes(node.id)
-      );
-
-      // 删除相关连线
-      if (state.currentWorkflow.edges) {
-        state.currentWorkflow.edges = state.currentWorkflow.edges.filter(
-          edge => !nodeIdsToDelete.includes(edge.source) && !nodeIdsToDelete.includes(edge.target)
-        );
+      let successCount = 0;
+      for (const nodeId of nodeIdsToDelete) {
+        try {
+          await fetch(`${API}/workflows/${state.currentWorkflow.id}/nodes/${nodeId}`, {
+            method: 'DELETE'
+          });
+          successCount++;
+        } catch (e) {
+          console.error('删除节点失败:', nodeId, e);
+        }
       }
 
       clearNodeSelection();
-      renderCanvas();
+      await selectWorkflow(state.currentWorkflow.id);
       renderPropertyPanel();
-      markDirty();
-      showToast('info', `已删除 ${nodeIdsToDelete.length} 个节点`);
+
+      if (successCount > 0) {
+        showToast('success', `已删除 ${successCount} 个节点`);
+      } else {
+        showToast('error', '删除失败');
+      }
     }
 
     // 缩放控制
@@ -6835,51 +6837,40 @@
           updateEdgeType(currentEdgeId, 'default');
           break;
         case 'delete':
-          deleteEdge(currentEdgeId);
+          deleteEdgeById(currentEdgeId);
           break;
       }
 
       currentEdgeId = null;
     }
 
-    function updateEdgeLabel(edgeId, label) {
+    async function updateEdgeLabel(edgeId, label) {
       if (!state.currentWorkflow || !state.currentWorkflow.edges) return;
 
-      pushUndo();
       const edge = state.currentWorkflow.edges.find(e =>
-        `${e.source}-${e.target}` === edgeId || e.id === edgeId
+        `${(e.sourceNodeId || e.source_node_id)}-${(e.targetNodeId || e.target_node_id)}` === edgeId || e.id === edgeId
       );
       if (edge) {
+        // TODO: 调用后端API更新连线标签
         edge.label = label;
-        renderCanvas();
-        markDirty();
+        await selectWorkflow(state.currentWorkflow.id);
+      }
+    }
       }
     }
 
     function updateEdgeType(edgeId, type) {
       if (!state.currentWorkflow || !state.currentWorkflow.edges) return;
 
-      pushUndo();
       const edge = state.currentWorkflow.edges.find(e =>
-        `${e.source}-${e.target}` === edgeId || e.id === edgeId
+        `${(e.sourceNodeId || e.source_node_id)}-${(e.targetNodeId || e.target_node_id)}` === edgeId || e.id === edgeId
       );
       if (edge) {
-        edge.type = type;
+        // 更新需要调用后端API
+        // TODO: 实现更新边的API
+        edge.edge_type = type;
         renderCanvas();
-        markDirty();
       }
-    }
-
-    function deleteEdge(edgeId) {
-      if (!state.currentWorkflow || !state.currentWorkflow.edges) return;
-
-      pushUndo();
-      state.currentWorkflow.edges = state.currentWorkflow.edges.filter(e =>
-        `${e.source}-${e.target}` !== edgeId && e.id !== edgeId
-      );
-      renderCanvas();
-      markDirty();
-      showToast('info', '连线已删除');
     }
 
     // 导出功能
