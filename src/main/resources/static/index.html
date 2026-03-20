@@ -3974,42 +3974,42 @@
               <option value="expression" ${node.decisionMode==='expression'?'selected':''}>表达式判断</option>
             </select>
           </div>
-          <div class="form-group">
-            <label class="form-label">分支配置 <button class="btn-icon" onclick="addConditionBranch(event)">+ 添加分支</button></label>
-            <div id="conditionBranchesContainer">
-              ${(node.branches || []).map((branch, idx) => `
-                <div class="branch-config-item" style="background:#2a2a2a;border:1px solid #3a3a3a;border-radius:6px;padding:10px;margin-bottom:8px;">
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                    <span style="font-size:11px;color:#888;">分支 ${idx + 1}</span>
-                    <button class="btn-icon" style="color:#f66;" onclick="removeConditionBranch(event, ${idx})">删除</button>
+          <div class="config-section" style="margin-top:12px;padding:12px;background:#1a1a1a;border-radius:6px;">
+            <div class="config-section-title" style="margin-bottom:8px;">🔀 分支连线配置</div>
+            <p style="font-size:11px;color:#888;margin-bottom:12px;">为每条出边配置条件说明，Agent会根据这些描述判断走哪条路径</p>
+            ${getDownstreamEdges(node.id).length > 0 ? getDownstreamEdges(node.id).map((edge, idx) => {
+              const targetNode = state.currentWorkflow.nodes.find(n => n.id === edge.target_node_id);
+              const branchConfig = (node.branches || []).find(b => b.targetNodeId === edge.target_node_id) || {};
+              return `
+                <div style="background:#252525;border:1px solid #3a3a3a;border-radius:6px;padding:10px;margin-bottom:8px;">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                    <span style="font-size:12px;color:#89b4fa;">→</span>
+                    <span style="font-size:13px;font-weight:500;">${targetNode?.name || edge.target_node_id}</span>
+                    <span style="font-size:10px;color:#888;background:#1a1a1a;padding:2px 6px;border-radius:3px;">${edge.type || 'success'}</span>
                   </div>
-                  <div class="form-row" style="margin-bottom:6px;">
-                    <input type="text" class="form-input" style="flex:1;margin-right:6px;" placeholder="分支ID" value="${branch.id || ''}" onchange="updateConditionBranch(${idx}, 'id', this.value)">
-                    <input type="text" class="form-input" style="flex:1;" placeholder="分支名称" value="${branch.name || ''}" onchange="updateConditionBranch(${idx}, 'name', this.value)">
-                  </div>
-                  <select class="form-select" style="margin-bottom:6px;" onchange="updateConditionBranch(${idx}, 'targetNodeId', this.value)">
-                    <option value="">选择目标节点</option>
-                    ${(state.currentWorkflow?.nodes || []).filter(n=>n.id!==node.id).map(n=>`<option value="${n.id}" ${branch.targetNodeId===n.id?'selected':''}>${n.name||n.id}</option>`).join('')}
-                  </select>
-                  <input type="text" class="form-input" style="margin-bottom:6px;" placeholder="分支描述" value="${branch.description || ''}" onchange="updateConditionBranch(${idx}, 'description', this.value)">
-                  <div style="background:#1a1a1a;border-radius:4px;padding:8px;margin-top:4px;">
-                    <label style="font-size:10px;color:#6b5ce7;display:block;margin-bottom:4px;">✨ 条件说明（给Agent看，描述什么情况下走这个分支）</label>
-                    <textarea class="form-input form-textarea" style="min-height:60px;font-size:11px;" placeholder="例如：当所有测试通过，覆盖率大于80%时走这个分支" onchange="updateConditionBranch(${idx}, 'conditionDesc', this.value)">${branch.conditionDesc || ''}</textarea>
+                  <div style="background:#1a1a1a;border-radius:4px;padding:8px;">
+                    <label style="font-size:10px;color:#6b5ce7;display:block;margin-bottom:4px;">✨ 条件说明（什么情况下走这个分支）</label>
+                    <textarea class="form-input form-textarea" style="min-height:50px;font-size:12px;"
+                      placeholder="例如：当测试全部通过时走这个分支"
+                      onchange="updateBranchConfig('${edge.target_node_id}', 'conditionDesc', this.value)">${branchConfig.conditionDesc || ''}</textarea>
                   </div>
                 </div>
-              `).join('')}
-            </div>
+              `;
+            }).join('') : '<p style="color:#888;font-size:12px;text-align:center;padding:20px;">暂无出边，请先在画布上拖拽连线到目标节点</p>'}
           </div>
-          <div class="form-group">
-            <label class="form-label">默认分支（无法判断时使用）</label>
-            <select class="form-select" onchange="updateNode('defaultBranch',this.value)">
-              <option value="">无</option>
-              ${(node.branches || []).map(b=>`<option value="${b.id}" ${node.defaultBranch===b.id?'selected':''}>${b.name||b.id}</option>`).join('')}
+          <div class="form-group" style="margin-top:12px;">
+            <label class="form-label">默认分支（无法判断时）</label>
+            <select class="form-select" onchange="updateNodeAndSave('defaultBranch',this.value)">
+              <option value="">自动选择第一个</option>
+              ${getDownstreamEdges(node.id).map(edge => {
+                const targetNode = state.currentWorkflow.nodes.find(n => n.id === edge.target_node_id);
+                return `<option value="${edge.target_node_id}" ${node.defaultBranch===edge.target_node_id?'selected':''}>${targetNode?.name || edge.target_node_id}</option>`;
+              }).join('')}
             </select>
           </div>
           <div class="form-group">
             <label class="form-label">自定义提示词（可选）</label>
-            <textarea class="form-input form-textarea" style="min-height:60px;font-size:11px;" placeholder="添加额外的提示信息给Agent" onchange="updateNode('customPrompt',this.value)">${node.customPrompt || ''}</textarea>
+            <textarea class="form-input form-textarea" style="min-height:60px;font-size:12px;" placeholder="添加额外的提示信息给Agent" onchange="updateNodeAndSave('customPrompt',this.value)">${node.customPrompt || ''}</textarea>
           </div>
         ` : ''}
         ${node.type === 'loop' ? `
@@ -4088,33 +4088,23 @@
               <option value="majority" ${node.failure_strategy==='majority'?'selected':''}>多数成功就算成功</option>
             </select>
           </div>
-          <div class="form-group">
-            <label class="form-label">分支配置 <button class="btn-icon" onclick="addParallelBranch(event)">+ 添加分支</button></label>
-            <div id="parallelBranchesContainer">
-              ${(node.branches || []).map((branch, idx) => `
-                <div class="branch-config-item" style="background:#2a2a2a;border:1px solid #3a3a3a;border-radius:6px;padding:10px;margin-bottom:8px;">
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                    <span style="font-size:11px;color:#888;">分支 ${idx + 1}</span>
-                    <button class="btn-icon" style="color:#f66;" onclick="removeParallelBranch(event, ${idx})">删除</button>
-                  </div>
-                  <div class="form-row" style="margin-bottom:6px;">
-                    <input type="text" class="form-input" style="flex:1;margin-right:6px;" placeholder="分支ID" value="${branch.id || ''}" onchange="updateParallelBranch(${idx}, 'id', this.value)">
-                    <input type="text" class="form-input" style="flex:1;" placeholder="分支名称" value="${branch.name || ''}" onchange="updateParallelBranch(${idx}, 'name', this.value)">
-                  </div>
-                  <select class="form-select" style="margin-bottom:6px;" onchange="updateParallelBranch(${idx}, 'targetNodeId', this.value)">
-                    <option value="">选择目标节点</option>
-                    ${(state.currentWorkflow?.nodes || []).filter(n=>n.id!==node.id).map(n=>`<option value="${n.id}" ${branch.targetNodeId===n.id || branch.target_node===n.id?'selected':''}>${n.name||n.id}</option>`).join('')}
-                  </select>
-                  <input type="text" class="form-input" style="margin-bottom:6px;" placeholder="分支描述" value="${branch.description || ''}" onchange="updateParallelBranch(${idx}, 'description', this.value)">
-                  <div style="background:#1a1a1a;border-radius:4px;padding:8px;margin-top:4px;">
-                    <label style="font-size:10px;color:#6b5ce7;display:block;margin-bottom:4px;">✨ 执行条件说明（给Agent看，描述什么情况下执行这个分支）</label>
-                    <textarea class="form-input form-textarea" style="min-height:60px;font-size:11px;" placeholder="例如：当修改了代码文件时执行" onchange="updateParallelBranch(${idx}, 'conditionDesc', this.value)">${branch.conditionDesc || ''}</textarea>
-                  </div>
-                </div>
-              `).join('')}
-            </div>
+          <div class="config-section" style="margin-top:12px;padding:12px;background:#1a1a1a;border-radius:6px;">
+            <div class="config-section-title" style="margin-bottom:8px;">⚡ 并行执行连线</div>
+            <p style="font-size:11px;color:#888;margin-bottom:8px;">并行节点会同时执行所有连接的下游节点</p>
+            ${getDownstreamEdges(node.id).length > 0 ? `
+              <div style="background:#252525;border-radius:4px;padding:8px;">
+                ${getDownstreamEdges(node.id).map((edge, idx) => {
+                  const targetNode = state.currentWorkflow.nodes.find(n => n.id === edge.target_node_id);
+                  return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;${idx > 0 ? 'border-top:1px solid #3a3a3a;' : ''}">
+                    <span style="font-size:12px;color:#89b4fa;">→</span>
+                    <span style="font-size:12px;">${targetNode?.name || edge.target_node_id}</span>
+                    <span style="font-size:10px;color:#888;background:#1a1a1a;padding:2px 6px;border-radius:3px;">${edge.type || 'success'}</span>
+                  </div>`;
+                }).join('')}
+              </div>
+            ` : '<p style="color:#888;font-size:12px;text-align:center;padding:10px;">暂无出边，请先在画布上拖拽连线到目标节点</p>'}
           </div>
-          <div class="form-group">
+          <div class="form-group" style="margin-top:12px;">
             <label class="form-label">合并节点（可选）</label>
             <select class="form-select" onchange="updateNode('mergeNode',this.value)">
               <option value="">无</option>
@@ -4158,6 +4148,32 @@
       markDirty();  // 标记为已修改
       renderCanvas();
       addLog('info', `更新: ${key} = ${value}`);
+    }
+
+    // 获取下游边（从当前节点出发的边）
+    function getDownstreamEdges(nodeId) {
+      if (!state.currentWorkflow || !state.currentWorkflow.edges) return [];
+      return state.currentWorkflow.edges.filter(e => e.source_node_id === nodeId);
+    }
+
+    // 更新分支配置（基于目标节点ID）
+    function updateBranchConfig(targetNodeId, key, value) {
+      if (!state.selectedNode) return;
+      if (!state.selectedNode.branches) state.selectedNode.branches = [];
+      let branch = state.selectedNode.branches.find(b => b.targetNodeId === targetNodeId);
+      if (!branch) {
+        branch = { targetNodeId: targetNodeId };
+        state.selectedNode.branches.push(branch);
+      }
+      branch[key] = value;
+      markDirty();
+    }
+
+    // 更新节点并保存到后端
+    async function updateNodeAndSave(key, value) {
+      if (!state.selectedNode) return;
+      updateNode(key, value);
+      await saveWorkflow(true);  // 静默保存
     }
 
     // ==================== 条件判断节点分支管理 ====================
