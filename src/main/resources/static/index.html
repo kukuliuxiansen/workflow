@@ -6277,6 +6277,10 @@
             renderOperationLogs([]);
             updateLogCounts();
           });
+      } else if (tab === 'api') {
+        apiLogs.length = 0;
+        renderApiLogs();
+        updateLogCounts();
       } else {
         state.logs[tab] = [];
         const contentId = tab === 'agent' ? 'agentLogContent' : 'execLogContent';
@@ -6288,13 +6292,23 @@
     // 导出当前tab的日志
     function exportCurrentLogs() {
       const tab = state.currentLogTab;
-      const logs = state.logs[tab];
-      const text = logs.map(l => `[${l.time}] [${l.level.toUpperCase()}] ${l.msg}`).join('\n');
+      let text = '';
+      let filename = '';
+
+      if (tab === 'api') {
+        text = apiLogs.map(l => `[${l.timestamp}] [${l.method}] ${l.url}\n请求: ${JSON.stringify(l.request, null, 2)}\n响应: ${JSON.stringify(l.response, null, 2)}`).join('\n\n');
+        filename = 'api_log';
+      } else {
+        const logs = state.logs[tab] || [];
+        text = logs.map(l => `[${l.time}] [${l.level.toUpperCase()}] ${l.msg}`).join('\n');
+        filename = tab === 'agent' ? 'agent' : 'execution';
+      }
+
       const blob = new Blob([text], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${tab === 'agent' ? 'agent' : 'execution'}_log_${new Date().toISOString().slice(0,10)}.txt`;
+      a.download = `${filename}_log_${new Date().toISOString().slice(0,10)}.txt`;
       a.click();
       URL.revokeObjectURL(url);
     }
