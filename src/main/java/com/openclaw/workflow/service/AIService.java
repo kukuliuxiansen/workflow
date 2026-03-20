@@ -11,6 +11,7 @@ import com.openclaw.workflow.repository.WorkflowRepository;
 import com.openclaw.workflow.engine.connector.OpenClawGatewayClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -45,6 +46,7 @@ public class AIService {
     private final WorkflowRepository workflowRepository;
     private final WorkflowNodeRepository nodeRepository;
     private final WorkflowEdgeRepository edgeRepository;
+    private OperationLogService logService;
 
     public AIService(WorkflowRepository workflowRepository,
                      WorkflowNodeRepository nodeRepository,
@@ -52,6 +54,11 @@ public class AIService {
         this.workflowRepository = workflowRepository;
         this.nodeRepository = nodeRepository;
         this.edgeRepository = edgeRepository;
+    }
+
+    @Autowired
+    public void setLogService(OperationLogService logService) {
+        this.logService = logService;
     }
 
     public WorkflowDto generateWorkflow(String description, String name) {
@@ -117,6 +124,12 @@ public class AIService {
     private String callViaGateway(String systemPrompt, String userPrompt) throws Exception {
         logger.info("通过Gateway API调用AI: {}", gatewayUrl);
 
+        // 记录AI输入日志
+        String inputLog = "SystemPrompt: " + truncate(systemPrompt, 500) + "\nUserPrompt: " + truncate(userPrompt, 1000);
+        if (logService != null) {
+            logService.logOperation("AI_INPUT", "generate_workflow", inputLog, null, "AgentId: " + aiAgentId);
+        }
+
         OpenClawGatewayClient client = new OpenClawGatewayClient(gatewayUrl, gatewayToken);
 
         OpenClawGatewayClient.AgentRequest request = OpenClawGatewayClient.AgentRequest.builder()
@@ -129,11 +142,28 @@ public class AIService {
         OpenClawGatewayClient.AgentResponse response = client.executeAgent(request);
 
         if (!response.isSuccess()) {
-            throw new RuntimeException("Gateway API调用失败: " + response.getErrorMessage());
+            String error = "Gateway API调用失败: " + response.getErrorMessage();
+            if (logService != null) {
+                logService.logError("AI", "generate_workflow", error, null);
+            }
+            throw new RuntimeException(error);
         }
 
-        logger.info("Gateway API调用成功，返回内容长度: {}", response.getContent().length());
-        return response.getContent();
+        // 记录AI输出日志（只记录payloads部分）
+        String content = response.getContent();
+        String outputLog = truncate(content, 2000);
+        if (logService != null) {
+            logService.logOperation("AI_OUTPUT", "generate_workflow", null, outputLog,
+                    "Tokens: " + response.getTotalTokens());
+        }
+
+        logger.info("Gateway API调用成功，返回内容长度: {}", content.length());
+        return content;
+    }
+
+    private String truncate(String str, int maxLen) {
+        if (str == null) return null;
+        return str.length() > maxLen ? str.substring(0, maxLen) + "..." : str;
     }
 
     /**
@@ -357,6 +387,36 @@ public class AIService {
                                 edgesFromNodes.add(outputEdge);
                             }
                         }
+                    }
+
+                    // 支持 conditions 数组格式（条件节点）
+                    // conditions: [{expression: "...", next: "node1"}, ...]
+                    Object conditions = nodeData.get("conditions");
+                    if (conditions instanceof List) {
+                        List<Map<String, Object>> conditionList = (List<Map<String, Object>>) conditions;
+                        for (Map<String, Object> cond : conditionList) {
+                            String targetId = (String) cond.get("next");
+                            if (targetId != null && !targetId.isEmpty()) {
+                                WorkflowEdge condEdge = new WorkflowEdge();
+                                condEdge.setId("edge_" + UUID.randomUUID().toString().substring(0, 8));
+                                condEdge.setSourceNodeId(nodeId);
+                                condEdge.setTargetNodeId(targetId);
+                                condEdge.setEdgeType(WorkflowEdge.EdgeType.SUCCESS);
+                                edgesFromNodes.add(condEdge);
+                            }
+                        }
+                    }
+
+                    // 支持 defaultNext 字段（条件节点的默认分支）
+                    String defaultNext = (String) nodeData.get("defaultNext");
+                    if (defaultNext == null) defaultNext = (String) nodeData.get("default_next");
+                    if (defaultNext != null && !defaultNext.isEmpty()) {
+                        WorkflowEdge defaultEdge = new WorkflowEdge();
+                        defaultEdge.setId("edge_" + UUID.randomUUID().toString().substring(0, 8));
+                        defaultEdge.setSourceNodeId(nodeId);
+                        defaultEdge.setTargetNodeId(defaultNext);
+                        defaultEdge.setEdgeType(WorkflowEdge.EdgeType.FAIL);
+                        edgesFromNodes.add(defaultEdge);
                     }
                 }
             }

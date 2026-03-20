@@ -1,5 +1,7 @@
 package com.openclaw.workflow.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+
 import java.util.Map;
 
 /**
@@ -7,6 +9,7 @@ import java.util.Map;
  */
 public class StartExecutionRequest {
 
+    @JsonAlias("input")
     private Map<String, Object> inputData;
     private String taskDescription;
     private Map<String, Object> taskConfig;
