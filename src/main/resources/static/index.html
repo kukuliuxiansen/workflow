@@ -3587,8 +3587,7 @@
       loadSavedGlobalConfig();  // 加载全局配置
       await loadWorkflows();  // 等待工作流加载完成
       initUXFeatures();  // 初始化UX功能
-      refreshOperationLogs();  // 加载操作日志
-      loadLogsFromBackend();   // 加载历史日志
+      updateLogCounts();  // 更新日志计数
 
       // 恢复上次选择的工作流
       const prefs = getPrefs();
@@ -6694,8 +6693,6 @@
       if (el2) el2.textContent = LogStorage.getCount('agent');
       if (el3) el3.textContent = LogStorage.getCount('operation');
       if (el4) el4.textContent = LogStorage.getCount('api');
-      if (el3) el3.textContent = state.operationLogs.length;
-      if (el4) el4.textContent = apiLogs.length;
     }
 
     // 切换日志tab
@@ -6729,11 +6726,11 @@
 
     // 刷新操作日志
     async function refreshOperationLogs() {
-      const typeFilter = document.getElementById('opLogTypeFilter').value;
-      const dateFilter = document.getElementById('opLogDateFilter').value;
+      const typeFilter = document.getElementById('opLogTypeFilter')?.value || '';
+      const dateFilter = document.getElementById('opLogDateFilter')?.value || '';
 
       try {
-        let url = `${API}/logs/file?limit=200`;
+        let url = `${API}/logs/file?limit=500`;
         if (dateFilter) {
           url += `&date=${dateFilter}`;
         }
@@ -6749,8 +6746,17 @@
             logs = logs.filter(l => l.type === typeFilter);
           }
 
-          state.operationLogs = logs;
-          renderOperationLogs(logs);
+          // 转换日志格式并保存到localStorage
+          const formattedLogs = logs.map(l => ({
+            time: l.timestamp || l.time || new Date().toISOString(),
+            level: (l.level || 'info').toLowerCase(),
+            msg: l.message || l.msg || '',
+            type: l.type || 'SYSTEM',
+            details: l.details || ''
+          }));
+
+          LogStorage.saveAll('operation', formattedLogs);
+          renderOperationLogsLocal();
           updateLogCounts();
         }
       } catch (e) {
