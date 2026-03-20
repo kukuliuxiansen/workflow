@@ -155,6 +155,10 @@ public class OperationLogService {
     }
 
     private void logEntry(LogEntry entry) {
+        // 生成traceId
+        String traceId = generateTraceId();
+        entry.setTraceId(traceId);
+
         // 写入文件
         String logLine = formatLogLine(entry);
         OPERATION_LOGGER.info(logLine);
@@ -166,8 +170,17 @@ public class OperationLogService {
         }
     }
 
+    /**
+     * 生成唯一traceId
+     */
+    private String generateTraceId() {
+        return "TRC-" + System.currentTimeMillis() + "-" + String.format("%04x", (int)(Math.random() * 0xFFFF));
+    }
+
     private String formatLogLine(LogEntry entry) {
         StringBuilder sb = new StringBuilder();
+        sb.append(entry.getTraceId()).append("|");
+        sb.append(entry.getTimestamp() != null ? entry.getTimestamp().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : "-").append("|");
         sb.append(entry.getType()).append("|");
         sb.append(entry.getExecutionId() != null ? entry.getExecutionId() : "-").append("|");
         sb.append(entry.getNodeId() != null ? entry.getNodeId() : "-").append("|");
@@ -264,19 +277,20 @@ public class OperationLogService {
 
     private Map<String, Object> parseLogLine(String line) {
         try {
-            String[] parts = line.split("\\|", 7);
-            if (parts.length < 5) return null;
+            String[] parts = line.split("\\|", 8);
+            if (parts.length < 7) return null;
 
             Map<String, Object> log = new LinkedHashMap<>();
-            log.put("timestamp", parts[0]);
-            log.put("type", parts[1]);
-            log.put("executionId", "-".equals(parts[2]) ? null : parts[2]);
-            log.put("nodeId", "-".equals(parts[3]) ? null : parts[3]);
-            log.put("operation", "-".equals(parts[4]) ? null : parts[4]);
-            log.put("success", "SUCCESS".equals(parts[5]));
+            log.put("traceId", parts[0]);
+            log.put("timestamp", parts[1]);
+            log.put("type", parts[2]);
+            log.put("executionId", "-".equals(parts[3]) ? null : parts[3]);
+            log.put("nodeId", "-".equals(parts[4]) ? null : parts[4]);
+            log.put("operation", "-".equals(parts[5]) ? null : parts[5]);
+            log.put("success", "SUCCESS".equals(parts[6]));
 
-            if (parts.length > 6) {
-                String rest = parts[6];
+            if (parts.length > 7) {
+                String rest = parts[7];
                 // 解析IN/OUT/ERR
                 if (rest.contains("OUT:")) {
                     int idx = rest.indexOf("OUT:");
@@ -310,6 +324,7 @@ public class OperationLogService {
      * 日志条目
      */
     public static class LogEntry {
+        private String traceId;      // 唯一追踪ID
         private LocalDateTime timestamp;
         private String type; // NODE, AI, API, WORKFLOW, ERROR
         private String executionId;
@@ -327,6 +342,8 @@ public class OperationLogService {
         private Integer statusCode;
 
         // Getters and Setters
+        public String getTraceId() { return traceId; }
+        public void setTraceId(String traceId) { this.traceId = traceId; }
         public LocalDateTime getTimestamp() { return timestamp; }
         public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
         public String getType() { return type; }
