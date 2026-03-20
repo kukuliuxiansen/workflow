@@ -2133,88 +2133,19 @@
     </div>
 
     <!-- 右侧面板 -->
-    <div class="right-panel" id="rightPanel">
+    <div class="right-panel collapsed" id="rightPanel">
       <div class="resize-handle" onmousedown="startResize(event,'rightPanel')"></div>
-
-      <!-- 右侧面板标签页 -->
-      <div class="panel-tabs">
-        <button class="panel-tab active" onclick="switchRightPanelTab('property')" id="propertyTab">节点属性</button>
-        <button class="panel-tab" onclick="switchRightPanelTab('history')" id="historyTab">执行历史</button>
-        <button class="panel-tab" onclick="switchRightPanelTab('taskconfig')" id="taskconfigTab">任务配置</button>
-        <button class="panel-tab" onclick="switchRightPanelTab('prompts')" id="promptsTab">提示词模板</button>
-      </div>
 
       <!-- 节点属性面板 -->
       <div class="panel-body active" id="propertyPanel">
-        <div class="empty-state" style="position:relative;top:50%;transform:translateY(-50%);">
-          <div class="icon">📝</div>
-          <div class="title">选择节点查看属性</div>
+        <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #3a3a3a;">
+          <span style="font-size:14px;font-weight:500;">📝 节点属性</span>
+          <button class="btn-icon" onclick="collapseRightPanel()" title="收起">✕</button>
         </div>
-      </div>
-
-      <!-- 执行历史面板 -->
-      <div class="panel-body" id="executionHistoryPanel">
-        <div class="history-section">
-          <div class="section-header">
-            <span>执行记录</span>
-            <button class="btn-icon" onclick="refreshExecutionHistory()" title="刷新">🔄</button>
-          </div>
-          <div class="history-list-mini" id="executionHistoryList">
-            <div class="empty-state-mini">选择工作流查看执行历史</div>
-          </div>
-        </div>
-        <div class="history-detail-section" id="executionDetailSection" style="display:none;">
-          <div class="section-header">
-            <span>执行详情</span>
-          </div>
-          <div class="history-detail-content" id="executionDetailContent"></div>
-        </div>
-      </div>
-
-      <!-- 任务配置面板 -->
-      <div class="panel-body" id="taskConfigPanel">
-        <div class="task-config-section">
-          <div class="section-header">
-            <span>当前任务配置</span>
-            <button class="btn-icon" onclick="showTaskConfigModal()" title="编辑">✏️</button>
-          </div>
-          <div class="task-config-display" id="taskConfigDisplay">
-            <div class="config-item">
-              <label>执行ID</label>
-              <span id="displayExecutionId">-</span>
-            </div>
-            <div class="config-item">
-              <label>任务名称</label>
-              <span id="displayTaskName">-</span>
-            </div>
-            <div class="config-item">
-              <label>任务描述</label>
-              <span id="displayTaskDesc">-</span>
-            </div>
-            <div class="config-item">
-              <label>项目路径</label>
-              <span id="displayProjectPath">-</span>
-            </div>
-          </div>
-          <div class="task-config-actions">
-            <button class="btn btn-primary btn-sm" onclick="showTaskConfigModal()">修改配置</button>
-            <button class="btn btn-secondary btn-sm" onclick="saveCurrentTaskConfig()">保存配置</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- 提示词模板面板 -->
-      <div class="panel-body" id="promptsPanel">
-        <div class="prompts-section">
-          <div class="section-header">
-            <span>节点提示词模板配置</span>
-            <button class="btn-icon" onclick="loadPromptTemplates()" title="刷新">🔄</button>
-          </div>
-          <div class="prompts-info" style="padding: 10px; font-size: 12px; color: #888; border-bottom: 1px solid #3a3a3a;">
-            配置各节点类型的默认提示词模板。模板中使用 <code style="background:#333;padding:2px 4px;border-radius:3px;">{变量名}</code> 作为占位符，系统会自动注入上下文信息。
-          </div>
-          <div class="prompts-node-types" id="promptsNodeTypesList" style="padding: 10px;">
-            <div class="empty-state-mini">加载中...</div>
+        <div class="panel-content" id="propertyPanelContent" style="padding:12px;overflow-y:auto;flex:1;">
+          <div class="empty-state" style="position:relative;top:50%;transform:translateY(-50%);">
+            <div class="icon">📝</div>
+            <div class="title">选择节点查看属性</div>
           </div>
         </div>
       </div>
@@ -3118,6 +3049,22 @@
         // 直接添加节点
         addNodeAtPosition(x, y);
       });
+
+      // 点击画布空白处收起右侧面板
+      canvas.addEventListener('click', (e) => {
+        if (!e.target.closest('.node') && !e.target.closest('.edge')) {
+          // 点击空白处，取消选中并收起面板
+          if (state.selectedNode) {
+            state.selectedNode = null;
+            state.selectedNodes.clear();
+            renderCanvas();
+            renderPropertyPanel();
+          }
+          collapseRightPanel();
+        }
+      });
+        addNodeAtPosition(x, y);
+      });
     }
 
     // 在指定位置添加节点
@@ -3920,15 +3867,15 @@
 
     // 渲染属性面板
     function renderPropertyPanel() {
-      const panel = document.getElementById('propertyPanel');
+      const panelContent = document.getElementById('propertyPanelContent');
       const node = state.selectedNode;
 
       if (!node) {
-        panel.innerHTML = '<div class="empty-state" style="position:relative;top:50%;transform:translateY(-50%);"><div class="icon">📝</div><div class="title">选择节点查看属性</div></div>';
+        panelContent.innerHTML = '<div class="empty-state" style="position:relative;top:50%;transform:translateY(-50%);"><div class="icon">📝</div><div class="title">选择节点查看属性</div></div>';
         return;
       }
 
-      panel.innerHTML = `
+      panelContent.innerHTML = `
         <div class="form-group">
           <label class="form-label">节点名称</label>
           <input type="text" class="form-input" value="${node.name || ''}" onchange="updateNode('name',this.value)">
@@ -4147,6 +4094,35 @@
       state.selectedNode = state.currentWorkflow?.nodes?.find(n => n.id === id);
       renderCanvas();
       renderPropertyPanel();
+      // 选中节点时展开右侧面板
+      expandRightPanel();
+    }
+
+    // 展开右侧面板
+    function expandRightPanel() {
+      const panel = document.getElementById('rightPanel');
+      panel.classList.remove('collapsed');
+      updateToggleButtonPosition();
+    }
+
+    // 收起右侧面板
+    function collapseRightPanel() {
+      const panel = document.getElementById('rightPanel');
+      panel.classList.add('collapsed');
+      updateToggleButtonPosition();
+    }
+
+    // 更新切换按钮位置
+    function updateToggleButtonPosition() {
+      const panel = document.getElementById('rightPanel');
+      const btn = document.getElementById('toggleRightPanelBtn');
+      if (panel.classList.contains('collapsed')) {
+        btn.style.right = '10px';
+        btn.textContent = '◀';
+      } else {
+        btn.style.right = panel.offsetWidth + 'px';
+        btn.textContent = '▶';
+      }
     }
 
     // 更新节点
