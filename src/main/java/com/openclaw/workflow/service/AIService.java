@@ -322,6 +322,42 @@ public class AIService {
                         nextEdge.setEdgeType(WorkflowEdge.EdgeType.SUCCESS);
                         edgesFromNodes.add(nextEdge);
                     }
+
+                    // 支持 outputs 格式（AI返回的格式）
+                    // outputs可以是数组 ["node1", "node2"] 或对象 {true: "node1", false: "node2"}
+                    Object outputs = nodeData.get("outputs");
+                    if (outputs instanceof List) {
+                        // 数组格式：顺序连接到下一个节点
+                        List<String> outputList = (List<String>) outputs;
+                        for (int i = 0; i < outputList.size(); i++) {
+                            String targetId = outputList.get(i);
+                            if (targetId != null && !targetId.isEmpty()) {
+                                WorkflowEdge outputEdge = new WorkflowEdge();
+                                outputEdge.setId("edge_" + UUID.randomUUID().toString().substring(0, 8));
+                                outputEdge.setSourceNodeId(nodeId);
+                                outputEdge.setTargetNodeId(targetId);
+                                outputEdge.setEdgeType(WorkflowEdge.EdgeType.SUCCESS);
+                                edgesFromNodes.add(outputEdge);
+                            }
+                        }
+                    } else if (outputs instanceof Map) {
+                        // 对象格式：条件分支 {true: "node1", false: "node2"}
+                        Map<String, Object> outputMap = (Map<String, Object>) outputs;
+                        for (Map.Entry<String, Object> entry : outputMap.entrySet()) {
+                            String condition = entry.getKey();
+                            String targetId = entry.getValue() != null ? entry.getValue().toString() : null;
+                            if (targetId != null && !targetId.isEmpty()) {
+                                WorkflowEdge outputEdge = new WorkflowEdge();
+                                outputEdge.setId("edge_" + UUID.randomUUID().toString().substring(0, 8));
+                                outputEdge.setSourceNodeId(nodeId);
+                                outputEdge.setTargetNodeId(targetId);
+                                // true条件是SUCCESS，其他是FAIL
+                                outputEdge.setEdgeType("true".equalsIgnoreCase(condition) ?
+                                        WorkflowEdge.EdgeType.SUCCESS : WorkflowEdge.EdgeType.FAIL);
+                                edgesFromNodes.add(outputEdge);
+                            }
+                        }
+                    }
                 }
             }
 
