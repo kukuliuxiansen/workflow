@@ -6,6 +6,7 @@ import com.openclaw.workflow.engine.connector.OpenClawGatewayClient;
 import com.openclaw.workflow.engine.model.NodeExecutionContext;
 import com.openclaw.workflow.engine.model.NodeResult;
 import com.openclaw.workflow.engine.util.AgentDecisionParser;
+import com.openclaw.workflow.engine.util.NodePromptBuilder;
 import com.openclaw.workflow.entity.WorkflowNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,6 +27,23 @@ import java.util.Map;
  * node_ids: branch_id
  * reason: 选择原因
  * [/NODE_DECISION]
+ *
+ * 配置结构：
+ * {
+ *   "decisionMode": "agent",
+ *   "branches": [
+ *     {
+ *       "id": "branch_1",
+ *       "name": "分支名称",
+ *       "description": "分支描述",
+ *       "targetNodeId": "node_xxx",
+ *       "conditionExpr": "表达式模式的条件",
+ *       "conditionDesc": "Agent模式的条件说明（给Agent看）"
+ *     }
+ *   ],
+ *   "defaultBranch": "branch_1",
+ *   "customPrompt": "自定义提示词（可选）"
+ * }
  */
 public class ConditionNodeHandler extends BaseNodeHandler {
 
@@ -146,43 +164,29 @@ public class ConditionNodeHandler extends BaseNodeHandler {
                                                   NodeExecutionContext context) throws Exception {
         AgentDecisionResult result = new AgentDecisionResult();
 
-        // 构建决策提示
-        List<AgentDecisionParser.DownstreamNode> downstreamNodes = new ArrayList<>();
+        // 构建分支信息列表
+        List<NodePromptBuilder.BranchInfo> branchInfos = new ArrayList<>();
         for (Branch branch : config.branches) {
-            downstreamNodes.add(new AgentDecisionParser.DownstreamNode(
+            branchInfos.add(new NodePromptBuilder.BranchInfo(
                     branch.id,
                     branch.name,
-                    branch.description
+                    branch.description,
+                    branch.conditionDesc  // 条件描述（给Agent看）
             ));
         }
 
-        StringBuilder prompt = new StringBuilder();
-        prompt.append("## 条件判断决策\n\n");
-        prompt.append("当前节点：").append(node.getName()).append("\n\n");
-
-        // 添加任务背景
-        if (context.getTaskDescription() != null) {
-            prompt.append("### 任务背景\n").append(context.getTaskDescription()).append("\n\n");
-        }
-
-        // 添加上游输出
-        if (context.getPreviousOutputs() != null && !context.getPreviousOutputs().isEmpty()) {
-            prompt.append("### 上游节点输出\n");
-            for (Map.Entry<String, NodeResult> entry : context.getPreviousOutputs().entrySet()) {
-                prompt.append("#### ").append(entry.getKey()).append("\n");
-                if (entry.getValue() != null && entry.getValue().getOutput() != null) {
-                    prompt.append(entry.getValue().getOutput().toString()).append("\n");
-                }
-            }
-            prompt.append("\n");
-        }
-
-        // 添加决策格式
-        prompt.append(AgentDecisionParser.buildDecisionPrompt(
-                "condition",
+        // 使用通用的提示词构建器
+        String prompt = NodePromptBuilder.buildConditionPrompt(
+                context.getWorkflowId(),
+                context.getExecutionId(),
+                node.getId(),
                 node.getName(),
-                downstreamNodes
-        ));
+                branchInfos,
+                config.defaultBranch,
+                context.getPreviousOutputs(),
+                context.getTaskDescription(),
+                config.customPrompt
+        );
 
         // 调用Agent获取决策
         OpenClawGatewayClient client = new OpenClawGatewayClient(gatewayUrl, gatewayToken);
@@ -193,9 +197,11 @@ public class ConditionNodeHandler extends BaseNodeHandler {
 
         OpenClawGatewayClient.AgentRequest request = OpenClawGatewayClient.AgentRequest.builder()
                 .agentId(decisionAgentId)
-                .message(prompt.toString())
+                .message(prompt)
                 .context(sessionContext)
                 .build();
+
+        logger.info("条件判断Agent调用: {} - 提示词长度: {}", node.getName(), prompt.length());
 
         OpenClawGatewayClient.AgentResponse response = client.executeAgent(request);
 
@@ -361,6 +367,11 @@ public class ConditionNodeHandler extends BaseNodeHandler {
                     config.defaultBranch = jsonConfig.get("defaultBranch").asText();
                 }
 
+                // 解析自定义提示词
+                if (jsonConfig.has("customPrompt")) {
+                    config.customPrompt = jsonConfig.get("customPrompt").asText();
+                }
+
                 // 解析分支
                 if (jsonConfig.has("branches") && jsonConfig.get("branches").isArray()) {
                     for (JsonNode branchNode : jsonConfig.get("branches")) {
@@ -370,6 +381,8 @@ public class ConditionNodeHandler extends BaseNodeHandler {
                         branch.description = branchNode.has("description") ? branchNode.get("description").asText() : "";
                         branch.targetNodeId = branchNode.has("targetNodeId") ? branchNode.get("targetNodeId").asText() : "";
                         branch.conditionExpr = branchNode.has("conditionExpr") ? branchNode.get("conditionExpr").asText() : null;
+                        // 新增：条件描述（给Agent看）
+                        branch.conditionDesc = branchNode.has("conditionDesc") ? branchNode.get("conditionDesc").asText() : null;
                         config.branches.add(branch);
                     }
                 }
@@ -398,6 +411,7 @@ public class ConditionNodeHandler extends BaseNodeHandler {
         String expression;
         String defaultBranch;
         List<Branch> branches = new ArrayList<>();
+        String customPrompt;  // 自定义提示词
     }
 
     private static class Branch {
@@ -405,7 +419,8 @@ public class ConditionNodeHandler extends BaseNodeHandler {
         String name;
         String description;
         String targetNodeId;
-        String conditionExpr;
+        String conditionExpr;   // 表达式模式的条件
+        String conditionDesc;   // Agent模式的条件说明（给Agent看）
     }
 
     private static class ExpressionResult {

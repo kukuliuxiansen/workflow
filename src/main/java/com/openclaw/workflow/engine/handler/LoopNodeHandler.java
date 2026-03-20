@@ -6,12 +6,12 @@ import com.openclaw.workflow.engine.connector.OpenClawGatewayClient;
 import com.openclaw.workflow.engine.model.NodeExecutionContext;
 import com.openclaw.workflow.engine.model.NodeResult;
 import com.openclaw.workflow.engine.util.AgentDecisionParser;
+import com.openclaw.workflow.engine.util.NodePromptBuilder;
 import com.openclaw.workflow.entity.WorkflowNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -26,6 +26,21 @@ import java.util.List;
  * node_ids: continue 或 exit
  * reason: 选择原因
  * [/NODE_DECISION]
+ *
+ * 配置结构：
+ * {
+ *   "loopMode": "condition",
+ *   "loopConfig": {
+ *     "maxIterations": 100,
+ *     "loopVariable": "item",
+ *     "exitCondition": "退出条件说明（给Agent看）"
+ *   },
+ *   "loopBody": {
+ *     "entryNodeId": "node_xxx"
+ *   },
+ *   "onLoopComplete": "node_yyy",
+ *   "customPrompt": "自定义提示词（可选）"
+ * }
  */
 public class LoopNodeHandler extends BaseNodeHandler {
 
@@ -122,40 +137,21 @@ public class LoopNodeHandler extends BaseNodeHandler {
     private NodeResult decideViaAgent(WorkflowNode node, LoopConfig config,
                                        NodeResult.LoopContext loopContext,
                                        NodeExecutionContext context) throws Exception {
-        // 构建决策提示
-        StringBuilder prompt = new StringBuilder();
-        prompt.append("## 循环执行决策\n\n");
-        prompt.append("当前节点：").append(node.getName()).append("\n");
-        prompt.append("当前迭代：第 ").append(loopContext.getCurrentIteration() + 1).append(" 次\n");
-        prompt.append("最大迭代：").append(loopContext.getMaxIterations()).append(" 次\n\n");
-
-        // 添加迭代结果历史
-        if (loopContext.getIterationResults() != null && !loopContext.getIterationResults().isEmpty()) {
-            prompt.append("### 已完成的迭代：\n");
-            for (int i = 0; i < loopContext.getIterationResults().size(); i++) {
-                prompt.append("- 迭代 ").append(i + 1).append(": ");
-                prompt.append(loopContext.getIterationResults().get(i)).append("\n");
-            }
-            prompt.append("\n");
-        }
-
-        // 添加任务背景
-        if (context.getTaskDescription() != null) {
-            prompt.append("### 任务背景\n").append(context.getTaskDescription()).append("\n\n");
-        }
-
-        // 添加决策选项
-        prompt.append("### 请决定下一步操作：\n\n");
-        prompt.append("- `continue`: 继续下一次迭代\n");
-        prompt.append("- `exit`: 退出循环（任务已完成或无法继续）\n\n");
-
-        prompt.append("### 输出格式：\n");
-        prompt.append("```\n");
-        prompt.append("[NODE_DECISION]\n");
-        prompt.append("node_ids: continue 或 exit\n");
-        prompt.append("reason: <决策原因>\n");
-        prompt.append("[/NODE_DECISION]\n");
-        prompt.append("```\n");
+        // 使用通用的提示词构建器
+        String prompt = NodePromptBuilder.buildLoopPrompt(
+                context.getWorkflowId(),
+                context.getExecutionId(),
+                node.getId(),
+                node.getName(),
+                "condition",
+                loopContext.getCurrentIteration() + 1,  // 显示为第N次
+                loopContext.getMaxIterations(),
+                config.exitCondition,
+                loopContext.getLoopVariable(),
+                loopContext.getCurrentValue(),
+                context.getPreviousOutputs(),
+                config.customPrompt
+        );
 
         // 调用Agent获取决策
         OpenClawGatewayClient client = new OpenClawGatewayClient(gatewayUrl, gatewayToken);
@@ -167,9 +163,12 @@ public class LoopNodeHandler extends BaseNodeHandler {
 
         OpenClawGatewayClient.AgentRequest request = OpenClawGatewayClient.AgentRequest.builder()
                 .agentId(decisionAgentId)
-                .message(prompt.toString())
+                .message(prompt)
                 .context(sessionContext)
                 .build();
+
+        logger.info("循环决策Agent调用: {} (迭代{}) - 提示词长度: {}",
+                node.getName(), loopContext.getCurrentIteration() + 1, prompt.length());
 
         OpenClawGatewayClient.AgentResponse response = client.executeAgent(request);
 
@@ -184,6 +183,8 @@ public class LoopNodeHandler extends BaseNodeHandler {
                     decision = firstNodeId.toLowerCase();
                 }
             }
+        } else {
+            logger.error("循环决策Agent执行失败: {}", response.getErrorMessage());
         }
 
         // 执行决策
@@ -252,6 +253,11 @@ public class LoopNodeHandler extends BaseNodeHandler {
                     config.loopMode = "iterator".equalsIgnoreCase(mode) ? LoopMode.ITERATOR : LoopMode.CONDITION;
                 }
 
+                // 解析自定义提示词
+                if (jsonConfig.has("customPrompt")) {
+                    config.customPrompt = jsonConfig.get("customPrompt").asText();
+                }
+
                 // 解析循环配置
                 if (jsonConfig.has("loopConfig")) {
                     JsonNode loopConfig = jsonConfig.get("loopConfig");
@@ -262,6 +268,11 @@ public class LoopNodeHandler extends BaseNodeHandler {
 
                     if (loopConfig.has("loopVariable")) {
                         config.loopVariable = loopConfig.get("loopVariable").asText();
+                    }
+
+                    // 新增：退出条件说明
+                    if (loopConfig.has("exitCondition")) {
+                        config.exitCondition = loopConfig.get("exitCondition").asText();
                     }
 
                     if (loopConfig.has("iteratorSource") && loopConfig.get("iteratorSource").isArray()) {
@@ -326,6 +337,8 @@ public class LoopNodeHandler extends BaseNodeHandler {
         List<Object> iteratorSource;
         String loopBodyEntryNode;
         String loopBodyExitNode;
+        String exitCondition;  // 退出条件说明（给Agent看）
+        String customPrompt;   // 自定义提示词
     }
 
     // ==================== 配置方法 ====================

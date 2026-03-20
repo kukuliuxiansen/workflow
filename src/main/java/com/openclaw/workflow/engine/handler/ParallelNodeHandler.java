@@ -6,6 +6,7 @@ import com.openclaw.workflow.engine.connector.OpenClawGatewayClient;
 import com.openclaw.workflow.engine.model.NodeExecutionContext;
 import com.openclaw.workflow.engine.model.NodeResult;
 import com.openclaw.workflow.engine.util.AgentDecisionParser;
+import com.openclaw.workflow.engine.util.NodePromptBuilder;
 import com.openclaw.workflow.entity.WorkflowNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +26,23 @@ import java.util.List;
  * node_ids: branch_a, branch_b
  * reason: 选择原因
  * [/NODE_DECISION]
+ *
+ * 配置结构：
+ * {
+ *   "executionMode": "DYNAMIC",
+ *   "branches": [
+ *     {
+ *       "id": "branch_1",
+ *       "name": "分支名称",
+ *       "description": "分支描述",
+ *       "targetNodeId": "node_xxx",
+ *       "conditionDesc": "执行条件说明（给Agent看）"
+ *     }
+ *   ],
+ *   "mergeNode": "node_merge",
+ *   "defaultBranches": ["branch_1"],
+ *   "customPrompt": "自定义提示词（可选）"
+ * }
  */
 public class ParallelNodeHandler extends BaseNodeHandler {
 
@@ -114,32 +132,29 @@ public class ParallelNodeHandler extends BaseNodeHandler {
      */
     private List<String> selectBranchesViaAgent(WorkflowNode node, List<Branch> branches,
                                                  NodeExecutionContext context) throws Exception {
-        // 构建决策提示
-        List<AgentDecisionParser.DownstreamNode> downstreamNodes = new ArrayList<>();
+        // 构建分支信息列表
+        List<NodePromptBuilder.BranchInfo> branchInfos = new ArrayList<>();
         for (Branch branch : branches) {
-            downstreamNodes.add(new AgentDecisionParser.DownstreamNode(
+            branchInfos.add(new NodePromptBuilder.BranchInfo(
                     branch.id,
                     branch.name,
-                    branch.description
+                    branch.description,
+                    branch.conditionDesc  // 条件描述（给Agent看）
             ));
         }
 
-        String decisionPrompt = AgentDecisionParser.buildDecisionPrompt(
-                "parallel",
+        // 使用通用的提示词构建器
+        String prompt = NodePromptBuilder.buildParallelPrompt(
+                context.getWorkflowId(),
+                context.getExecutionId(),
+                node.getId(),
                 node.getName(),
-                downstreamNodes
+                "DYNAMIC",  // 只有DYNAMIC模式才会调用这个方法
+                branchInfos,
+                context.getPreviousOutputs(),
+                context.getTaskDescription(),
+                parseConfig(node).customPrompt
         );
-
-        // 构建完整提示
-        StringBuilder fullPrompt = new StringBuilder();
-        fullPrompt.append("## 并行执行决策\n\n");
-        fullPrompt.append("当前节点：").append(node.getName()).append("\n\n");
-        fullPrompt.append("### 任务背景\n");
-        if (context.getTaskDescription() != null) {
-            fullPrompt.append(context.getTaskDescription()).append("\n");
-        }
-        fullPrompt.append("\n");
-        fullPrompt.append(decisionPrompt);
 
         // 调用Agent获取决策
         OpenClawGatewayClient client = new OpenClawGatewayClient(gatewayUrl, gatewayToken);
@@ -150,9 +165,11 @@ public class ParallelNodeHandler extends BaseNodeHandler {
 
         OpenClawGatewayClient.AgentRequest request = OpenClawGatewayClient.AgentRequest.builder()
                 .agentId(decisionAgentId)
-                .message(fullPrompt.toString())
+                .message(prompt)
                 .context(sessionContext)
                 .build();
+
+        logger.info("并行决策Agent调用: {} - 提示词长度: {}", node.getName(), prompt.length());
 
         OpenClawGatewayClient.AgentResponse response = client.executeAgent(request);
 
@@ -216,6 +233,11 @@ public class ParallelNodeHandler extends BaseNodeHandler {
                     decisionAgentId = jsonConfig.get("decisionAgentId").asText();
                 }
 
+                // 解析自定义提示词
+                if (jsonConfig.has("customPrompt")) {
+                    config.customPrompt = jsonConfig.get("customPrompt").asText();
+                }
+
                 // 解析分支
                 if (jsonConfig.has("branches") && jsonConfig.get("branches").isArray()) {
                     for (JsonNode branchNode : jsonConfig.get("branches")) {
@@ -224,6 +246,8 @@ public class ParallelNodeHandler extends BaseNodeHandler {
                         branch.name = branchNode.has("name") ? branchNode.get("name").asText() : "";
                         branch.description = branchNode.has("description") ? branchNode.get("description").asText() : "";
                         branch.targetNodeId = branchNode.has("targetNodeId") ? branchNode.get("targetNodeId").asText() : "";
+                        // 新增：条件描述（给Agent看）
+                        branch.conditionDesc = branchNode.has("conditionDesc") ? branchNode.get("conditionDesc").asText() : null;
                         config.branches.add(branch);
                     }
                 }
@@ -255,6 +279,7 @@ public class ParallelNodeHandler extends BaseNodeHandler {
         List<Branch> branches = new ArrayList<>();
         String mergeNodeId;
         List<String> defaultBranches;
+        String customPrompt;  // 自定义提示词
     }
 
     private static class Branch {
@@ -262,6 +287,7 @@ public class ParallelNodeHandler extends BaseNodeHandler {
         String name;
         String description;
         String targetNodeId;
+        String conditionDesc;  // 执行条件说明（给Agent看）
     }
 
     // ==================== 配置方法 ====================
