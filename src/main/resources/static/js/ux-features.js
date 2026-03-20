@@ -1,162 +1,4 @@
-
-    // 1. 键盘快捷键
-    function setupKeyboardShortcuts() {
-      document.addEventListener('keydown', (e) => {
-        // 忽略输入框中的快捷键
-        const isInputFocused = document.activeElement.tagName === 'INPUT' ||
-                               document.activeElement.tagName === 'TEXTAREA';
-        const isCtrlOrCmd = e.ctrlKey || e.metaKey;
-
-        // Ctrl/Cmd + S: 保存
-        if (isCtrlOrCmd && e.key === 's') {
-          e.preventDefault();
-          saveWorkflow();
-        }
-        // Ctrl/Cmd + Z: 撤销
-        if (isCtrlOrCmd && e.key === 'z' && !e.shiftKey) {
-          e.preventDefault();
-          undo();
-        }
-        // Ctrl/Cmd + Y 或 Ctrl/Cmd + Shift + Z: 重做
-        if ((isCtrlOrCmd && e.key === 'y') || (isCtrlOrCmd && e.key === 'z' && e.shiftKey)) {
-          e.preventDefault();
-          redo();
-        }
-        // Ctrl/Cmd + C: 复制节点
-        if (isCtrlOrCmd && e.key === 'c') {
-          if (state.selectedNode || state.selectedNodes.size > 0) {
-            e.preventDefault();
-            copyNodes();
-          }
-        }
-        // Ctrl/Cmd + V: 粘贴节点
-        if (isCtrlOrCmd && e.key === 'v') {
-          e.preventDefault();
-          pasteNodes();
-        }
-        // Ctrl/Cmd + X: 剪切节点
-        if (isCtrlOrCmd && e.key === 'x') {
-          if (state.selectedNode || state.selectedNodes.size > 0) {
-            e.preventDefault();
-            cutNodes();
-          }
-        }
-        // Ctrl/Cmd + D: 复制为副本
-        if (isCtrlOrCmd && e.key === 'd') {
-          e.preventDefault();
-          duplicateNodes();
-        }
-        // Ctrl/Cmd + A: 全选
-        if (isCtrlOrCmd && e.key === 'a' && !isInputFocused) {
-          e.preventDefault();
-          selectAllNodes();
-        }
-        // Delete/Backspace: 删除选中节点
-        if ((e.key === 'Delete' || e.key === 'Backspace') && !isInputFocused) {
-          if (state.selectedNode || state.selectedNodes.size > 0) {
-            e.preventDefault();
-            deleteSelectedNodes();
-          }
-        }
-        // Escape: 取消选择/关闭弹窗
-        if (e.key === 'Escape') {
-          clearNodeSelection();
-          closeContextMenu();
-          closeSearchPanel();
-          closeShortcutHelp();
-          renderCanvas();
-          renderPropertyPanel();
-        }
-        // Ctrl/Cmd + F: 搜索节点
-        if (isCtrlOrCmd && e.key === 'f') {
-          e.preventDefault();
-          toggleSearchPanel();
-        }
-        // Ctrl/Cmd + 0: 适应画布
-        if (isCtrlOrCmd && e.key === '0') {
-          e.preventDefault();
-          fitCanvas();
-        }
-        // Ctrl/Cmd + +: 放大
-        if (isCtrlOrCmd && (e.key === '+' || e.key === '=')) {
-          e.preventDefault();
-          zoomIn();
-        }
-        // Ctrl/Cmd + -: 缩小
-        if (isCtrlOrCmd && e.key === '-') {
-          e.preventDefault();
-          zoomOut();
-        }
-        // ?: 显示快捷键帮助
-        if (e.key === '?' && !isInputFocused) {
-          e.preventDefault();
-          toggleShortcutHelp();
-        }
-      });
-    }
-
-    // 2. 自动保存
-    function setupAutoSave() {
-      if (state.autoSaveTimer) {
-        clearInterval(state.autoSaveTimer);
-      }
-      state.autoSaveTimer = setInterval(() => {
-        if (state.isDirty && state.currentWorkflow) {
-          saveWorkflow(true);  // true = 静默保存
-        }
-      }, 30000);  // 30秒自动保存
-    }
-
-    function markDirty() {
-      state.isDirty = true;
-      updateSaveIndicator();
-    }
-
-    function updateSaveIndicator() {
-      const indicator = document.getElementById('saveIndicator');
-      if (indicator) {
-        if (state.isDirty) {
-          indicator.textContent = '● 未保存';
-          indicator.className = 'save-indicator dirty';
-        } else {
-          indicator.textContent = state.lastSaveTime ? `✓ 已保存 ${new Date(state.lastSaveTime).toLocaleTimeString()}` : '✓ 已保存';
-          indicator.className = 'save-indicator saved';
-        }
-      }
-    }
-
-    // 3. 撤销/重做
-    function pushUndo() {
-      if (state.currentWorkflow) {
-        state.undoStack.push(JSON.stringify(state.currentWorkflow));
-        if (state.undoStack.length > state.maxUndoSize) {
-          state.undoStack.shift();
-        }
-        state.redoStack = [];  // 新操作清空重做栈
-      }
-    }
-
-    function undo() {
-      if (state.undoStack.length > 0) {
-        state.redoStack.push(JSON.stringify(state.currentWorkflow));
-        state.currentWorkflow = JSON.parse(state.undoStack.pop());
-        renderCanvas();
-        renderPropertyPanel();
-        showToast('info', '已撤销');
-      }
-    }
-
-    function redo() {
-      if (state.redoStack.length > 0) {
-        state.undoStack.push(JSON.stringify(state.currentWorkflow));
-        state.currentWorkflow = JSON.parse(state.redoStack.pop());
-        renderCanvas();
-        renderPropertyPanel();
-        showToast('info', '已重做');
-      }
-    }
-
-    // 4. 复制/粘贴节点（调用批量版本）
+// 复制/粘贴节点（调用批量版本）
     function copyNode() {
       copyNodes();
     }
@@ -165,13 +7,13 @@
       pasteNodes();
     }
 
-    // 5. 节点搜索
+    // 节点搜索
     function searchNodes(query) {
       state.searchQuery = query.toLowerCase();
       renderCanvas();
     }
 
-    // 6. 网格吸附
+    // 网格吸附
     function snapToGrid(value) {
       if (state.gridSnap) {
         return Math.round(value / state.gridSize) * state.gridSize;
@@ -179,7 +21,7 @@
       return value;
     }
 
-    // 7. 右键上下文菜单
+    // 右键上下文菜单
     function showNodeContextMenu(event, nodeId) {
       event.preventDefault();
       event.stopPropagation();
@@ -211,8 +53,7 @@
       state.contextMenuNode = null;
     }
 
-    // 兼容旧的contextMenuAction函数（已在上面的画布优化功能中重写）
-    // 这里保留一个简化版本作为备份
+    // 兼容旧的contextMenuAction函数
     function contextMenuActionOld(action) {
       const nodeId = state.contextMenuNode;
       closeContextMenu();
@@ -242,7 +83,7 @@
       }
     }
 
-    // 8. 节点状态徽章
+    // 节点状态徽章
     function getNodeStatusBadge(nodeId) {
       const status = state.nodeStatus.get(nodeId);
       if (!status) return '';
@@ -258,7 +99,7 @@
       return statusMap[status] || '';
     }
 
-    // 9. 快速操作按钮
+    // 快速操作按钮
     function showQuickActions(nodeId, event) {
       event.stopPropagation();
       const panel = document.getElementById('quickActions');
@@ -302,7 +143,7 @@
       deleteSelectedNodes();
     }
 
-    // 10. 双击编辑节点
+    // 双击编辑节点
     function handleNodeDoubleClick(nodeId) {
       selectNode(nodeId);
       // 聚焦到名称输入框
@@ -336,4 +177,3 @@
       updateCanvasInfo();
       updateZoomLevel();
     }
-
