@@ -2,15 +2,34 @@
 
     // 加载工作流列表
     async function loadWorkflows() {
+      console.log('开始加载工作流列表...');
       try {
-        const res = await fetch(`${API}/workflows`);
-        const data = await res.json();
-        if (data.success) {
-          state.workflows = data.data || [];
-          renderWorkflowList();
+        const [workflowsRes, foldersRes] = await Promise.all([
+          fetch(`${API}/workflows`),
+          fetch(`${API}/folders`)
+        ]);
+        console.log('API响应:', workflowsRes.status, foldersRes.status);
+        const workflowsData = await workflowsRes.json();
+        const foldersData = await foldersRes.json();
+        console.log('工作流数据:', workflowsData);
+        console.log('文件夹数据:', foldersData);
+
+        if (workflowsData.success && Array.isArray(workflowsData.data)) {
+          state.workflows = workflowsData.data;
+        } else {
+          state.workflows = [];
         }
+        if (foldersData.success && Array.isArray(foldersData.data)) {
+          state.folders = foldersData.data;
+        } else {
+          state.folders = [];
+        }
+        console.log('开始渲染工作流列表...');
+        renderWorkflowList();
+        console.log('工作流列表渲染完成');
       } catch (e) {
-        console.error('加载工作流列表失败:', e);
+        console.error('loadWorkflows error:', e);
+        showToast('error', '加载失败: ' + (e.message || e));
       }
     }
 
@@ -19,24 +38,59 @@
       const list = document.getElementById('workflowList');
       if (!list) return;
 
-      const searchTerm = (state.searchTerm || '').toLowerCase();
-      const filtered = state.workflows.filter(w =>
-        !searchTerm || w.name.toLowerCase().includes(searchTerm)
+      const searchInput = document.getElementById('searchInput');
+      const search = searchInput ? searchInput.value.toLowerCase() : '';
+
+      const workflows = state.workflows || [];
+      const folders = state.folders || [];
+      const filtered = workflows.filter(w =>
+        w && w.name && w.id && (w.name.toLowerCase().includes(search) || w.id.toLowerCase().includes(search))
       );
 
-      if (filtered.length === 0) {
-        list.innerHTML = '<div class="empty-state">暂无工作流</div>';
+      if (filtered.length === 0 && folders.length === 0) {
+        list.innerHTML = '<div class="empty-state"><div class="icon">📭</div><div class="title">暂无工作流</div></div>';
         return;
       }
 
-      list.innerHTML = filtered.map(w => `
-        <div class="workflow-item ${state.currentWorkflow?.id === w.id ? 'active' : ''}"
-             onclick="selectWorkflow('${w.id}')">
-          <span class="workflow-icon">📄</span>
-          <span class="workflow-name">${w.name}</span>
-          <span class="workflow-node-count">${w.node_count || 0} 节点</span>
-        </div>
-      `).join('');
+      let html = '';
+
+      // 渲染文件夹
+      folders.forEach(folder => {
+        const isExpanded = state.expandedFolders.has(folder.id);
+        const folderWorkflows = filtered.filter(w => (w.folderId || w.folder_id) === folder.id);
+
+        html += `
+          <div class="folder-item">
+            <div class="folder-header ${state.draggedWorkflowId ? 'drag-target' : ''}"
+                 data-folder-id="${folder.id}"
+                 onclick="toggleFolder('${folder.id}')"
+                 ondragover="handleFolderDragOver(event, '${folder.id}')"
+                 ondragleave="handleFolderDragLeave(event)"
+                 ondrop="handleFolderDrop(event, '${folder.id}')">
+              <div class="folder-toggle ${isExpanded ? 'expanded' : ''}">▶</div>
+              <span class="folder-icon">📁</span>
+              <span class="folder-name">${folder.name}</span>
+              <span class="folder-count">${folderWorkflows.length}</span>
+              <div class="folder-actions">
+                <button class="folder-action-btn" onclick="event.stopPropagation(); renameFolder('${folder.id}')" title="重命名">✏️</button>
+                <button class="folder-action-btn danger" onclick="event.stopPropagation(); deleteFolder('${folder.id}')" title="删除">🗑️</button>
+              </div>
+            </div>
+            <div class="folder-content ${isExpanded ? '' : 'collapsed'}">
+              ${folderWorkflows.map(w => renderWorkflowItem(w)).join('')}
+            </div>
+          </div>`;
+      });
+
+      // 渲染根目录工作流
+      const rootWorkflows = filtered.filter(w => !(w.folderId || w.folder_id));
+      if (rootWorkflows.length > 0) {
+        html += `<div class="root-workflows">
+          ${rootWorkflows.map(w => renderWorkflowItem(w)).join('')}
+        </div>`;
+      }
+
+      list.innerHTML = html;
     }
 
     // 渲染属性面板 - 在 property-panel.js 中定义
