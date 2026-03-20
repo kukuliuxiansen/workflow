@@ -5,17 +5,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.io.*;
-import java.nio.file.*;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
 /**
  * 操作日志服务
- * 记录所有节点操作、AI调用等关键操作的输入输出
  */
 @Service
 public class OperationLogService {
@@ -24,14 +19,9 @@ public class OperationLogService {
     private static final Logger logger = LoggerFactory.getLogger(OperationLogService.class);
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-
-    // 内存中保存最近的日志（用于前端展示）
     private final Deque<LogEntry> recentLogs = new ConcurrentLinkedDeque<>();
     private static final int MAX_RECENT_LOGS = 500;
 
-    /**
-     * 记录节点操作日志
-     */
     public void logNodeOperation(String executionId, String nodeId, String nodeType,
                                   String operation, Object input, Object output) {
         try {
@@ -42,8 +32,8 @@ public class OperationLogService {
             entry.setNodeId(nodeId);
             entry.setNodeType(nodeType);
             entry.setOperation(operation);
-            entry.setInput(truncateIfNeeded(input));
-            entry.setOutput(truncateIfNeeded(output));
+            entry.setInput(LogFormatter.truncateIfNeeded(input, 2000));
+            entry.setOutput(LogFormatter.truncateIfNeeded(output, 2000));
 
             logEntry(entry);
         } catch (Exception e) {
@@ -51,9 +41,6 @@ public class OperationLogService {
         }
     }
 
-    /**
-     * 记录AI调用日志
-     */
     public void logAICall(String executionId, String agentId, String prompt,
                           Object responsePayload, boolean success, String error) {
         try {
@@ -62,8 +49,8 @@ public class OperationLogService {
             entry.setType("AI");
             entry.setExecutionId(executionId);
             entry.setAgentId(agentId);
-            entry.setInput(truncateIfNeeded(prompt));
-            entry.setOutput(truncateIfNeeded(responsePayload));
+            entry.setInput(LogFormatter.truncateIfNeeded(prompt, 2000));
+            entry.setOutput(LogFormatter.truncateIfNeeded(responsePayload, 2000));
             entry.setSuccess(success);
             entry.setError(error);
 
@@ -73,9 +60,6 @@ public class OperationLogService {
         }
     }
 
-    /**
-     * 记录工作流执行日志
-     */
     public void logWorkflowExecution(String executionId, String workflowId,
                                       String workflowName, String status, String message) {
         try {
@@ -83,10 +67,9 @@ public class OperationLogService {
             entry.setTimestamp(LocalDateTime.now());
             entry.setType("WORKFLOW");
             entry.setExecutionId(executionId);
-            entry.setWorkflowId(workflowId);
-            entry.setWorkflowName(workflowName);
+            entry.setNodeId(workflowId);
             entry.setOperation(status);
-            entry.setMessage(message);
+            entry.setOutput(message);
 
             logEntry(entry);
         } catch (Exception e) {
@@ -94,11 +77,8 @@ public class OperationLogService {
         }
     }
 
-    /**
-     * 记录API调用日志
-     */
     public void logApiCall(String executionId, String nodeId, String url, String method,
-                           Object requestBody, Object responseBody, int statusCode) {
+                           Object request, Object response, int statusCode, long duration) {
         try {
             LogEntry entry = new LogEntry();
             entry.setTimestamp(LocalDateTime.now());
@@ -106,9 +86,8 @@ public class OperationLogService {
             entry.setExecutionId(executionId);
             entry.setNodeId(nodeId);
             entry.setOperation(method + " " + url);
-            entry.setInput(truncateIfNeeded(requestBody));
-            entry.setOutput(truncateIfNeeded(responseBody));
-            entry.setStatusCode(statusCode);
+            entry.setInput(LogFormatter.truncateIfNeeded(request, 1000));
+            entry.setOutput(LogFormatter.truncateIfNeeded(response, 1000));
 
             logEntry(entry);
         } catch (Exception e) {
@@ -116,18 +95,15 @@ public class OperationLogService {
         }
     }
 
-    /**
-     * 记录通用操作日志
-     */
     public void logOperation(String type, String operation, Object input, Object output, String message) {
         try {
             LogEntry entry = new LogEntry();
             entry.setTimestamp(LocalDateTime.now());
             entry.setType(type);
             entry.setOperation(operation);
-            entry.setInput(truncateIfNeeded(input));
-            entry.setOutput(truncateIfNeeded(output));
-            entry.setMessage(message);
+            entry.setInput(LogFormatter.truncateIfNeeded(input, 1000));
+            entry.setOutput(LogFormatter.truncateIfNeeded(output, 1000));
+            entry.setError(message);
 
             logEntry(entry);
         } catch (Exception e) {
@@ -135,18 +111,14 @@ public class OperationLogService {
         }
     }
 
-    /**
-     * 记录错误日志
-     */
     public void logError(String type, String operation, String error, Object context) {
         try {
             LogEntry entry = new LogEntry();
             entry.setTimestamp(LocalDateTime.now());
-            entry.setType("ERROR");
+            entry.setType(type);
             entry.setOperation(operation);
             entry.setError(error);
-            entry.setInput(truncateIfNeeded(context));
-            entry.setSuccess(false);
+            entry.setInput(LogFormatter.truncateIfNeeded(context, 500));
 
             logEntry(entry);
         } catch (Exception e) {
@@ -155,225 +127,92 @@ public class OperationLogService {
     }
 
     private void logEntry(LogEntry entry) {
-        // 生成traceId
-        String traceId = generateTraceId();
-        entry.setTraceId(traceId);
+        entry.setTraceId(generateTraceId());
 
-        // 写入文件
-        String logLine = formatLogLine(entry);
-        OPERATION_LOGGER.info(logLine);
-
-        // 保存到内存
+        // 添加到内存队列
         recentLogs.addFirst(entry);
         while (recentLogs.size() > MAX_RECENT_LOGS) {
             recentLogs.removeLast();
         }
+
+        // 写入日志文件
+        String logLine = LogFormatter.formatLogLine(entry);
+        OPERATION_LOGGER.info(logLine);
     }
 
-    /**
-     * 生成唯一traceId
-     */
     private String generateTraceId() {
-        return "TRC-" + System.currentTimeMillis() + "-" + String.format("%04x", (int)(Math.random() * 0xFFFF));
+        return "TRC-" + System.currentTimeMillis() + "-" +
+                Integer.toHexString((int) (Math.random() * 0xFFFF));
     }
 
-    private String formatLogLine(LogEntry entry) {
-        StringBuilder sb = new StringBuilder();
-        sb.append(entry.getTraceId()).append("|");
-        sb.append(entry.getTimestamp() != null ? entry.getTimestamp().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME) : "-").append("|");
-        sb.append(entry.getType()).append("|");
-        sb.append(entry.getExecutionId() != null ? entry.getExecutionId() : "-").append("|");
-        sb.append(entry.getNodeId() != null ? entry.getNodeId() : "-").append("|");
-        sb.append(entry.getOperation() != null ? entry.getOperation() : "-").append("|");
-        sb.append(entry.isSuccess() ? "SUCCESS" : "FAIL").append("|");
-        if (entry.getInput() != null) {
-            sb.append("IN:").append(entry.getInput()).append("|");
-        }
-        if (entry.getOutput() != null) {
-            sb.append("OUT:").append(entry.getOutput());
-        }
-        if (entry.getError() != null) {
-            sb.append("ERR:").append(entry.getError());
-        }
-        return sb.toString();
-    }
-
-    private Object truncateIfNeeded(Object obj) {
-        if (obj == null) return null;
-
-        try {
-            String json = obj instanceof String ? (String) obj : objectMapper.writeValueAsString(obj);
-            // 限制长度，AI输出可能很长
-            if (json.length() > 5000) {
-                return json.substring(0, 5000) + "...(truncated)";
-            }
-            return obj;
-        } catch (Exception e) {
-            return obj.toString();
-        }
-    }
-
-    /**
-     * 获取最近的日志
-     */
     public List<LogEntry> getRecentLogs(int limit) {
-        List<LogEntry> result = new ArrayList<>();
+        List<LogEntry> logs = new ArrayList<>();
         int count = 0;
         for (LogEntry entry : recentLogs) {
-            result.add(entry);
+            logs.add(entry);
             if (++count >= limit) break;
         }
-        return result;
-    }
-
-    /**
-     * 获取指定执行ID的日志
-     */
-    public List<LogEntry> getLogsByExecutionId(String executionId) {
-        List<LogEntry> result = new ArrayList<>();
-        for (LogEntry entry : recentLogs) {
-            if (executionId.equals(entry.getExecutionId())) {
-                result.add(entry);
-            }
-        }
-        return result;
-    }
-
-    /**
-     * 从文件读取日志
-     */
-    public List<Map<String, Object>> readLogFromFile(String date, int limit) {
-        List<Map<String, Object>> logs = new ArrayList<>();
-
-        String logFileName;
-        if (date == null || date.isEmpty()) {
-            logFileName = "operation.log";
-        } else {
-            logFileName = "operation." + date + ".log";
-        }
-
-        Path logPath = Paths.get("logs", logFileName);
-        if (!Files.exists(logPath)) {
-            return logs;
-        }
-
-        try (BufferedReader reader = Files.newBufferedReader(logPath)) {
-            String line;
-            int count = 0;
-            while ((line = reader.readLine()) != null && count < limit) {
-                Map<String, Object> parsed = parseLogLine(line);
-                if (parsed != null) {
-                    logs.add(parsed);
-                    count++;
-                }
-            }
-        } catch (IOException e) {
-            logger.error("读取日志文件失败: {}", e.getMessage());
-        }
-
-        Collections.reverse(logs); // 最新的在前面
         return logs;
     }
 
-    private Map<String, Object> parseLogLine(String line) {
-        try {
-            String[] parts = line.split("\\|", 8);
-            if (parts.length < 7) return null;
-
-            Map<String, Object> log = new LinkedHashMap<>();
-            log.put("traceId", parts[0]);
-            log.put("timestamp", parts[1]);
-            log.put("type", parts[2]);
-            log.put("executionId", "-".equals(parts[3]) ? null : parts[3]);
-            log.put("nodeId", "-".equals(parts[4]) ? null : parts[4]);
-            log.put("operation", "-".equals(parts[5]) ? null : parts[5]);
-            log.put("success", "SUCCESS".equals(parts[6]));
-
-            if (parts.length > 7) {
-                String rest = parts[7];
-                // 解析IN/OUT/ERR
-                if (rest.contains("OUT:")) {
-                    int idx = rest.indexOf("OUT:");
-                    if (rest.contains("IN:")) {
-                        log.put("input", rest.substring(3, idx));
-                    }
-                    log.put("output", rest.substring(idx + 4));
-                } else if (rest.contains("IN:")) {
-                    log.put("input", rest.substring(3));
-                }
-                if (rest.contains("ERR:")) {
-                    int idx = rest.indexOf("ERR:");
-                    log.put("error", rest.substring(idx + 4));
-                }
+    public List<LogEntry> getLogsByExecutionId(String executionId) {
+        List<LogEntry> logs = new ArrayList<>();
+        for (LogEntry entry : recentLogs) {
+            if (executionId.equals(entry.getExecutionId())) {
+                logs.add(entry);
             }
-
-            return log;
-        } catch (Exception e) {
-            return null;
         }
+        return logs;
     }
 
-    /**
-     * 清空内存中的日志
-     */
+    public List<Map<String, Object>> readLogFromFile(String date, int limit) {
+        return LogFormatter.readLogsFromFile(date, limit);
+    }
+
     public void clearRecentLogs() {
         recentLogs.clear();
+        logger.info("内存日志已清空");
     }
 
-    /**
-     * 保存前端日志
-     */
     public void saveFrontendLog(Map<String, Object> logEntry) {
         try {
             LogEntry entry = new LogEntry();
-            entry.setTraceId((String) logEntry.get("traceId"));
             entry.setTimestamp(LocalDateTime.now());
-            entry.setType("FRONTEND");
-            entry.setOperation((String) logEntry.get("level"));
-            entry.setMessage((String) logEntry.get("msg"));
+            entry.setType((String) logEntry.getOrDefault("type", "FRONTEND"));
+            entry.setExecutionId((String) logEntry.get("executionId"));
+            entry.setOperation((String) logEntry.get("operation"));
+            entry.setInput(logEntry.get("data"));
+            entry.setError((String) logEntry.get("error"));
 
-            // 写入文件
-            String logLine = formatLogLine(entry);
-            OPERATION_LOGGER.info(logLine);
+            logEntry(entry);
         } catch (Exception e) {
             logger.error("保存前端日志失败", e);
         }
     }
 
-    /**
-     * 日志条目
-     */
     public static class LogEntry {
-        private String traceId;      // 唯一追踪ID
         private LocalDateTime timestamp;
-        private String type; // NODE, AI, API, WORKFLOW, ERROR
+        private String traceId;
+        private String type;
         private String executionId;
-        private String workflowId;
-        private String workflowName;
         private String nodeId;
         private String nodeType;
         private String agentId;
         private String operation;
         private Object input;
         private Object output;
-        private boolean success = true;
+        private Boolean success;
         private String error;
-        private String message;
-        private Integer statusCode;
 
         // Getters and Setters
-        public String getTraceId() { return traceId; }
-        public void setTraceId(String traceId) { this.traceId = traceId; }
         public LocalDateTime getTimestamp() { return timestamp; }
         public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }
+        public String getTraceId() { return traceId; }
+        public void setTraceId(String traceId) { this.traceId = traceId; }
         public String getType() { return type; }
         public void setType(String type) { this.type = type; }
         public String getExecutionId() { return executionId; }
         public void setExecutionId(String executionId) { this.executionId = executionId; }
-        public String getWorkflowId() { return workflowId; }
-        public void setWorkflowId(String workflowId) { this.workflowId = workflowId; }
-        public String getWorkflowName() { return workflowName; }
-        public void setWorkflowName(String workflowName) { this.workflowName = workflowName; }
         public String getNodeId() { return nodeId; }
         public void setNodeId(String nodeId) { this.nodeId = nodeId; }
         public String getNodeType() { return nodeType; }
@@ -386,13 +225,9 @@ public class OperationLogService {
         public void setInput(Object input) { this.input = input; }
         public Object getOutput() { return output; }
         public void setOutput(Object output) { this.output = output; }
-        public boolean isSuccess() { return success; }
-        public void setSuccess(boolean success) { this.success = success; }
+        public Boolean getSuccess() { return success; }
+        public void setSuccess(Boolean success) { this.success = success; }
         public String getError() { return error; }
         public void setError(String error) { this.error = error; }
-        public String getMessage() { return message; }
-        public void setMessage(String message) { this.message = message; }
-        public Integer getStatusCode() { return statusCode; }
-        public void setStatusCode(Integer statusCode) { this.statusCode = statusCode; }
     }
 }

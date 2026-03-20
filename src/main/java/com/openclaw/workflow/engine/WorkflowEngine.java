@@ -1,6 +1,5 @@
 package com.openclaw.workflow.engine;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openclaw.workflow.engine.handler.BaseNodeHandler;
 import com.openclaw.workflow.engine.model.*;
@@ -14,7 +13,6 @@ import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 工作流引擎主类
@@ -33,15 +31,13 @@ public class WorkflowEngine {
     private final ExecutionRepository executionRepository;
     private OperationLogService logService;
 
+    private final RetryManager retryManager = new RetryManager();
+
     private String executionId;
     private String workflowId;
     private ExecutionStatus status = ExecutionStatus.PENDING;
     private String currentNodeId;
     private String previousNodeId;
-
-    private Map<String, Integer> nodeRetryCount = new ConcurrentHashMap<>();
-    private int globalRetryCount = 0;
-    private int globalLoopCount = 0;
 
     private volatile boolean isPaused = false;
     private volatile boolean isWaitingRetry = false;
@@ -74,100 +70,79 @@ public class WorkflowEngine {
         this.status = ExecutionStatus.PENDING;
         this.currentNodeId = null;
         this.previousNodeId = null;
-        this.nodeRetryCount.clear();
-        this.globalRetryCount = 0;
-        this.globalLoopCount = 0;
+        this.retryManager.reset();
         this.isPaused = false;
         this.isWaitingRetry = false;
         this.isStopped = false;
-        this.options = new ExecutionOptions();
-        logger.debug("引擎状态已重置");
     }
 
     public ExecutionResult execute(String workflowId, String startNodeId,
-                                    Map<String, Object> input, ExecutionOptions options) {
-        // 重置引擎状态（解决单例Bean状态复用问题）
+                                   Map<String, Object> input, ExecutionOptions options) {
         resetEngineState();
 
+        if (options != null) {
+            this.options = options;
+        }
+
         this.workflowId = workflowId;
-        this.options = options != null ? options : new ExecutionOptions();
-        this.executionId = this.options.getExecutionId() != null ?
-                this.options.getExecutionId() : generateExecutionId();
+        this.executionId = generateExecutionId();
+        this.status = ExecutionStatus.RUNNING;
 
         try {
             Workflow workflow = workflowRepository.findById(workflowId)
                     .orElseThrow(() -> new RuntimeException("工作流不存在: " + workflowId));
 
-            if (startNodeId == null) {
-                startNodeId = findStartNode(workflow);
-            }
-
             Execution execution = initExecution(workflow);
+            contextManager.setExecutionId(executionId);
+            contextManager.setInput(input);
 
-            contextManager.init(input, null);
+            String nodeId = startNodeId != null ? startNodeId : findStartNode(workflow);
+            this.currentNodeId = nodeId;
 
-            if (this.options.isResume()) {
-                isPaused = false;
-                isWaitingRetry = false;
-                if (this.options.isResetRetry()) {
-                    resetRetryCount();
-                }
-            }
-
-            this.status = ExecutionStatus.RUNNING;
-            updateExecutionStatus(execution, "running");
-
-            String current = startNodeId;
-            this.globalLoopCount = 0;
-
-            while (current != null) {
+            while (nodeId != null && !isStopped) {
                 checkWait();
 
-                if (isStopped || status == ExecutionStatus.STOPPED) {
+                if (isStopped) break;
+
+                WorkflowNode node = nodeRepository.findById(nodeId)
+                        .orElseThrow(() -> new RuntimeException("节点不存在: " + nodeId));
+
+                this.previousNodeId = this.currentNodeId;
+                this.currentNodeId = nodeId;
+                retryManager.incrementLoopCount();
+
+                if (retryManager.getGlobalLoopCount() > options.getMaxLoopIterations()) {
+                    logger.warn("循环次数超限: {}", retryManager.getGlobalLoopCount());
                     break;
                 }
 
-                this.globalLoopCount++;
-                this.currentNodeId = current;
-
-                final String currentNodeId = current;
-                WorkflowNode node = nodeRepository.findByWorkflowIdAndId(workflowId, currentNodeId)
-                        .orElseThrow(() -> new RuntimeException("节点不存在: " + currentNodeId));
-
                 NodeResult result = executeNode(node);
+                updateExecutionStatus(execution, status.name().toLowerCase());
 
-                execution.setCurrentNodeId(current);
-                execution.setPreviousNodeId(previousNodeId);
-                executionRepository.save(execution);
+                if (result.getNextNodeId() != null) {
+                    nodeId = result.getNextNodeId();
+                } else {
+                    nodeId = getNextNode(node, result.getStatus());
+                }
 
-                if (node.getType() == WorkflowNode.NodeType.FINISH) {
+                if (nodeId == null || "finish".equals(result.getStatus())) {
                     this.status = ExecutionStatus.COMPLETED;
                     updateExecutionStatus(execution, "completed");
                     break;
                 }
 
-                String next = getNextNode(node, result.getStatus());
-
-                if (next == null) {
+                if ("failed".equals(result.getStatus()) && nodeId == null) {
                     this.status = ExecutionStatus.FAILED;
                     updateExecutionStatus(execution, "failed");
                     break;
                 }
-
-                if (!next.equals(current)) {
-                    previousNodeId = current;
-                }
-                current = next;
             }
 
-            execution.setEndTime(LocalDateTime.now());
-            executionRepository.save(execution);
-
-            if (status == ExecutionStatus.FAILED) {
-                return ExecutionResult.failed(executionId, "工作流执行失败");
+            if (isStopped) {
+                updateExecutionStatus(execution, "stopped");
             }
 
-            return ExecutionResult.success(executionId, new HashMap<>());
+            return ExecutionResult.success(executionId, contextManager.getAllOutputs());
 
         } catch (Exception e) {
             logger.error("工作流执行异常: {}", e.getMessage(), e);
@@ -193,7 +168,6 @@ public class WorkflowEngine {
             context.setProjectPath(contextManager.getProjectPath());
             context.setGlobalPrompt(contextManager.getGlobalPrompt());
 
-            // 记录节点输入
             nodeInput = Map.of(
                 "nodeId", node.getId(),
                 "nodeName", node.getName(),
@@ -208,7 +182,6 @@ public class WorkflowEngine {
             long duration = System.currentTimeMillis() - startTime;
             logger.info("节点 {} 执行完成, 状态: {}, 耗时: {}ms", node.getName(), result.getStatus(), duration);
 
-            // 记录节点输出日志
             if (logService != null) {
                 Object nodeOutput = Map.of(
                     "status", result.getStatus(),
@@ -223,10 +196,10 @@ public class WorkflowEngine {
             contextManager.saveNodeOutput(node.getId(), result);
 
             if ("retry".equals(result.getStatus())) {
-                nodeRetryCount.merge(node.getId(), 1, Integer::sum);
-                globalRetryCount++;
+                retryManager.incrementNodeRetry(node.getId());
+                retryManager.incrementGlobalRetry();
 
-                if (!checkRetryLimits(node)) {
+                if (!retryManager.checkAllLimits(node.getId())) {
                     status = ExecutionStatus.WAITING_RETRY;
                     isWaitingRetry = true;
                     return NodeResult.retry();
@@ -239,7 +212,6 @@ public class WorkflowEngine {
             long duration = System.currentTimeMillis() - startTime;
             logger.error("节点 {} 执行异常: {}", node.getName(), e.getMessage(), e);
 
-            // 记录错误日志
             if (logService != null) {
                 logService.logNodeOperation(executionId, node.getId(), node.getType().toString(),
                     "ERROR", nodeInput, Map.of("error", e.getMessage(), "duration", duration + "ms"));
@@ -266,7 +238,8 @@ public class WorkflowEngine {
         logger.debug("getNextNode: status={}, current={}", resultStatus, node.getId());
 
         if ("success".equals(resultStatus) || "completed".equals(resultStatus)) {
-            nodeRetryCount.put(node.getId(), 0);
+            retryManager.incrementNodeRetry(node.getId());
+            retryManager.incrementGlobalRetry();
 
             Optional<WorkflowEdge> edge = edgeRepository.findByWorkflowIdAndSourceNodeId(workflowId, node.getId())
                     .stream()
@@ -276,10 +249,7 @@ public class WorkflowEngine {
             return edge.map(WorkflowEdge::getTargetNodeId).orElse(null);
 
         } else if ("failed".equals(resultStatus) || "fail".equals(resultStatus)) {
-            nodeRetryCount.merge(node.getId(), 1, Integer::sum);
-            globalRetryCount++;
-
-            if (!checkRetryLimits(node)) {
+            if (!retryManager.checkAllLimits(node.getId())) {
                 return null;
             }
 
@@ -288,46 +258,13 @@ public class WorkflowEngine {
                     .filter(e -> e.getEdgeType() == WorkflowEdge.EdgeType.FAIL)
                     .findFirst();
 
-            if (edge.isPresent()) {
-                return edge.get().getTargetNodeId();
-            }
-
-            return node.getId();
+            return edge.map(WorkflowEdge::getTargetNodeId).orElse(node.getId());
 
         } else if ("retry".equals(resultStatus)) {
-            if (isWaitingRetry) {
-                return null;
-            }
-            return node.getId();
+            return isWaitingRetry ? null : node.getId();
         }
 
         return node.getId();
-    }
-
-    private boolean checkRetryLimits(WorkflowNode node) {
-        int nodeMaxRetries = options.getMaxRetries();
-        int globalMaxRetries = options.getMaxGlobalRetries();
-
-        int currentNodeRetry = nodeRetryCount.getOrDefault(node.getId(), 0);
-
-        if (currentNodeRetry >= nodeMaxRetries) {
-            logger.warn("节点 {} 重试次数达到上限 ({})", node.getId(), nodeMaxRetries);
-            return false;
-        }
-
-        if (globalRetryCount >= globalMaxRetries) {
-            logger.warn("全局重试次数达到上限 ({})", globalMaxRetries);
-            return false;
-        }
-
-        return true;
-    }
-
-    private void resetRetryCount() {
-        nodeRetryCount.clear();
-        globalRetryCount = 0;
-        globalLoopCount = 0;
-        logger.info("重试计数已重置");
     }
 
     private void checkWait() {
@@ -349,12 +286,11 @@ public class WorkflowEngine {
 
     public void resume(boolean resetRetry) {
         if (isWaitingRetry) {
-            resetRetryCount();
+            retryManager.reset();
             isWaitingRetry = false;
         } else if (isPaused) {
             isPaused = false;
         }
-
         status = ExecutionStatus.RUNNING;
         logger.info("工作流已恢复");
     }
@@ -373,9 +309,9 @@ public class WorkflowEngine {
         statusMap.put("status", status);
         statusMap.put("currentNodeId", currentNodeId);
         statusMap.put("previousNodeId", previousNodeId);
-        statusMap.put("globalLoopCount", globalLoopCount);
-        statusMap.put("nodeRetryCount", new HashMap<>(nodeRetryCount));
-        statusMap.put("globalRetryCount", globalRetryCount);
+        statusMap.put("globalLoopCount", retryManager.getGlobalLoopCount());
+        statusMap.put("nodeRetryCount", retryManager.getNodeRetryCount(currentNodeId));
+        statusMap.put("globalRetryCount", retryManager.getGlobalRetryCount());
         statusMap.put("isPaused", isPaused);
         statusMap.put("isWaitingRetry", isWaitingRetry);
         return statusMap;
@@ -388,16 +324,14 @@ public class WorkflowEngine {
 
     private String findStartNode(Workflow workflow) {
         List<WorkflowNode> nodes = nodeRepository.findByWorkflowIdOrderByCreatedAtAsc(workflow.getId());
+        List<WorkflowNode> startNodes = new ArrayList<>();
 
-        // 统计开始节点数量
-        List<WorkflowNode> startNodes = new java.util.ArrayList<>();
         for (WorkflowNode node : nodes) {
             if (node.getType() == WorkflowNode.NodeType.START) {
                 startNodes.add(node);
             }
         }
 
-        // 验证有且仅有一个开始节点
         if (startNodes.isEmpty()) {
             throw new RuntimeException("工作流缺少开始节点，请添加一个开始节点");
         }
