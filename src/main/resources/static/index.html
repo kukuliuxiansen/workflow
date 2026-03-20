@@ -3588,6 +3588,7 @@
             <div class="desc">双击画布添加节点 · 或点击工具栏"添加节点"</div>
           </div>
         `;
+        updateCanvasTransform();  // 确保画布transform被正确设置
         return;
       }
 
@@ -3665,6 +3666,7 @@
 
       content.innerHTML = html;
       renderEdges();
+      updateCanvasTransform();  // 确保画布transform被正确设置
     }
 
     // 渲染连线
