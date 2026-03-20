@@ -59,7 +59,8 @@ public class WorkflowNode {
         LOOP,
         WAIT,
         SUBWORKFLOW,
-        HUMAN_REVIEW;
+        HUMAN_REVIEW,
+        SMART_DECOMPOSE;
 
         @JsonValue
         public String toLowerCase() {

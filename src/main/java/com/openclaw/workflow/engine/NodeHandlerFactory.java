@@ -2,6 +2,7 @@ package com.openclaw.workflow.engine;
 
 import com.openclaw.workflow.engine.handler.*;
 import com.openclaw.workflow.engine.service.NodePromptService;
+import com.openclaw.workflow.engine.smartdecompose.SmartDecomposeHandler;
 import com.openclaw.workflow.entity.WorkflowNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +25,7 @@ public class NodeHandlerFactory {
     private final LoopNodeHandler loopNodeHandler;
     private final ConditionNodeHandler conditionNodeHandler;
     private final HumanReviewNodeHandler humanReviewNodeHandler;
+    private final SmartDecomposeHandler smartDecomposeHandler;
 
     // 提示词服务
     private NodePromptService promptService;
@@ -38,6 +40,7 @@ public class NodeHandlerFactory {
         this.loopNodeHandler = new LoopNodeHandler();
         this.conditionNodeHandler = new ConditionNodeHandler();
         this.humanReviewNodeHandler = new HumanReviewNodeHandler();
+        this.smartDecomposeHandler = new SmartDecomposeHandler(gatewayUrl, gatewayToken, "project-manager");
 
         // 配置Gateway API
         configureHandlers();
@@ -92,6 +95,8 @@ public class NodeHandlerFactory {
                 return new WaitNodeHandler();
             case HUMAN_REVIEW:
                 return humanReviewNodeHandler;
+            case SMART_DECOMPOSE:
+                return smartDecomposeHandler;
             case SUBWORKFLOW:
                 // 子工作流处理器（暂未实现）
                 logger.warn("SUBWORKFLOW节点类型尚未完全实现");
