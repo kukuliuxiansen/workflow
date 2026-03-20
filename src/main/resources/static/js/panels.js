@@ -1,10 +1,13 @@
 
     function togglePanel(panelId) {
       const panel = document.getElementById(panelId);
+      if (!panel) return;
+
       const isCollapsed = panel.classList.toggle('collapsed');
 
       // 保存偏好
       const prefs = getPrefs();
+      if (!prefs.panels) prefs.panels = {};
       prefs.panels[panelId] = !isCollapsed;
       savePrefs(prefs);
 
@@ -23,52 +26,65 @@
       const rightBtn = document.getElementById('toggleRightPanelBtn');
       const logBtn = document.getElementById('toggleLogPanelBtn');
 
+      if (!sidebar || !rightPanel || !logPanel) return;
+
       // 更新侧边栏按钮位置
-      if (sidebar.classList.contains('collapsed')) {
-        sidebarBtn.style.left = '10px';
-        sidebarBtn.textContent = '▶';
-      } else {
-        sidebarBtn.style.left = sidebar.offsetWidth + 'px';
-        sidebarBtn.textContent = '◀';
+      if (sidebarBtn) {
+        if (sidebar.classList.contains('collapsed')) {
+          sidebarBtn.style.left = '10px';
+          sidebarBtn.textContent = '▶';
+        } else {
+          sidebarBtn.style.left = sidebar.offsetWidth + 'px';
+          sidebarBtn.textContent = '◀';
+        }
       }
 
       // 更新右侧面板按钮位置
-      if (rightPanel.classList.contains('collapsed')) {
-        rightBtn.style.right = '10px';
-        rightBtn.textContent = '◀';
-      } else {
-        rightBtn.style.right = rightPanel.offsetWidth + 'px';
-        rightBtn.textContent = '▶';
+      if (rightBtn) {
+        if (rightPanel.classList.contains('collapsed')) {
+          rightBtn.style.right = '10px';
+          rightBtn.textContent = '◀';
+        } else {
+          rightBtn.style.right = rightPanel.offsetWidth + 'px';
+          rightBtn.textContent = '▶';
+        }
       }
 
       // 更新日志面板按钮位置
-      if (logPanel.classList.contains('collapsed')) {
-        logBtn.style.bottom = '10px';
-        logBtn.textContent = '▲';
-      } else {
-        logBtn.style.bottom = logPanel.offsetHeight + 'px';
-        logBtn.textContent = '▼';
+      if (logBtn) {
+        if (logPanel.classList.contains('collapsed')) {
+          logBtn.style.bottom = '10px';
+          logBtn.textContent = '▲';
+        } else {
+          logBtn.style.bottom = logPanel.offsetHeight + 'px';
+          logBtn.textContent = '▼';
+        }
       }
     }
 
     function loadPanelStates() {
       const prefs = getPrefs();
-      Object.entries(prefs.panels).forEach(([panelId, isOpen]) => {
+      const panels = prefs.panels || {};
+      Object.entries(panels).forEach(([panelId, isOpen]) => {
         const panel = document.getElementById(panelId);
-        if (!isOpen) {
+        if (panel && !isOpen) {
           panel.classList.add('collapsed');
         }
       });
 
       // 恢复面板大小
-      if (prefs.sidebarWidth) {
-        document.getElementById('sidebar').style.width = prefs.sidebarWidth + 'px';
+      const sidebar = document.getElementById('sidebar');
+      const rightPanel = document.getElementById('rightPanel');
+      const logPanel = document.getElementById('logPanel');
+
+      if (prefs.sidebarWidth && sidebar) {
+        sidebar.style.width = prefs.sidebarWidth + 'px';
       }
-      if (prefs.rightPanelWidth) {
-        document.getElementById('rightPanel').style.width = prefs.rightPanelWidth + 'px';
+      if (prefs.rightPanelWidth && rightPanel) {
+        rightPanel.style.width = prefs.rightPanelWidth + 'px';
       }
-      if (prefs.logPanelHeight) {
-        document.getElementById('logPanel').style.height = prefs.logPanelHeight + 'px';
+      if (prefs.logPanelHeight && logPanel) {
+        logPanel.style.height = prefs.logPanelHeight + 'px';
       }
 
       // 初始化按钮位置

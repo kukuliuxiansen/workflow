@@ -1,3 +1,11 @@
+    // 更新API日志计数
+    function updateApiLogCount() {
+      const el = document.getElementById('apiLogCount');
+      if (el) {
+        el.textContent = state.logs.api.length;
+      }
+    }
+
     const originalFetch = window.fetch;
     window.fetch = async function(url, options = {}) {
       const startTime = Date.now();
@@ -34,6 +42,10 @@
 
         // 只记录API调用
         if (typeof url === 'string' && url.startsWith(API)) {
+          // 确保logs.api已初始化
+          if (!state.logs) state.logs = { execution: [], agent: [], api: [] };
+          if (!state.logs.api) state.logs.api = [];
+
           const logEntry = {
             traceId,
             time: requestTime,
@@ -60,6 +72,10 @@
 
         // 记录错误
         if (typeof url === 'string' && url.startsWith(API)) {
+          // 确保logs.api已初始化
+          if (!state.logs) state.logs = { execution: [], agent: [], api: [] };
+          if (!state.logs.api) state.logs.api = [];
+
           const logEntry = {
             traceId,
             time: requestTime,

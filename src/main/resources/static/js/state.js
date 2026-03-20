@@ -14,6 +14,40 @@
       }
     });
 
+    // 面板拖拽调整大小
+    function startResize(e, panelId) {
+      e.preventDefault();
+      const panel = document.getElementById(panelId);
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const startWidth = panel.offsetWidth;
+      const startHeight = panel.offsetHeight;
+
+      function onMouseMove(e) {
+        if (panelId === 'sidebar') {
+          panel.style.width = Math.max(150, startWidth + e.clientX - startX) + 'px';
+        } else if (panelId === 'rightPanel') {
+          panel.style.width = Math.max(200, startWidth - e.clientX + startX) + 'px';
+        } else if (panelId === 'logPanel') {
+          panel.style.height = Math.max(100, startHeight - e.clientY + startY) + 'px';
+        }
+      }
+
+      function onMouseUp() {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        // 保存面板大小
+        const prefs = getPrefs();
+        if (panelId === 'sidebar') prefs.sidebarWidth = panel.offsetWidth;
+        if (panelId === 'rightPanel') prefs.rightPanelWidth = panel.offsetWidth;
+        if (panelId === 'logPanel') prefs.logPanelHeight = panel.offsetHeight;
+        savePrefs(prefs);
+      }
+
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    }
+
     const API = '/api';
     const state = {
       workflows: [],

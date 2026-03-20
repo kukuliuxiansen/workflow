@@ -179,40 +179,7 @@
       }
     }
 
-    // 导出功能
-    function exportCanvasAsImage() {
-      showToast('info', '正在导出图片...');
-
-      // 使用html2canvas或svg转图片
-      const svg = document.getElementById('edgesSvg');
-      const content = document.getElementById('canvasContent');
-
-      // 简单实现：创建截图
-      const canvas = document.createElement('canvas');
-      const rect = content.getBoundingClientRect();
-      canvas.width = rect.width;
-      canvas.height = rect.height;
-
-      // 这里需要更复杂的实现来捕获SVG和HTML节点
-      // 暂时提示用户
-      showToast('warn', '图片导出功能开发中，请使用浏览器截图');
-    }
-
-    function exportWorkflowAsJson() {
-      if (!state.currentWorkflow) return;
-
-      const dataStr = JSON.stringify(state.currentWorkflow, null, 2);
-      const blob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${state.currentWorkflow.name || 'workflow'}.json`;
-      a.click();
-
-      URL.revokeObjectURL(url);
-      showToast('success', '工作流已导出');
-    }
+    // 导出功能在 export-utils.js 中定义
 
     // 关闭所有右键菜单
     function closeContextMenu() {
