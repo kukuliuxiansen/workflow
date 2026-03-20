@@ -2625,14 +2625,24 @@
       const startTime = Date.now();
       const method = options.method || 'GET';
 
-      // 解析请求体
-      let requestBody = null;
+      // 解析请求参数
+      let requestInfo = null;
       if (options.body) {
+        // POST/PUT等请求的body
         try {
-          requestBody = typeof options.body === 'string' ? JSON.parse(options.body) : options.body;
+          requestInfo = typeof options.body === 'string' ? JSON.parse(options.body) : options.body;
         } catch (e) {
-          requestBody = options.body;
+          requestInfo = options.body;
         }
+      } else if (method === 'GET' && typeof url === 'string' && url.includes('?')) {
+        // GET请求的URL查询参数
+        try {
+          const queryStr = url.split('?')[1];
+          if (queryStr) {
+            requestInfo = {};
+            new URLSearchParams(queryStr).forEach((v, k) => requestInfo[k] = v);
+          }
+        } catch (e) {}
       }
 
       let response, data, error = null;
@@ -2662,7 +2672,7 @@
           method,
           url: url.replace(API, ''),
           fullUrl: url,
-          request: requestBody,
+          request: requestInfo,
           response: data,
           status: response?.status || (error ? 'ERROR' : 'N/A'),
           duration: duration + 'ms',
@@ -2699,6 +2709,7 @@
       container.innerHTML = apiLogs.map((log, idx) => {
         const statusColor = log.status === 200 ? '#4CAF50' : (log.error ? '#f44336' : '#FF9800');
         const methodColor = log.method === 'GET' ? '#4CAF50' : (log.method === 'POST' ? '#2196F3' : (log.method === 'DELETE' ? '#f44336' : '#FF9800'));
+        const traceId = log.traceId || 'N/A';
 
         return `
           <div class="api-log-item" style="padding:10px;border-bottom:1px solid #333;font-size:12px;">
@@ -2712,22 +2723,21 @@
                 <span style="color:#888;font-size:11px;">${log.duration}</span>
               </div>
             </div>
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:#888;">
-              <span style="font-family:monospace;color:#6b5ce7;">${log.traceId || '-'}</span>
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#888;">
+              <div style="display:flex;align-items:center;gap:4px;">
+                <span class="log-trace" style="font-size:10px;" title="点击复制TraceID" onclick="copyTraceId('${traceId}')">${traceId}</span>
+                <button class="log-copy-btn" onclick="copyTraceId('${traceId}')" title="复制TraceID">📋</button>
+              </div>
               <span>${log.timestamp}</span>
             </div>
-            ${log.request ? `
-              <details style="margin-top:6px;">
-                <summary style="cursor:pointer;color:#4CAF50;font-weight:500;">📤 请求参数</summary>
-                <pre style="background:#1a1a1a;padding:8px;margin:6px 0;border-radius:4px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;font-size:11px;color:#a6e3a1;max-height:200px;">${escapeHtml(JSON.stringify(log.request, null, 2))}</pre>
-              </details>
-            ` : ''}
-            ${log.response ? `
-              <details style="margin-top:4px;">
-                <summary style="cursor:pointer;color:#2196F3;font-weight:500;">📥 响应数据</summary>
-                <pre style="background:#1a1a1a;padding:8px;margin:6px 0;border-radius:4px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;font-size:11px;color:#89b4fa;max-height:300px;">${escapeHtml(typeof log.response === 'string' ? log.response : JSON.stringify(log.response, null, 2))}</pre>
-              </details>
-            ` : ''}
+            <details style="margin-top:6px;" open>
+              <summary style="cursor:pointer;color:#4CAF50;font-weight:500;">📤 请求参数</summary>
+              <pre style="background:#1a1a1a;padding:8px;margin:6px 0;border-radius:4px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;font-size:11px;color:#a6e3a1;max-height:200px;">${log.request ? escapeHtml(JSON.stringify(log.request, null, 2)) : '(无请求参数)'}</pre>
+            </details>
+            <details style="margin-top:4px;">
+              <summary style="cursor:pointer;color:#2196F3;font-weight:500;">📥 响应数据</summary>
+              <pre style="background:#1a1a1a;padding:8px;margin:6px 0;border-radius:4px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;font-size:11px;color:#89b4fa;max-height:300px;">${log.response ? escapeHtml(typeof log.response === 'string' ? log.response : JSON.stringify(log.response, null, 2)) : '(无响应数据)'}</pre>
+            </details>
             ${log.error ? `<div style="color:#f44336;margin-top:6px;padding:6px;background:rgba(244,67,54,0.1);border-radius:4px;">❌ ${escapeHtml(log.error)}</div>` : ''}
           </div>
         `;
@@ -6266,7 +6276,14 @@
           const time = l.timestamp || l.time || new Date().toLocaleTimeString();
           const level = l.level || 'info';
           const msg = l.message || l.msg || '';
-          return `<div class="log-entry"><span class="log-time">${time}</span><span class="log-level ${level}">[${level.toUpperCase()}]</span><span class="log-message">${msg}</span></div>`;
+          const traceId = l.traceId || 'N/A';
+          return `<div class="log-entry">
+            <span class="log-time">${time}</span>
+            <span class="log-trace" title="点击复制TraceID" onclick="copyTraceId('${traceId}')">${traceId}</span>
+            <button class="log-copy-btn" onclick="copyTraceId('${traceId}')" title="复制TraceID">📋</button>
+            <span class="log-level ${level}">[${level.toUpperCase()}]</span>
+            <span class="log-message">${msg}</span>
+          </div>`;
         }).join('');
         execContent.scrollTop = execContent.scrollHeight;
       }
@@ -6279,8 +6296,15 @@
           const level = l.level || 'info';
           const msg = l.message || l.msg || '';
           const agentId = l.agentId || '';
+          const traceId = l.traceId || 'N/A';
           const agentPrefix = agentId ? `<span class="agent-name">🤖 ${agentId}</span>: ` : '';
-          return `<div class="log-entry"><span class="log-time">${time}</span><span class="log-level ${level}">[${level.toUpperCase()}]</span><span class="log-message">${agentPrefix}${msg}</span></div>`;
+          return `<div class="log-entry">
+            <span class="log-time">${time}</span>
+            <span class="log-trace" title="点击复制TraceID" onclick="copyTraceId('${traceId}')">${traceId}</span>
+            <button class="log-copy-btn" onclick="copyTraceId('${traceId}')" title="复制TraceID">📋</button>
+            <span class="log-level ${level}">[${level.toUpperCase()}]</span>
+            <span class="log-message">${agentPrefix}${msg}</span>
+          </div>`;
         }).join('');
         agentContent.scrollTop = agentContent.scrollHeight;
       }
@@ -6376,39 +6400,6 @@
       }
     }
 
-    // 渲染日志到UI
-    function renderLogs() {
-      // 渲染执行日志
-      const execContent = document.getElementById('execLogContent');
-      if (execContent) {
-        execContent.innerHTML = state.logs.execution.map(log => `
-          <div class="log-entry">
-            <span class="log-time">${log.time}</span>
-            <span class="log-trace" title="点击复制TraceID" onclick="copyTraceId('${log.traceId}')">${log.traceId}</span>
-            <button class="log-copy-btn" onclick="copyTraceId('${log.traceId}')" title="复制TraceID">📋</button>
-            <span class="log-level ${log.level}">[${log.level.toUpperCase()}]</span>
-            <span class="log-message">${log.msg}</span>
-          </div>
-        `).join('');
-      }
-
-      // 渲染Agent日志
-      const agentContent = document.getElementById('agentLogContent');
-      if (agentContent) {
-        agentContent.innerHTML = state.logs.agent.map(log => `
-          <div class="log-entry">
-            <span class="log-time">${log.time}</span>
-            <span class="log-trace" title="点击复制TraceID" onclick="copyTraceId('${log.traceId}')">${log.traceId}</span>
-            <button class="log-copy-btn" onclick="copyTraceId('${log.traceId}')" title="复制TraceID">📋</button>
-            <span class="log-level ${log.level}">[${log.level.toUpperCase()}]</span>
-            <span class="log-message">${log.msg}</span>
-          </div>
-        `).join('');
-      }
-
-      updateLogCounts();
-    }
-
     // 更新日志计数显示
     function updateLogCounts() {
       const el1 = document.getElementById('execLogCount');
@@ -6490,18 +6481,24 @@
         'WORKFLOW': '#9C27B0',
         'ERROR': '#f44336',
         'AI_INPUT': '#2196F3',
-        'AI_OUTPUT': '#00BCD4'
+        'AI_OUTPUT': '#00BCD4',
+        'FRONTEND': '#6b5ce7'
       };
 
       container.innerHTML = logs.map(log => {
         const typeColor = typeColors[log.type] || '#888';
         const successClass = log.success === false ? 'op-log-fail' : '';
+        const traceId = log.traceId || 'N/A';
 
         return `
           <div class="op-log-item ${successClass}" style="padding:8px;border-bottom:1px solid #333;font-size:12px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
               <span style="background:${typeColor};color:#fff;padding:2px 6px;border-radius:3px;font-size:11px;">${log.type || '-'}</span>
               <span style="color:#888;">${log.timestamp || '-'}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;margin:4px 0;">
+              <span class="log-trace" style="font-size:10px;" title="点击复制TraceID" onclick="copyTraceId('${traceId}')">${traceId}</span>
+              <button class="log-copy-btn" onclick="copyTraceId('${traceId}')" title="复制TraceID">📋</button>
             </div>
             <div style="color:#ccc;margin:4px 0;">${log.operation || '-'}</div>
             ${log.executionId ? `<div style="color:#888;font-size:11px;">执行ID: ${log.executionId}</div>` : ''}
