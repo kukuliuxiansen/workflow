@@ -132,6 +132,7 @@ public class NodeHandlerFactory {
         this.humanReviewNodeHandler.setReviewServerUrl(reviewServerUrl);
     }
 
+    @Autowired
     public void setPromptService(NodePromptService promptService) {
         this.promptService = promptService;
         // 更新处理器的提示词服务
