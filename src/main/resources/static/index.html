@@ -3505,9 +3505,11 @@
           state.selectedHistoryId = null;
 
           // 从工作流数据中加载任务配置
-          if (state.currentWorkflow.taskConfig) {
+          // 后端返回的是 snake_case 格式 (task_config)
+          const taskConfigData = state.currentWorkflow.taskConfig || state.currentWorkflow.task_config;
+          if (taskConfigData) {
             // 如果是字符串，先解析
-            let config = state.currentWorkflow.taskConfig;
+            let config = taskConfigData;
             if (typeof config === 'string') {
               try {
                 config = JSON.parse(config);
@@ -4302,12 +4304,16 @@
         return;
       }
       try {
-        // 准备保存数据，将 taskConfig 对象转换为 JSON 字符串
+        // 准备保存数据，使用 snake_case 格式匹配后端 Jackson 配置
         const workflowData = {
-          ...state.currentWorkflow,
-          taskConfig: state.currentWorkflow.taskConfig
+          name: state.currentWorkflow.name,
+          description: state.currentWorkflow.description,
+          global_config: state.currentWorkflow.globalConfig || state.currentWorkflow.global_config,
+          task_config: state.currentWorkflow.taskConfig
             ? JSON.stringify(state.currentWorkflow.taskConfig)
-            : null
+            : null,
+          nodes: state.currentWorkflow.nodes,
+          edges: state.currentWorkflow.edges
         };
 
         await fetch(`${API}/workflows/${state.currentWorkflow.id}`, {
