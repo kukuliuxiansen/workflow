@@ -4933,6 +4933,15 @@
         if (targetNode) {
           const targetId = targetNode.id.replace('node-', '');
           if (targetId !== connectingFrom.nodeId) {
+            // 检查目标节点是否是开始节点（开始节点不能有输入连线）
+            const targetNodeData = state.currentWorkflow.nodes.find(n => n.id === targetId);
+            if (targetNodeData && targetNodeData.type === 'start') {
+              showToast('warn', '开始节点不能有输入连线');
+              connectingFrom = null;
+              isDraggingConnect = false;
+              return;
+            }
+
             try {
               addLog('info', `创建连线: ${connectingFrom.nodeId} -> ${targetId} (${connectingFrom.type})`);
 
