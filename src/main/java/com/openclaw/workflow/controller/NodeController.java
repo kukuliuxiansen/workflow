@@ -61,11 +61,11 @@ public class NodeController {
 
     @Operation(summary = "更新节点位置")
     @PatchMapping("/{nodeId}/position")
-    public ApiResponse<Void> updatePosition(@PathVariable String workflowId,
+    public ApiResponse<WorkflowNode> updatePosition(@PathVariable String workflowId,
                                              @PathVariable String nodeId,
                                              @RequestBody java.util.Map<String, Integer> position) {
         nodeService.updatePosition(workflowId, nodeId, position.get("x"), position.get("y"));
-        return ApiResponse.success();
+        return ApiResponse.success(nodeService.findById(workflowId, nodeId));
     }
 
     @Operation(summary = "删除节点")

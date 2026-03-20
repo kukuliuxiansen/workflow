@@ -1,5 +1,7 @@
 package com.openclaw.workflow.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import javax.persistence.*;
 import java.time.LocalDateTime;
 
@@ -14,9 +16,11 @@ public class TaskConfig {
     private String id;
 
     @Column(name = "execution_id", unique = true, nullable = false)
+    @JsonProperty("executionId")
     private String executionId;
 
     @Column(name = "workflow_id")
+    @JsonProperty("workflowId")
     private String workflowId;
 
     private String name;
@@ -25,18 +29,23 @@ public class TaskConfig {
     private String description;
 
     @Column(name = "project_path")
+    @JsonProperty("projectPath")
     private String projectPath;
 
     @Column(name = "workflow_path")
+    @JsonProperty("workflowPath")
     private String workflowPath;
 
     @Column(name = "global_prompt", columnDefinition = "TEXT")
+    @JsonProperty("globalPrompt")
     private String globalPrompt;
 
     @Column(name = "created_at")
+    @JsonProperty("createdAt")
     private LocalDateTime createdAt;
 
     @Column(name = "updated_at")
+    @JsonProperty("updatedAt")
     private LocalDateTime updatedAt;
 
     public TaskConfig() {
