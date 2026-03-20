@@ -4953,44 +4953,78 @@
     function startDrag(e, id) {
       if (e.button !== 0 || e.altKey) return;
       e.stopPropagation();
+
+      // 如果拖动的节点不在选中集合中，则只选中该节点
+      if (!state.selectedNodes.has(id)) {
+        state.selectedNodes.clear();
+        state.selectedNodes.add(id);
+        state.selectedNode = state.currentWorkflow?.nodes?.find(n => n.id === id);
+        renderCanvas();
+      }
+
       const el = document.getElementById(`node-${id}`);
-      const rect = el.getBoundingClientRect();
       dragging = {
         id,
         startX: e.clientX,
         startY: e.clientY,
-        nodeX: parseInt(el.style.left) || 0,
-        nodeY: parseInt(el.style.top) || 0
+        // 记录所有选中节点的初始位置
+        initialPositions: {}
       };
+
+      // 记录所有选中节点的初始位置
+      state.currentWorkflow?.nodes?.forEach(node => {
+        if (state.selectedNodes.has(node.id)) {
+          dragging.initialPositions[node.id] = {
+            x: node.position_x || 0,
+            y: node.position_y || 0
+          };
+        }
+      });
+
       document.addEventListener('mousemove', onDrag);
       document.addEventListener('mouseup', stopDrag);
     }
 
     function onDrag(e) {
       if (!dragging) return;
-      const node = state.currentWorkflow?.nodes?.find(n => n.id === dragging.id);
-      const el = document.getElementById(`node-${dragging.id}`);
-      if (node && el) {
-        const dx = (e.clientX - dragging.startX) / state.zoom;
-        const dy = (e.clientY - dragging.startY) / state.zoom;
-        node.position_x = Math.max(0, dragging.nodeX + dx);
-        node.position_y = Math.max(0, dragging.nodeY + dy);
-        el.style.left = node.position_x + 'px';
-        el.style.top = node.position_y + 'px';
-        renderEdges();
-      }
+
+      const dx = (e.clientX - dragging.startX) / state.zoom;
+      const dy = (e.clientY - dragging.startY) / state.zoom;
+
+      // 移动所有选中的节点
+      state.currentWorkflow?.nodes?.forEach(node => {
+        if (state.selectedNodes.has(node.id) && dragging.initialPositions[node.id]) {
+          const initial = dragging.initialPositions[node.id];
+          node.position_x = Math.max(0, initial.x + dx);
+          node.position_y = Math.max(0, initial.y + dy);
+
+          const el = document.getElementById(`node-${node.id}`);
+          if (el) {
+            el.style.left = node.position_x + 'px';
+            el.style.top = node.position_y + 'px';
+          }
+        }
+      });
+
+      renderEdges();
     }
 
     async function stopDrag() {
-      if (dragging) {
-        const node = state.currentWorkflow?.nodes?.find(n => n.id === dragging.id);
-        if (node) {
-          await fetch(`${API}/workflows/${state.currentWorkflow.id}/nodes/${dragging.id}/position`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ x: node.position_x, y: node.position_y })
-          });
-        }
+      if (dragging && state.selectedNodes.size > 0) {
+        // 批量保存所有移动节点的位置
+        const promises = [];
+        state.currentWorkflow?.nodes?.forEach(node => {
+          if (state.selectedNodes.has(node.id)) {
+            promises.push(
+              fetch(`${API}/workflows/${state.currentWorkflow.id}/nodes/${node.id}/position`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ x: node.position_x, y: node.position_y })
+              })
+            );
+          }
+        });
+        await Promise.all(promises);
       }
       dragging = null;
       document.removeEventListener('mousemove', onDrag);
@@ -5593,41 +5627,13 @@
       }
     }
 
-    // 4. 复制/粘贴节点
+    // 4. 复制/粘贴节点（调用批量版本）
     function copyNode() {
-      if (state.selectedNode) {
-        state.clipboard = JSON.parse(JSON.stringify(state.selectedNode));
-        showToast('success', '节点已复制');
-      }
+      copyNodes();
     }
 
-    async function pasteNode() {
-      if (state.clipboard && state.currentWorkflow) {
-        try {
-          // 调用后端API创建新节点
-          const res = await fetch(`${API}/workflows/${state.currentWorkflow.id}/nodes`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              type: state.clipboard.type,
-              name: state.clipboard.name + ' (副本)',
-              position_x: state.clipboard.position_x + 40,
-              position_y: state.clipboard.position_y + 40,
-              config: state.clipboard.config
-            })
-          });
-          const data = await res.json();
-          if (data.success) {
-            await selectWorkflow(state.currentWorkflow.id);
-            selectNode(data.data.id);
-            showToast('success', '节点已粘贴');
-          } else {
-            showToast('error', data.message || '粘贴失败');
-          }
-        } catch (e) {
-          showToast('error', '粘贴失败');
-        }
-      }
+    function pasteNode() {
+      pasteNodes();
     }
 
     // 5. 节点搜索
@@ -5763,14 +5769,6 @@
     // 兼容旧函数名
     function deleteSelectedNode() {
       deleteSelectedNodes();
-    }
-
-    function copyNode() {
-      copyNodes();
-    }
-
-    function pasteNode() {
-      pasteNodes();
     }
 
     // 10. 双击编辑节点
