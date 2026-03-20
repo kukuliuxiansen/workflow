@@ -691,6 +691,8 @@
     .log-content.active { display: block; }
     .log-entry { display: flex; gap: 6px; padding: 1px 0; }
     .log-time { color: #555; min-width: 60px; }
+    .log-trace { color: #22d3ee; font-size: 10px; cursor: pointer; padding: 1px 4px; background: rgba(34,211,238,0.1); border-radius: 3px; margin: 0 4px; }
+    .log-trace:hover { background: rgba(34,211,238,0.2); }
     .log-level { font-weight: 600; min-width: 40px; }
     .log-level.info { color: #6b9fff; }
     .log-level.success { color: #5f5; }
@@ -3201,7 +3203,7 @@
       const searchInput = document.getElementById('searchInput');
       const search = searchInput ? searchInput.value.toLowerCase() : '';
 
-      // 过滤工作流
+      // 过滤工作流 - 兼容 snake_case 和 camelCase
       const workflows = state.workflows || [];
       const folders = state.folders || [];
       const filtered = workflows.filter(w =>
@@ -3218,7 +3220,8 @@
       // 渲染文件夹
       folders.forEach(folder => {
         const isExpanded = state.expandedFolders.has(folder.id);
-        const folderWorkflows = filtered.filter(w => w.folderId === folder.id);
+        // 兼容 folder_id 和 folderId
+        const folderWorkflows = filtered.filter(w => (w.folderId || w.folder_id) === folder.id);
 
         html += `
           <div class="folder-item">
@@ -3244,8 +3247,11 @@
         `;
       });
 
-      // 渲染未分组的工作流（根目录）
-      const rootWorkflows = filtered.filter(w => !w.folderId || !folders.find(f => f.id === w.folderId));
+      // 渲染未分组的工作流（根目录）- 兼容 snake_case 和 camelCase
+      const rootWorkflows = filtered.filter(w => {
+        const fid = w.folderId || w.folder_id;
+        return !fid || !folders.find(f => f.id === fid);
+      });
       if (rootWorkflows.length > 0) {
         html += `<div class="folder-drop-zone" data-folder-id="root"
                       ondragover="handleFolderDragOver(event, 'root')"
@@ -5986,10 +5992,25 @@
       updateLogCounts();
     }
 
+    // 生成traceId
+    function generateTraceId() {
+      return 'TRC-' + Date.now() + '-' + Math.random().toString(16).substr(2, 4).toUpperCase();
+    }
+
+    // 复制traceId
+    function copyTraceId(traceId) {
+      navigator.clipboard.writeText(traceId).then(() => {
+        showToast('success', 'TraceID已复制: ' + traceId);
+      }).catch(() => {
+        showToast('error', '复制失败');
+      });
+    }
+
     // 添加日志 - type: 'execution' 或 'agent'
     function addLog(level, msg, type = 'execution') {
       const time = new Date().toLocaleTimeString();
-      const logEntry = { level, msg, time, type };
+      const traceId = generateTraceId();
+      const logEntry = { level, msg, time, type, traceId };
 
       // 存储到对应类型的日志数组
       if (!state.logs[type]) state.logs[type] = [];
@@ -5999,7 +6020,7 @@
       const contentId = type === 'agent' ? 'agentLogContent' : 'execLogContent';
       const content = document.getElementById(contentId);
       if (content) {
-        content.innerHTML += `<div class="log-entry"><span class="log-time">${time}</span><span class="log-level ${level}">[${level.toUpperCase()}]</span><span class="log-message">${msg}</span></div>`;
+        content.innerHTML += `<div class="log-entry"><span class="log-time">${time}</span><span class="log-trace" title="点击复制" onclick="copyTraceId('${traceId}')">${traceId}</span><span class="log-level ${level}">[${level.toUpperCase()}]</span><span class="log-message">${msg}</span></div>`;
         content.scrollTop = content.scrollHeight;
       }
 
