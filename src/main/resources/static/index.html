@@ -2709,7 +2709,7 @@
         }
 
         // 只记录API调用
-        if (typeof url === 'string' && url.startsWith(API)) {
+        if (typeof url === 'string' && url.startsWith(API) && state.logs && state.logs.api) {
           const logEntry = {
             traceId,
             time: requestTime,
@@ -2735,7 +2735,7 @@
         const duration = Date.now() - startTime;
 
         // 记录错误
-        if (typeof url === 'string' && url.startsWith(API)) {
+        if (typeof url === 'string' && url.startsWith(API) && state.logs && state.logs.api) {
           const logEntry = {
             traceId,
             time: requestTime,
@@ -2758,7 +2758,7 @@
 
     function updateApiLogCount() {
       const el = document.getElementById('apiLogCount');
-      if (el) el.textContent = state.logs.api.length;
+      if (el && state.logs && state.logs.api) el.textContent = state.logs.api.length;
     }
 
     function renderApiLogs() {
