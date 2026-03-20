@@ -2263,8 +2263,22 @@
       gridSnap: true,
       gridSize: 20,
       showMinimap: true,
+      showGrid: true,
       clipboard: null,
-      contextMenuNode: null
+      contextMenuNode: null,
+      // 框选状态
+      isBoxSelecting: false,
+      boxSelectStart: { x: 0, y: 0 },
+      boxSelectEnd: { x: 0, y: 0 },
+      selectedNodes: new Set(),  // 多选节点集合
+      // 对齐辅助线
+      showAlignGuides: true,
+      alignGuides: [],
+      // 画布锁定
+      isCanvasLocked: false,
+      // 触摸板支持
+      touchStartDistance: 0,
+      touchStartZoom: 1
     };
 
     // 用户偏好设置 (localStorage缓存)
