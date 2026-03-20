@@ -4547,11 +4547,25 @@
           edges: state.currentWorkflow.edges
         };
 
-        await fetch(`${API}/workflows/${state.currentWorkflow.id}`, {
+        const res = await fetch(`${API}/workflows/${state.currentWorkflow.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(workflowData)
         });
+        const data = await res.json();
+
+        // 保存成功后重新加载工作流数据，确保前后端一致
+        if (data.success) {
+          // 更新当前工作流数据为后端返回的数据
+          const detailRes = await fetch(`${API}/workflows/${state.currentWorkflow.id}`);
+          const detailData = await detailRes.json();
+          if (detailData.success) {
+            state.currentWorkflow = detailData.data;
+            renderCanvas();
+            renderPropertyPanel();
+          }
+        }
+
         state.isDirty = false;
         state.lastSaveTime = Date.now();
         updateSaveIndicator();
