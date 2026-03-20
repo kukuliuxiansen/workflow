@@ -2613,9 +2613,95 @@
 
     const API = '/api';
 
-    // API调用日志记录
-    const apiLogs = [];
-    const MAX_API_LOGS = 500;
+    // ==================== 统一日志存储系统 ====================
+    const LogStorage = {
+      // 存储键名
+      KEYS: {
+        api: 'workflow_api_logs',
+        execution: 'workflow_exec_logs',
+        agent: 'workflow_agent_logs',
+        operation: 'workflow_op_logs'
+      },
+
+      // 每页条数
+      PAGE_SIZE: 100,
+
+      // 最大存储条数
+      MAX_LOGS: 10000,
+
+      // 获取所有日志
+      getAll(type) {
+        try {
+          const data = localStorage.getItem(this.KEYS[type]);
+          return data ? JSON.parse(data) : [];
+        } catch (e) {
+          return [];
+        }
+      },
+
+      // 保存所有日志
+      saveAll(type, logs) {
+        try {
+          // 限制最大数量
+          if (logs.length > this.MAX_LOGS) {
+            logs = logs.slice(0, this.MAX_LOGS);
+          }
+          localStorage.setItem(this.KEYS[type], JSON.stringify(logs));
+        } catch (e) {
+          // 存储空间不足，清理旧数据
+          if (e.name === 'QuotaExceededError') {
+            logs = logs.slice(0, Math.floor(logs.length / 2));
+            try {
+              localStorage.setItem(this.KEYS[type], JSON.stringify(logs));
+            } catch (e2) {}
+          }
+        }
+      },
+
+      // 添加日志
+      add(type, logEntry) {
+        const logs = this.getAll(type);
+        logs.unshift(logEntry);
+        this.saveAll(type, logs);
+        return logs.length;
+      },
+
+      // 获取分页数据
+      getPage(type, page = 0) {
+        const logs = this.getAll(type);
+        const start = page * this.PAGE_SIZE;
+        const end = start + this.PAGE_SIZE;
+        return {
+          data: logs.slice(start, end),
+          total: logs.length,
+          hasMore: end < logs.length,
+          page
+        };
+      },
+
+      // 获取总数
+      getCount(type) {
+        return this.getAll(type).length;
+      },
+
+      // 清空日志
+      clear(type) {
+        localStorage.removeItem(this.KEYS[type]);
+      },
+
+      // 清空所有日志
+      clearAll() {
+        Object.values(this.KEYS).forEach(key => localStorage.removeItem(key));
+      }
+    };
+
+    // 日志分页状态
+    const logPageState = {
+      api: { page: 0, hasMore: true },
+      execution: { page: 0, hasMore: true },
+      agent: { page: 0, hasMore: true },
+      operation: { page: 0, hasMore: true }
+    };
 
     // 保存原始fetch
     const originalFetch = window.fetch;
@@ -2628,14 +2714,12 @@
       // 解析请求参数
       let requestInfo = null;
       if (options.body) {
-        // POST/PUT等请求的body
         try {
           requestInfo = typeof options.body === 'string' ? JSON.parse(options.body) : options.body;
         } catch (e) {
           requestInfo = options.body;
         }
       } else if (method === 'GET' && typeof url === 'string' && url.includes('?')) {
-        // GET请求的URL查询参数
         try {
           const queryStr = url.split('?')[1];
           if (queryStr) {
@@ -2663,12 +2747,13 @@
       const endTime = Date.now();
       const duration = endTime - startTime;
 
-      // 只记录API调用（排除静态资源等）
+      // 只记录API调用
       if (typeof url === 'string' && url.startsWith(API)) {
         const traceId = 'TRC-' + Date.now() + '-' + Math.random().toString(16).slice(2, 6);
         const logEntry = {
-          traceId,
-          timestamp: new Date().toLocaleTimeString(),
+          id: traceId,
+          timestamp: new Date().toISOString(),
+          displayTime: new Date().toLocaleTimeString(),
           method,
           url: url.replace(API, ''),
           fullUrl: url,
@@ -2679,14 +2764,23 @@
           error
         };
 
-        apiLogs.unshift(logEntry);
-        if (apiLogs.length > MAX_API_LOGS) {
-          apiLogs.pop();
-        }
+        // 存储到 localStorage
+        LogStorage.add('api', logEntry);
 
-        // 更新API日志显示
-        renderApiLogs();
+        // 更新显示
         updateLogCounts();
+        // 如果当前在API日志页面，刷新显示
+        if (state.currentLogTab === 'api') {
+          renderApiLogs(true);
+        }
+      }
+
+      if (error) {
+        throw new Error(error);
+      }
+
+      return response;
+    };
       }
 
       if (error) {
@@ -2696,20 +2790,30 @@
       return response;
     };
 
-    // 渲染API日志
-    function renderApiLogs() {
+    // 渲染API日志（支持分页）
+    function renderApiLogs(reset = true) {
       const container = document.getElementById('apiLogContent');
       if (!container) return;
 
-      if (apiLogs.length === 0) {
+      // 重置分页状态
+      if (reset) {
+        logPageState.api = { page: 0, hasMore: true };
+      }
+
+      // 获取当前页数据
+      const pageData = LogStorage.getPage('api', logPageState.api.page);
+
+      if (pageData.total === 0) {
         container.innerHTML = '<div class="empty-state" style="text-align:center;padding:20px;color:#888;">暂无API调用日志</div>';
         return;
       }
 
-      container.innerHTML = apiLogs.map((log, idx) => {
+      const logs = pageData.data;
+      logPageState.api.hasMore = pageData.hasMore;
+
+      const html = logs.map(log => {
         const statusColor = log.status === 200 ? '#4CAF50' : (log.error ? '#f44336' : '#FF9800');
         const methodColor = log.method === 'GET' ? '#4CAF50' : (log.method === 'POST' ? '#2196F3' : (log.method === 'DELETE' ? '#f44336' : '#FF9800'));
-        const traceId = log.traceId || 'N/A';
 
         return `
           <div class="api-log-item" style="padding:10px;border-bottom:1px solid #333;font-size:12px;">
@@ -2723,25 +2827,231 @@
                 <span style="color:#888;font-size:11px;">${log.duration}</span>
               </div>
             </div>
-            <div style="display:flex;justify-content:space-between;align-items:center;font-size:11px;color:#888;">
-              <div style="display:flex;align-items:center;gap:4px;">
-                <span class="log-trace" style="font-size:10px;" title="点击复制TraceID" onclick="copyTraceId('${traceId}')">${traceId}</span>
-                <button class="log-copy-btn" onclick="copyTraceId('${traceId}')" title="复制TraceID">📋</button>
-              </div>
-              <span>${log.timestamp}</span>
-            </div>
-            <details style="margin-top:6px;" open>
-              <summary style="cursor:pointer;color:#4CAF50;font-weight:500;">📤 请求参数</summary>
-              <pre style="background:#1a1a1a;padding:8px;margin:6px 0;border-radius:4px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;font-size:11px;color:#a6e3a1;max-height:200px;">${log.request ? escapeHtml(JSON.stringify(log.request, null, 2)) : '(无请求参数)'}</pre>
-            </details>
-            <details style="margin-top:4px;">
-              <summary style="cursor:pointer;color:#2196F3;font-weight:500;">📥 响应数据</summary>
-              <pre style="background:#1a1a1a;padding:8px;margin:6px 0;border-radius:4px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;font-size:11px;color:#89b4fa;max-height:300px;">${log.response ? escapeHtml(typeof log.response === 'string' ? log.response : JSON.stringify(log.response, null, 2)) : '(无响应数据)'}</pre>
-            </details>
+            <div style="font-size:11px;color:#888;">${log.displayTime || log.timestamp}</div>
+            ${log.request ? `
+              <details style="margin-top:6px;">
+                <summary style="cursor:pointer;color:#4CAF50;font-weight:500;">📤 请求参数</summary>
+                <pre style="background:#1a1a1a;padding:8px;margin:6px 0;border-radius:4px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;font-size:11px;color:#a6e3a1;max-height:200px;">${escapeHtml(JSON.stringify(log.request, null, 2))}</pre>
+              </details>
+            ` : ''}
+            ${log.response ? `
+              <details style="margin-top:4px;">
+                <summary style="cursor:pointer;color:#2196F3;font-weight:500;">📥 响应数据</summary>
+                <pre style="background:#1a1a1a;padding:8px;margin:6px 0;border-radius:4px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;font-size:11px;color:#89b4fa;max-height:300px;">${escapeHtml(typeof log.response === 'string' ? log.response : JSON.stringify(log.response, null, 2))}</pre>
+              </details>
+            ` : ''}
             ${log.error ? `<div style="color:#f44336;margin-top:6px;padding:6px;background:rgba(244,67,54,0.1);border-radius:4px;">❌ ${escapeHtml(log.error)}</div>` : ''}
           </div>
         `;
       }).join('');
+
+      // 添加加载更多按钮或提示
+      const footerHtml = pageData.hasMore ? `
+        <div class="log-load-more" style="padding:12px;text-align:center;">
+          <button onclick="loadMoreLogs('api')" style="background:#333;color:#fff;border:1px solid #444;padding:8px 20px;border-radius:6px;cursor:pointer;">
+            加载更多 (${pageData.total - (logPageState.api.page + 1) * LogStorage.PAGE_SIZE} 条剩余)
+          </button>
+        </div>
+      ` : `
+        <div style="padding:10px;text-align:center;color:#666;font-size:11px;">
+          已加载全部 ${pageData.total} 条日志
+        </div>
+      `;
+
+      if (reset) {
+        container.innerHTML = html + footerHtml;
+        // 添加滚动监听
+        container.onscroll = () => handleLogScroll('api', container);
+      } else {
+        // 追加内容
+        const loadMoreBtn = container.querySelector('.log-load-more');
+        if (loadMoreBtn) {
+          loadMoreBtn.outerHTML = html + footerHtml;
+        } else {
+          container.innerHTML += html + footerHtml;
+        }
+      }
+    }
+
+    // 加载更多日志
+    function loadMoreLogs(type) {
+      logPageState[type].page++;
+      switch (type) {
+        case 'api':
+          renderApiLogs(false);
+          break;
+        case 'execution':
+          renderExecutionLogs(false);
+          break;
+        case 'agent':
+          renderAgentLogs(false);
+          break;
+        case 'operation':
+          renderOperationLogsLocal(false);
+          break;
+      }
+    }
+
+    // 滚动加载处理
+    function handleLogScroll(type, container) {
+      if (logPageState[type].hasMore) {
+        const { scrollTop, scrollHeight, clientHeight } = container;
+        if (scrollTop + clientHeight >= scrollHeight - 100) {
+          loadMoreLogs(type);
+        }
+      }
+    }
+
+    // 渲染执行日志（支持分页）
+    function renderExecutionLogs(reset = true) {
+      const container = document.getElementById('execLogContent');
+      if (!container) return;
+
+      if (reset) {
+        logPageState.execution = { page: 0, hasMore: true };
+      }
+
+      const pageData = LogStorage.getPage('execution', logPageState.execution.page);
+
+      if (pageData.total === 0) {
+        container.innerHTML = '<div class="empty-state" style="text-align:center;padding:20px;color:#888;">暂无执行日志</div>';
+        return;
+      }
+
+      logPageState.execution.hasMore = pageData.hasMore;
+      const logs = pageData.data;
+
+      const html = logs.map(l => `
+        <div class="log-entry">
+          <span class="log-time">${l.time}</span>
+          <span class="log-level ${l.level}">[${l.level.toUpperCase()}]</span>
+          <span class="log-message">${l.msg}</span>
+        </div>
+      `).join('');
+
+      const footerHtml = pageData.hasMore ? `
+        <div class="log-load-more" style="padding:12px;text-align:center;">
+          <button onclick="loadMoreLogs('execution')" style="background:#333;color:#fff;border:1px solid #444;padding:8px 20px;border-radius:6px;cursor:pointer;">
+            加载更多 (${pageData.total - (logPageState.execution.page + 1) * LogStorage.PAGE_SIZE} 条剩余)
+          </button>
+        </div>
+      ` : `<div style="padding:10px;text-align:center;color:#666;font-size:11px;">已加载全部 ${pageData.total} 条日志</div>`;
+
+      if (reset) {
+        container.innerHTML = html + footerHtml;
+        container.onscroll = () => handleLogScroll('execution', container);
+        container.scrollTop = 0;
+      } else {
+        const loadMoreBtn = container.querySelector('.log-load-more');
+        if (loadMoreBtn) {
+          loadMoreBtn.outerHTML = html + footerHtml;
+        }
+      }
+    }
+
+    // 渲染Agent日志（支持分页）
+    function renderAgentLogs(reset = true) {
+      const container = document.getElementById('agentLogContent');
+      if (!container) return;
+
+      if (reset) {
+        logPageState.agent = { page: 0, hasMore: true };
+      }
+
+      const pageData = LogStorage.getPage('agent', logPageState.agent.page);
+
+      if (pageData.total === 0) {
+        container.innerHTML = '<div class="empty-state" style="text-align:center;padding:20px;color:#888;">暂无Agent交互日志</div>';
+        return;
+      }
+
+      logPageState.agent.hasMore = pageData.hasMore;
+      const logs = pageData.data;
+
+      const html = logs.map(l => `
+        <div class="log-entry">
+          <span class="log-time">${l.time}</span>
+          <span class="log-level ${l.level}">[${l.level.toUpperCase()}]</span>
+          <span class="log-message">${l.msg}</span>
+        </div>
+      `).join('');
+
+      const footerHtml = pageData.hasMore ? `
+        <div class="log-load-more" style="padding:12px;text-align:center;">
+          <button onclick="loadMoreLogs('agent')" style="background:#333;color:#fff;border:1px solid #444;padding:8px 20px;border-radius:6px;cursor:pointer;">
+            加载更多 (${pageData.total - (logPageState.agent.page + 1) * LogStorage.PAGE_SIZE} 条剩余)
+          </button>
+        </div>
+      ` : `<div style="padding:10px;text-align:center;color:#666;font-size:11px;">已加载全部 ${pageData.total} 条日志</div>`;
+
+      if (reset) {
+        container.innerHTML = html + footerHtml;
+        container.onscroll = () => handleLogScroll('agent', container);
+      } else {
+        const loadMoreBtn = container.querySelector('.log-load-more');
+        if (loadMoreBtn) {
+          loadMoreBtn.outerHTML = html + footerHtml;
+        }
+      }
+    }
+
+    // 渲染操作日志（从localStorage，支持分页）
+    function renderOperationLogsLocal(reset = true) {
+      const container = document.getElementById('opLogList');
+      if (!container) return;
+
+      if (reset) {
+        logPageState.operation = { page: 0, hasMore: true };
+      }
+
+      const pageData = LogStorage.getPage('operation', logPageState.operation.page);
+
+      if (pageData.total === 0) {
+        container.innerHTML = '<div class="empty-state" style="text-align:center;padding:20px;color:#888;">暂无操作日志</div>';
+        return;
+      }
+
+      logPageState.operation.hasMore = pageData.hasMore;
+      const logs = pageData.data;
+
+      const typeColors = {
+        'NODE': '#4CAF50',
+        'AI': '#2196F3',
+        'API': '#FF9800',
+        'WORKFLOW': '#9C27B0',
+        'ERROR': '#f44336'
+      };
+
+      const html = logs.map(log => {
+        const typeColor = typeColors[log.type] || '#888';
+        return `
+          <div class="op-log-item" style="padding:8px;border-bottom:1px solid #333;font-size:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="background:${typeColor};color:#fff;padding:2px 6px;border-radius:3px;font-size:11px;">${log.type || '-'}</span>
+              <span style="color:#888;">${log.timestamp || log.time || '-'}</span>
+            </div>
+            <div style="color:#ccc;">${log.operation || log.msg || '-'}</div>
+          </div>
+        `;
+      }).join('');
+
+      const footerHtml = pageData.hasMore ? `
+        <div class="log-load-more" style="padding:12px;text-align:center;">
+          <button onclick="loadMoreLogs('operation')" style="background:#333;color:#fff;border:1px solid #444;padding:8px 20px;border-radius:6px;cursor:pointer;">
+            加载更多 (${pageData.total - (logPageState.operation.page + 1) * LogStorage.PAGE_SIZE} 条剩余)
+          </button>
+        </div>
+      ` : `<div style="padding:10px;text-align:center;color:#666;font-size:11px;">已加载全部 ${pageData.total} 条日志</div>`;
+
+      if (reset) {
+        container.innerHTML = html + footerHtml;
+        container.onscroll = () => handleLogScroll('operation', container);
+      } else {
+        const loadMoreBtn = container.querySelector('.log-load-more');
+        if (loadMoreBtn) {
+          loadMoreBtn.outerHTML = html + footerHtml;
+        }
+      }
     }
 
     const state = {
@@ -6326,31 +6636,42 @@
       updateLogCounts();
     }
 
-    // 添加日志 - type: 'execution' 或 'agent'
+    // 添加日志 - type: 'execution' 或 'agent' 或 'operation'
     function addLog(level, msg, type = 'execution') {
       const time = new Date().toLocaleTimeString();
+      const timestamp = new Date().toISOString();
       const traceId = generateTraceId();
-      const logEntry = { level, msg, time, type, traceId };
+      const logEntry = { id: traceId, level, msg, time, timestamp, type, traceId };
 
-      // 存储到对应类型的日志数组
-      if (!state.logs[type]) state.logs[type] = [];
-      state.logs[type].push(logEntry);
+      // 存储到 localStorage
+      LogStorage.add(type, logEntry);
 
-      // 发送日志到后端保存
-      saveLogToBackend(logEntry);
+      // 实时更新当前页面的显示（只在第一页时添加）
+      if (logPageState[type] && logPageState[type].page === 0) {
+        const contentId = type === 'agent' ? 'agentLogContent' :
+                          type === 'operation' ? 'opLogList' : 'execLogContent';
+        const content = document.getElementById(contentId);
+        if (content) {
+          // 移除空状态提示
+          const emptyState = content.querySelector('.empty-state');
+          if (emptyState) emptyState.remove();
 
-      // 更新对应的内容区
-      const contentId = type === 'agent' ? 'agentLogContent' : 'execLogContent';
-      const content = document.getElementById(contentId);
-      if (content) {
-        content.innerHTML += `<div class="log-entry">
-          <span class="log-time">${time}</span>
-          <span class="log-trace" title="点击复制TraceID" onclick="copyTraceId('${traceId}')">${traceId}</span>
-          <button class="log-copy-btn" onclick="copyTraceId('${traceId}')" title="复制TraceID">📋</button>
-          <span class="log-level ${level}">[${level.toUpperCase()}]</span>
-          <span class="log-message">${msg}</span>
-        </div>`;
-        content.scrollTop = content.scrollHeight;
+          // 在最前面插入新日志
+          const loadMoreBtn = content.querySelector('.log-load-more');
+          const newLogHtml = `<div class="log-entry">
+            <span class="log-time">${time}</span>
+            <span class="log-trace" title="点击复制TraceID" onclick="copyTraceId('${traceId}')">${traceId}</span>
+            <button class="log-copy-btn" onclick="copyTraceId('${traceId}')" title="复制TraceID">📋</button>
+            <span class="log-level ${level}">[${level.toUpperCase()}]</span>
+            <span class="log-message">${msg}</span>
+          </div>`;
+
+          if (loadMoreBtn) {
+            loadMoreBtn.insertAdjacentHTML('beforebegin', newLogHtml);
+          } else {
+            content.insertAdjacentHTML('afterbegin', newLogHtml);
+          }
+        }
       }
 
       // 更新计数
@@ -6371,57 +6692,16 @@
       });
     }
 
-    // 保存日志到后端
-    async function saveLogToBackend(logEntry) {
-      try {
-        await fetch(`${API}/logs/save`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(logEntry)
-        });
-      } catch (e) {
-        console.error('保存日志失败:', e);
-      }
-    }
-
-    // 从后端加载日志
-    async function loadLogsFromBackend() {
-      try {
-        const res = await fetch(`${API}/logs/file?limit=200`);
-        const data = await res.json();
-        if (data.success && data.data) {
-          // 清空现有日志
-          state.logs = { execution: [], agent: [] };
-
-          // 解析并填充日志
-          data.data.forEach(log => {
-            const logEntry = {
-              traceId: log.traceId || 'N/A',
-              time: log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : '-',
-              level: log.success ? 'info' : 'error',
-              msg: log.operation || log.message || log.error || '-',
-              type: log.type === 'AI' ? 'agent' : 'execution'
-            };
-            if (!state.logs[logEntry.type]) state.logs[logEntry.type] = [];
-            state.logs[logEntry.type].unshift(logEntry);
-          });
-
-          // 重新渲染日志
-          renderLogs();
-        }
-      } catch (e) {
-        console.error('加载日志失败:', e);
-      }
-    }
-
     // 更新日志计数显示
     function updateLogCounts() {
       const el1 = document.getElementById('execLogCount');
       const el2 = document.getElementById('agentLogCount');
       const el3 = document.getElementById('opLogCount');
       const el4 = document.getElementById('apiLogCount');
-      if (el1) el1.textContent = state.logs.execution.length;
-      if (el2) el2.textContent = state.logs.agent.length;
+      if (el1) el1.textContent = LogStorage.getCount('execution');
+      if (el2) el2.textContent = LogStorage.getCount('agent');
+      if (el3) el3.textContent = LogStorage.getCount('operation');
+      if (el4) el4.textContent = LogStorage.getCount('api');
       if (el3) el3.textContent = state.operationLogs.length;
       if (el4) el4.textContent = apiLogs.length;
     }
@@ -6439,11 +6719,19 @@
       else if (tab === 'api') contentId = 'apiLogContent';
       document.getElementById(contentId).classList.add('active');
 
-      // 如果切换到操作日志tab，刷新日志
-      if (tab === 'operation') {
-        refreshOperationLogs();
-      } else if (tab === 'api') {
-        renderApiLogs();
+      // 根据tab类型渲染对应日志
+      switch (tab) {
+        case 'api':
+          renderApiLogs();
+          break;
+        case 'agent':
+          renderAgentLogs();
+          break;
+        case 'operation':
+          renderOperationLogsLocal();
+          break;
+        default:
+          renderExecutionLogs();
       }
     }
 
@@ -6533,39 +6821,40 @@
     // 清空当前tab的日志
     function clearCurrentLogs() {
       const tab = state.currentLogTab;
-      if (tab === 'operation') {
-        // 清空操作日志需要调用API
-        fetch(`${API}/logs/recent`, { method: 'DELETE' })
-          .then(() => {
-            state.operationLogs = [];
-            renderOperationLogs([]);
-            updateLogCounts();
-          });
-      } else if (tab === 'api') {
-        apiLogs.length = 0;
-        renderApiLogs();
-        updateLogCounts();
-      } else {
-        state.logs[tab] = [];
-        const contentId = tab === 'agent' ? 'agentLogContent' : 'execLogContent';
-        document.getElementById(contentId).innerHTML = '';
-        updateLogCounts();
+      // 清空 localStorage 中的日志
+      LogStorage.clear(tab);
+      updateLogCounts();
+
+      // 重新渲染空状态
+      switch (tab) {
+        case 'api':
+          renderApiLogs();
+          break;
+        case 'agent':
+          renderAgentLogs();
+          break;
+        case 'operation':
+          renderOperationLogsLocal();
+          break;
+        default:
+          renderExecutionLogs();
       }
+      showToast('success', '日志已清空');
     }
 
     // 导出当前tab的日志
     function exportCurrentLogs() {
       const tab = state.currentLogTab;
+      const logs = LogStorage.getAll(tab);
       let text = '';
       let filename = '';
 
       if (tab === 'api') {
-        text = apiLogs.map(l => `[${l.timestamp}] [${l.method}] ${l.url}\n请求: ${JSON.stringify(l.request, null, 2)}\n响应: ${JSON.stringify(l.response, null, 2)}`).join('\n\n');
+        text = logs.map(l => `[${l.displayTime || l.timestamp}] [${l.method}] ${l.url}\n请求: ${JSON.stringify(l.request, null, 2)}\n响应: ${JSON.stringify(l.response, null, 2)}`).join('\n\n');
         filename = 'api_log';
       } else {
-        const logs = state.logs[tab] || [];
-        text = logs.map(l => `[${l.time}] [${l.level.toUpperCase()}] ${l.msg}`).join('\n');
-        filename = tab === 'agent' ? 'agent' : 'execution';
+        text = logs.map(l => `[${l.time || l.timestamp}] [${l.level?.toUpperCase() || 'INFO'}] ${l.msg || l.operation || ''}`).join('\n');
+        filename = tab === 'agent' ? 'agent' : (tab === 'operation' ? 'operation' : 'execution');
       }
 
       const blob = new Blob([text], { type: 'text/plain' });
@@ -6575,6 +6864,7 @@
       a.download = `${filename}_log_${new Date().toISOString().slice(0,10)}.txt`;
       a.click();
       URL.revokeObjectURL(url);
+      showToast('success', '日志已导出');
     }
 
     // 添加Agent交互日志（便捷方法）
