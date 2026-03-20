@@ -306,6 +306,19 @@
     }
     .node-info { flex: 1; }
     .node-name { font-weight: 600; font-size: 12px; color: #fff; }
+    .node-name.editable { cursor: pointer; }
+    .node-name.editable:hover { text-decoration: underline; color: #6b5ce7; }
+    .node-name-input {
+      font-weight: 600;
+      font-size: 12px;
+      color: #fff;
+      background: #1a1a1a;
+      border: 1px solid #6b5ce7;
+      border-radius: 3px;
+      padding: 2px 4px;
+      width: 100%;
+      outline: none;
+    }
     .node-type { font-size: 10px; color: #888; margin-top: 2px; }
     .node-status-badge {
       padding: 2px 6px;
@@ -3778,15 +3791,15 @@
         // 输入端口：开始节点不显示
         const inputPortHtml = isStart ? '' : '<div class="port input" title="输入"></div>';
 
-        // 输出端口：结束节点不显示
-        const outputPortsHtml = isFinish ? '' : `
-          <div style="display:flex;gap:4px;">
+        // 输出端口：结束节点不显示，开始节点只有成功端口
+        const outputPortsHtml = isFinish ? '' : isStart ?
+          '<div class="port success" title="成功→拖拽连线" onmousedown="startDragConnect(event,\'${node.id}\',\'success\')"></div>' :
+          `<div style="display:flex;gap:4px;">
             <div class="port fail" title="失败→拖拽连线" onmousedown="startDragConnect(event,'${node.id}','fail')"></div>
             <div class="port success" title="成功→拖拽连线" onmousedown="startDragConnect(event,'${node.id}','success')"></div>
-          </div>
-        `;
+          </div>`;
 
-        // 开始和结束节点不显示工具栏（不能复制删除）
+        // 开始和结束节点不显示工具栏（不能复制删除），名称不可编辑
         const toolbarHtml = (isStart || isFinish) ? '' : `
           <div class="node-toolbar">
             <button class="node-toolbar-btn" onclick="event.stopPropagation();selectNode('${node.id}')" title="编辑">✏️</button>
@@ -3794,6 +3807,12 @@
             <button class="node-toolbar-btn" onclick="event.stopPropagation();deleteNodeById('${node.id}')" title="删除">🗑️</button>
           </div>
         `;
+
+        // 节点名称：开始/结束节点不可编辑，其他节点双击可编辑
+        const nameEditable = !isStart && !isFinish;
+        const nameAttrs = nameEditable ?
+          `ondblclick="event.stopPropagation();startEditNodeName('${node.id}')"` : '';
+        const nameClass = nameEditable ? 'node-name editable' : 'node-name';
 
         html += `
           <div class="node ${selectionClass} ${status}"
@@ -3807,7 +3826,7 @@
             <div class="node-header">
               <div class="node-icon ${type.split('_')[0]}">${getIcon(type)}</div>
               <div class="node-info">
-                <div class="node-name">${node.name || node.id}</div>
+                <div class="${nameClass}" ${nameAttrs}>${node.name || node.id}</div>
                 <div class="node-type">${getTypeName(type)}</div>
               </div>
               ${status ? `<div class="node-status-badge ${status}">${getStatusText(status)}</div>` : ''}
@@ -6076,6 +6095,48 @@
       state.selectedNode = state.currentWorkflow?.nodes?.find(n => n.id === nodeId) || null;
       state.selectedNodes.add(nodeId);
       deleteSelectedNodes();
+    }
+
+    // 编辑节点名称
+    function startEditNodeName(nodeId) {
+      const node = state.currentWorkflow?.nodes?.find(n => n.id === nodeId);
+      if (!node) return;
+
+      const nodeEl = document.getElementById(`node-${nodeId}`);
+      const nameEl = nodeEl?.querySelector('.node-name.editable');
+      if (!nameEl) return;
+
+      const currentName = node.name || node.id;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'node-name-input';
+      input.value = currentName;
+
+      const finishEdit = async (save) => {
+        if (save && input.value.trim()) {
+          node.name = input.value.trim();
+          // 保存到后端
+          await saveCurrentWorkflow();
+          showToast('success', '节点名称已更新');
+        }
+        renderWorkflow();
+      };
+
+      input.onblur = () => finishEdit(true);
+      input.onkeydown = (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          input.blur();
+        } else if (e.key === 'Escape') {
+          input.value = currentName;
+          input.blur();
+        }
+      };
+
+      nameEl.innerHTML = '';
+      nameEl.appendChild(input);
+      input.focus();
+      input.select();
     }
 
     // 兼容旧函数名
