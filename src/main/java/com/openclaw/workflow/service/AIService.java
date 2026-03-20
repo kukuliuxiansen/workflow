@@ -389,6 +389,27 @@ public class AIService {
                         }
                     }
 
+                    // 支持 branches 格式（条件节点的分支）
+                    // branches: {true: "node1", false: "node2"}
+                    Object branches = nodeData.get("branches");
+                    if (branches instanceof Map) {
+                        Map<String, Object> branchMap = (Map<String, Object>) branches;
+                        for (Map.Entry<String, Object> entry : branchMap.entrySet()) {
+                            String condition = entry.getKey();
+                            String targetId = entry.getValue() != null ? entry.getValue().toString() : null;
+                            if (targetId != null && !targetId.isEmpty()) {
+                                WorkflowEdge branchEdge = new WorkflowEdge();
+                                branchEdge.setId("edge_" + UUID.randomUUID().toString().substring(0, 8));
+                                branchEdge.setSourceNodeId(nodeId);
+                                branchEdge.setTargetNodeId(targetId);
+                                // true条件是SUCCESS，其他是FAIL
+                                branchEdge.setEdgeType("true".equalsIgnoreCase(condition) ?
+                                        WorkflowEdge.EdgeType.SUCCESS : WorkflowEdge.EdgeType.FAIL);
+                                edgesFromNodes.add(branchEdge);
+                            }
+                        }
+                    }
+
                     // 支持 conditions 数组格式（条件节点）
                     // conditions: [{expression: "...", next: "node1"}, ...]
                     Object conditions = nodeData.get("conditions");

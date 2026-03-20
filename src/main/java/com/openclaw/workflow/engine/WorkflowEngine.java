@@ -6,8 +6,10 @@ import com.openclaw.workflow.engine.handler.BaseNodeHandler;
 import com.openclaw.workflow.engine.model.*;
 import com.openclaw.workflow.entity.*;
 import com.openclaw.workflow.repository.*;
+import com.openclaw.workflow.service.OperationLogService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -29,6 +31,7 @@ public class WorkflowEngine {
     private final WorkflowNodeRepository nodeRepository;
     private final WorkflowEdgeRepository edgeRepository;
     private final ExecutionRepository executionRepository;
+    private OperationLogService logService;
 
     private String executionId;
     private String workflowId;
@@ -58,6 +61,11 @@ public class WorkflowEngine {
         this.nodeRepository = nodeRepository;
         this.edgeRepository = edgeRepository;
         this.executionRepository = executionRepository;
+    }
+
+    @Autowired
+    public void setLogService(OperationLogService logService) {
+        this.logService = logService;
     }
 
     private void resetEngineState() {
@@ -171,6 +179,9 @@ public class WorkflowEngine {
     private NodeResult executeNode(WorkflowNode node) {
         logger.info("执行节点: {} ({})", node.getName(), node.getType());
 
+        long startTime = System.currentTimeMillis();
+        Object nodeInput = null;
+
         try {
             NodeExecutionContext context = new NodeExecutionContext();
             context.setNode(node);
@@ -182,10 +193,32 @@ public class WorkflowEngine {
             context.setProjectPath(contextManager.getProjectPath());
             context.setGlobalPrompt(contextManager.getGlobalPrompt());
 
+            // 记录节点输入
+            nodeInput = Map.of(
+                "nodeId", node.getId(),
+                "nodeName", node.getName(),
+                "nodeType", node.getType().toString(),
+                "input", truncateForLog(context.getInput(), 500),
+                "previousOutputs", truncateForLog(context.getPreviousOutputs(), 500)
+            );
+
             BaseNodeHandler handler = handlerFactory.getHandler(node.getType());
             NodeResult result = handler.execute(context);
 
-            logger.info("节点 {} 执行完成, 状态: {}", node.getName(), result.getStatus());
+            long duration = System.currentTimeMillis() - startTime;
+            logger.info("节点 {} 执行完成, 状态: {}, 耗时: {}ms", node.getName(), result.getStatus(), duration);
+
+            // 记录节点输出日志
+            if (logService != null) {
+                Object nodeOutput = Map.of(
+                    "status", result.getStatus(),
+                    "output", truncateForLog(result.getOutput(), 1000),
+                    "error", result.getError() != null ? result.getError() : "",
+                    "duration", duration + "ms"
+                );
+                logService.logNodeOperation(executionId, node.getId(), node.getType().toString(),
+                    "EXECUTE", nodeInput, nodeOutput);
+            }
 
             contextManager.saveNodeOutput(node.getId(), result);
 
@@ -203,8 +236,29 @@ public class WorkflowEngine {
             return result;
 
         } catch (Exception e) {
+            long duration = System.currentTimeMillis() - startTime;
             logger.error("节点 {} 执行异常: {}", node.getName(), e.getMessage(), e);
+
+            // 记录错误日志
+            if (logService != null) {
+                logService.logNodeOperation(executionId, node.getId(), node.getType().toString(),
+                    "ERROR", nodeInput, Map.of("error", e.getMessage(), "duration", duration + "ms"));
+            }
+
             return NodeResult.failed(e.getMessage());
+        }
+    }
+
+    private Object truncateForLog(Object obj, int maxLen) {
+        if (obj == null) return null;
+        try {
+            String json = objectMapper.writeValueAsString(obj);
+            if (json.length() > maxLen) {
+                return json.substring(0, maxLen) + "...(truncated)";
+            }
+            return obj;
+        } catch (Exception e) {
+            return obj.toString();
         }
     }
 

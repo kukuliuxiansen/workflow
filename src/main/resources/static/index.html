@@ -2120,8 +2120,12 @@
           <button class="log-main-tab" onclick="switchLogTab('agent')">
             Agent交互<span class="badge" id="agentLogCount">0</span>
           </button>
+          <button class="log-main-tab" onclick="switchLogTab('operation')">
+            操作日志<span class="badge" id="opLogCount">0</span>
+          </button>
         </div>
         <div class="log-actions">
+          <button class="log-action-btn" onclick="refreshOperationLogs()">刷新</button>
           <button class="log-action-btn" onclick="clearCurrentLogs()">清空</button>
           <button class="log-action-btn" onclick="exportCurrentLogs()">导出</button>
         </div>
@@ -2129,6 +2133,22 @@
       <div class="log-content-wrapper">
         <div class="log-content active" id="execLogContent"></div>
         <div class="log-content" id="agentLogContent"></div>
+        <div class="log-content" id="operationLogContent">
+          <div class="op-log-filters" style="padding:8px;background:#252525;border-bottom:1px solid #3a3a3a;">
+            <select id="opLogTypeFilter" onchange="refreshOperationLogs()" style="background:#333;color:#fff;border:1px solid #444;padding:4px 8px;border-radius:4px;">
+              <option value="">全部类型</option>
+              <option value="NODE">节点操作</option>
+              <option value="AI">AI调用</option>
+              <option value="API">API调用</option>
+              <option value="WORKFLOW">工作流</option>
+              <option value="ERROR">错误</option>
+            </select>
+            <select id="opLogDateFilter" onchange="refreshOperationLogs()" style="background:#333;color:#fff;border:1px solid #444;padding:4px 8px;border-radius:4px;margin-left:8px;">
+              <option value="">今天</option>
+            </select>
+          </div>
+          <div id="opLogList" style="overflow-y:auto;flex:1;padding:8px;"></div>
+        </div>
       </div>
     </div>
 
@@ -5977,6 +5997,7 @@
     function updateLogCounts() {
       document.getElementById('execLogCount').textContent = state.logs.execution.length;
       document.getElementById('agentLogCount').textContent = state.logs.agent.length;
+      document.getElementById('opLogCount').textContent = state.operationLogs.length;
     }
 
     // 切换日志tab
@@ -5986,8 +6007,90 @@
       event.target.closest('.log-main-tab').classList.add('active');
 
       document.querySelectorAll('.log-content').forEach(c => c.classList.remove('active'));
-      const contentId = tab === 'agent' ? 'agentLogContent' : 'execLogContent';
+      const contentId = tab === 'agent' ? 'agentLogContent' : (tab === 'operation' ? 'operationLogContent' : 'execLogContent');
       document.getElementById(contentId).classList.add('active');
+
+      // 如果切换到操作日志tab，刷新日志
+      if (tab === 'operation') {
+        refreshOperationLogs();
+      }
+    }
+
+    // 刷新操作日志
+    async function refreshOperationLogs() {
+      const typeFilter = document.getElementById('opLogTypeFilter').value;
+      const dateFilter = document.getElementById('opLogDateFilter').value;
+
+      try {
+        let url = `${API}/logs/file?limit=200`;
+        if (dateFilter) {
+          url += `&date=${dateFilter}`;
+        }
+
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.success) {
+          let logs = data.data || [];
+
+          // 类型过滤
+          if (typeFilter) {
+            logs = logs.filter(l => l.type === typeFilter);
+          }
+
+          state.operationLogs = logs;
+          renderOperationLogs(logs);
+          updateLogCounts();
+        }
+      } catch (e) {
+        console.error('获取操作日志失败:', e);
+      }
+    }
+
+    // 渲染操作日志
+    function renderOperationLogs(logs) {
+      const container = document.getElementById('opLogList');
+      if (!container) return;
+
+      if (!logs || logs.length === 0) {
+        container.innerHTML = '<div class="empty-state" style="text-align:center;padding:20px;color:#888;">暂无日志</div>';
+        return;
+      }
+
+      const typeColors = {
+        'NODE': '#4CAF50',
+        'AI': '#2196F3',
+        'API': '#FF9800',
+        'WORKFLOW': '#9C27B0',
+        'ERROR': '#f44336',
+        'AI_INPUT': '#2196F3',
+        'AI_OUTPUT': '#00BCD4'
+      };
+
+      container.innerHTML = logs.map(log => {
+        const typeColor = typeColors[log.type] || '#888';
+        const successClass = log.success === false ? 'op-log-fail' : '';
+
+        return `
+          <div class="op-log-item ${successClass}" style="padding:8px;border-bottom:1px solid #333;font-size:12px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="background:${typeColor};color:#fff;padding:2px 6px;border-radius:3px;font-size:11px;">${log.type || '-'}</span>
+              <span style="color:#888;">${log.timestamp || '-'}</span>
+            </div>
+            <div style="color:#ccc;margin:4px 0;">${log.operation || '-'}</div>
+            ${log.executionId ? `<div style="color:#888;font-size:11px;">执行ID: ${log.executionId}</div>` : ''}
+            ${log.nodeId ? `<div style="color:#888;font-size:11px;">节点: ${log.nodeId}</div>` : ''}
+            ${log.input ? `<details style="margin-top:4px;"><summary style="cursor:pointer;color:#4CAF50;">输入</summary><pre style="background:#1a1a1a;padding:8px;margin:4px 0;overflow-x:auto;white-space:pre-wrap;word-break:break-all;">${escapeHtml(typeof log.input === 'object' ? JSON.stringify(log.input, null, 2) : log.input)}</pre></details>` : ''}
+            ${log.output ? `<details style="margin-top:4px;"><summary style="cursor:pointer;color:#2196F3;">输出</summary><pre style="background:#1a1a1a;padding:8px;margin:4px 0;overflow-x:auto;white-space:pre-wrap;word-break:break-all;">${escapeHtml(typeof log.output === 'object' ? JSON.stringify(log.output, null, 2) : log.output)}</pre></details>` : ''}
+            ${log.error ? `<div style="color:#f44336;margin-top:4px;">错误: ${escapeHtml(log.error)}</div>` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
     // 清空当前tab的日志
