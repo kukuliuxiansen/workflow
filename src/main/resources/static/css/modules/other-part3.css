@@ -1,0 +1,127 @@
+      top: 0;
+      background: #2a2a2a;
+      border: 1px solid #4a4a4a;
+      border-radius: 6px;
+      min-width: 120px;
+    }
+    .context-menu-submenu:hover > .submenu {
+      display: block;
+    }
+
+    /* 节点工具栏 */
+    .node-toolbar {
+      position: absolute;
+      top: -36px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #2a2a2a;
+      border: 1px solid #4a4a4a;
+      border-radius: 6px;
+      padding: 4px;
+      display: none;
+      gap: 4px;
+      z-index: 100;
+    }
+    .node:hover .node-toolbar {
+      display: flex;
+    }
+    .node-toolbar-btn {
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: transparent;
+      color: #e0e0e0;
+      cursor: pointer;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+    .node-toolbar-btn:hover {
+      background: #3a3a3a;
+    }
+
+    /* 颜色选择器 */
+    .color-picker {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 8px;
+    }
+    .color-option {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      border: 2px solid transparent;
+    }
+    .color-option:hover {
+      border-color: #fff;
+    }
+
+    /* 画布信息统计 */
+    .canvas-info {
+      position: absolute;
+      left: 10px;
+      bottom: 10px;
+      background: rgba(42, 42, 42, 0.9);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #888;
+      z-index: 100;
+      display: flex;
+      gap: 12px;
+    }
+    .canvas-info-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .canvas-info-value {
+      color: #e0e0e0;
+    }
+
+    /* 搜索面板 */
+    .search-panel {
+      position: absolute;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #2a2a2a;
+      border: 1px solid #4a4a4a;
+      border-radius: 8px;
+      padding: 12px;
+      z-index: 200;
+      display: none;
+      min-width: 300px;
+    }
+    .search-panel.show {
+      display: block;
+    }
+    .search-panel input {
+      width: 100%;
+      padding: 8px 12px;
+      background: #1a1a1a;
+      border: 1px solid #4a4a4a;
+      border-radius: 4px;
+      color: #e0e0e0;
+      font-size: 13px;
+    }
+    .search-results {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 8px;
+    }
+    .search-result-item {
+      padding: 8px;
+      cursor: pointer;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .search-result-item:hover {
+      background: #3a3a3a;
+    }

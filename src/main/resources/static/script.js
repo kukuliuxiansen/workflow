@@ -1126,8 +1126,10 @@
           const latest = data.data[0];
           // 自动选择最新的执行历史
           await selectHistoryItemMini(latest.executionId || latest.id);
-          // 切换到历史标签页
-          switchRightPanelTab('history');
+          // 切换到历史标签页（如果存在）
+          if (document.getElementById('historyTab')) {
+            switchRightPanelTab('history');
+          }
         }
         // 不再清空任务配置，保持从工作流加载的配置
       } catch (e) {
@@ -1344,23 +1346,29 @@
 
     // 切换右侧面板标签页
     function switchRightPanelTab(tabName) {
+      const tabEl = document.getElementById(tabName + 'Tab');
+      const propertyPanel = document.getElementById('propertyPanel');
+      const executionHistoryPanel = document.getElementById('executionHistoryPanel');
+      const taskConfigPanel = document.getElementById('taskConfigPanel');
+      const promptsPanel = document.getElementById('promptsPanel');
+
       // 更新标签页状态
       document.querySelectorAll('.panel-tab').forEach(tab => tab.classList.remove('active'));
-      document.getElementById(tabName + 'Tab').classList.add('active');
+      if (tabEl) tabEl.classList.add('active');
 
       // 更新面板内容显示
-      document.getElementById('propertyPanel').classList.remove('active');
-      document.getElementById('executionHistoryPanel').classList.remove('active');
-      document.getElementById('taskConfigPanel').classList.remove('active');
-      document.getElementById('promptsPanel').classList.remove('active');
+      if (propertyPanel) propertyPanel.classList.remove('active');
+      if (executionHistoryPanel) executionHistoryPanel.classList.remove('active');
+      if (taskConfigPanel) taskConfigPanel.classList.remove('active');
+      if (promptsPanel) promptsPanel.classList.remove('active');
 
       const panelMap = {
-        'property': 'propertyPanel',
-        'history': 'executionHistoryPanel',
-        'taskconfig': 'taskConfigPanel',
-        'prompts': 'promptsPanel'
+        'property': propertyPanel,
+        'history': executionHistoryPanel,
+        'taskconfig': taskConfigPanel,
+        'prompts': promptsPanel
       };
-      document.getElementById(panelMap[tabName]).classList.add('active');
+      if (panelMap[tabName]) panelMap[tabName].classList.add('active');
 
       // 切换到提示词模板时加载数据
       if (tabName === 'prompts') {
@@ -3847,6 +3855,7 @@
     // 加载提示词模板列表
     async function loadPromptTemplates() {
       const container = document.getElementById('promptsNodeTypesList');
+      if (!container) return;
       container.innerHTML = '<div class="empty-state-mini">加载中...</div>';
 
       try {

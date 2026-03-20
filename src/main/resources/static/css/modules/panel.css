@@ -1,0 +1,200 @@
+      margin-bottom: 0;
+    }
+    .config-item label {
+      display: block;
+      font-size: 11px;
+      color: #888;
+      margin-bottom: 2px;
+    }
+    .config-item span {
+      color: #e0e0e0;
+      word-break: break-all;
+    }
+    .task-config-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 11px;
+    }
+    .history-detail-content {
+      background: #2a2a2a;
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 11px;
+    }
+    .history-detail-content p {
+      margin: 4px 0;
+      color: #aaa;
+    }
+    .history-detail-content strong {
+      color: #e0e0e0;
+    }
+    .form-group { margin-bottom: 12px; }
+    .form-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      color: #888;
+      margin-bottom: 4px;
+    }
+    .form-input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #3a3a3a;
+      border-radius: 4px;
+      font-size: 12px;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      outline: none;
+    }
+    .form-input:focus { border-color: #6b5ce7; }
+    .form-select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #3a3a3a;
+      border-radius: 4px;
+      font-size: 12px;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      cursor: pointer;
+    }
+    .form-textarea {
+      min-height: 80px;
+      resize: vertical;
+      font-family: inherit;
+    }
+
+    /* 空状态 */
+    .empty-state {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: #666;
+    }
+    .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+    .empty-state .title { font-size: 14px; font-weight: 500; color: #888; }
+    .empty-state .desc { font-size: 12px; margin-top: 6px; }
+
+    /* 底部日志面板 - 浮动在画布上方 */
+    .log-panel {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 180px;
+      background: rgba(26, 26, 26, 0.95);
+      border-top: 1px solid #3a3a3a;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.3s ease;
+      z-index: 50;
+    }
+    .log-panel.collapsed {
+      transform: translateY(100%);
+    }
+    .log-header {
+      padding: 6px 12px;
+      background: #252525;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid #3a3a3a;
+    }
+    .log-main-tabs {
+      display: flex;
+      gap: 0;
+    }
+    .log-main-tab {
+      padding: 5px 16px;
+      border: none;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      color: #666;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .log-main-tab:hover { color: #aaa; }
+    .log-main-tab.active {
+      color: #6b5ce7;
+      border-bottom-color: #6b5ce7;
+    }
+    .log-main-tab .badge {
+      display: inline-block;
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      margin-left: 4px;
+      background: #3a3a3a;
+      border-radius: 8px;
+      font-size: 10px;
+      line-height: 16px;
+      text-align: center;
+      color: #888;
+    }
+    .log-main-tab.active .badge {
+      background: #6b5ce7;
+      color: #fff;
+    }
+    .log-actions {
+      margin-left: auto;
+      display: flex;
+      gap: 4px;
+    }
+    .log-action-btn {
+      padding: 2px 6px;
+      border: 1px solid #3a3a3a;
+      border-radius: 3px;
+      background: transparent;
+      color: #666;
+      font-size: 10px;
+      cursor: pointer;
+    }
+    .log-action-btn:hover { background: #3a3a3a; color: #aaa; }
+    /* 操作日志样式 */
+    .op-log-item { transition: background 0.2s; }
+    .op-log-item:hover { background: #2a2a2a; }
+    .op-log-fail { background: rgba(244, 67, 54, 0.1); }
+    .op-log-item pre { margin: 0; font-size: 11px; }
+    .op-log-item details summary { font-size: 11px; }
+    .op-log-filters { display: flex; align-items: center; }
+    .log-content-wrapper {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+    .log-content {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      overflow-y: auto;
+      padding: 6px 12px;
+      font-family: Monaco, Menlo, monospace;
+      font-size: 11px;
+      line-height: 1.5;
+      display: none;
+    }
+    .log-content.active { display: block; }
+    .log-entry { display: flex; gap: 6px; padding: 1px 0; }
+    .log-time { color: #555; min-width: 60px; }
+    .log-trace { color: #22d3ee; font-size: 10px; cursor: pointer; padding: 1px 4px; background: rgba(34,211,238,0.1); border-radius: 3px; margin: 0 4px; }
+    .log-trace:hover { background: rgba(34,211,238,0.2); }
+    .log-level { font-weight: 600; min-width: 40px; }
+    .log-level.info { color: #6b9fff; }
+    .log-level.success { color: #5f5; }
+    .log-level.error { color: #f66; }
+    .log-level.warn { color: #fb5; }
+    .log-message { color: #aaa; flex: 1; word-break: break-all; }
+    /* Agent交互日志特殊样式 */
+    .log-message .agent-from { color: #6b5ce7; font-weight: 500; }
+    .log-message .agent-to { color: #4ecdc4; font-weight: 500; }
+    .log-message .agent-name { color: #6b5ce7; font-weight: 500; }
+    .log-message .agent-action { color: #fb5; }
+    #agentLogContent .log-entry {
