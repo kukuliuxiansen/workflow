@@ -3172,13 +3172,17 @@
 
     // 加载工作流列表
     async function loadWorkflows() {
+      console.log('开始加载工作流列表...');
       try {
         const [workflowsRes, foldersRes] = await Promise.all([
           fetch(`${API}/workflows`),
           fetch(`${API}/folders`)
         ]);
+        console.log('API响应:', workflowsRes.status, foldersRes.status);
         const workflowsData = await workflowsRes.json();
         const foldersData = await foldersRes.json();
+        console.log('工作流数据:', workflowsData);
+        console.log('文件夹数据:', foldersData);
 
         if (workflowsData.success && Array.isArray(workflowsData.data)) {
           state.workflows = workflowsData.data;
@@ -3190,10 +3194,12 @@
         } else {
           state.folders = [];
         }
+        console.log('开始渲染工作流列表...');
         renderWorkflowList();
+        console.log('工作流列表渲染完成');
       } catch (e) {
         console.error('loadWorkflows error:', e);
-        showToast('error', '加载失败: ' + e.message);
+        alert('加载失败: ' + (e.message || e) + '\n请检查控制台获取详细信息');
       }
     }
 
@@ -3594,6 +3600,7 @@
             <div class="desc">双击画布添加节点 · 或点击工具栏"添加节点"</div>
           </div>
         `;
+        updateCanvasTransform();
         return;
       }
 
@@ -3601,8 +3608,9 @@
       html += '<svg class="edges-svg" id="dragLineSvg" style="z-index:10;"><path id="dragLine" class="drag-line" d="" style="display:none;"/></svg>';
 
       workflow.nodes.forEach((node, i) => {
-        const x = node.position_x || 50 + (i % 3) * 280;
-        const y = node.position_y || 50 + Math.floor(i / 3) * 180;
+        // 兼容 snake_case 和 camelCase
+        const x = node.position_x || node.positionX || 50 + (i % 3) * 280;
+        const y = node.position_y || node.positionY || 50 + Math.floor(i / 3) * 180;
         const type = node.type || 'agent_execution';
         const status = state.nodeStatus.get(node.id) || '';
 
