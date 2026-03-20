@@ -321,6 +321,26 @@ public class OperationLogService {
     }
 
     /**
+     * 保存前端日志
+     */
+    public void saveFrontendLog(Map<String, Object> logEntry) {
+        try {
+            LogEntry entry = new LogEntry();
+            entry.setTraceId((String) logEntry.get("traceId"));
+            entry.setTimestamp(LocalDateTime.now());
+            entry.setType("FRONTEND");
+            entry.setOperation((String) logEntry.get("level"));
+            entry.setMessage((String) logEntry.get("msg"));
+
+            // 写入文件
+            String logLine = formatLogLine(entry);
+            OPERATION_LOGGER.info(logLine);
+        } catch (Exception e) {
+            logger.error("保存前端日志失败", e);
+        }
+    }
+
+    /**
      * 日志条目
      */
     public static class LogEntry {

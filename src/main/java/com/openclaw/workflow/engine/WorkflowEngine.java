@@ -388,20 +388,24 @@ public class WorkflowEngine {
 
     private String findStartNode(Workflow workflow) {
         List<WorkflowNode> nodes = nodeRepository.findByWorkflowIdOrderByCreatedAtAsc(workflow.getId());
+
+        // 统计开始节点数量
+        List<WorkflowNode> startNodes = new java.util.ArrayList<>();
         for (WorkflowNode node : nodes) {
             if (node.getType() == WorkflowNode.NodeType.START) {
-                return node.getId();
+                startNodes.add(node);
             }
         }
 
-        for (WorkflowNode node : nodes) {
-            List<WorkflowEdge> incoming = edgeRepository.findByWorkflowIdAndTargetNodeId(workflow.getId(), node.getId());
-            if (incoming.isEmpty()) {
-                return node.getId();
-            }
+        // 验证有且仅有一个开始节点
+        if (startNodes.isEmpty()) {
+            throw new RuntimeException("工作流缺少开始节点，请添加一个开始节点");
+        }
+        if (startNodes.size() > 1) {
+            throw new RuntimeException("工作流只能有一个开始节点，当前有 " + startNodes.size() + " 个");
         }
 
-        throw new RuntimeException("找不到起始节点");
+        return startNodes.get(0).getId();
     }
 
     private Execution initExecution(Workflow workflow) {

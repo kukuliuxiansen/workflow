@@ -42,6 +42,13 @@ public class OperationLogController {
         return ApiResponse.success(logService.readLogFromFile(date, limit));
     }
 
+    @Operation(summary = "保存前端日志")
+    @PostMapping("/save")
+    public ApiResponse<Void> saveFrontendLog(@RequestBody Map<String, Object> logEntry) {
+        logService.saveFrontendLog(logEntry);
+        return ApiResponse.success();
+    }
+
     @Operation(summary = "清空内存日志")
     @DeleteMapping("/recent")
     public ApiResponse<Void> clearRecentLogs() {

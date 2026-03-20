@@ -3808,12 +3808,6 @@
           </div>
         `;
 
-        // 节点名称：开始/结束节点不可编辑，其他节点双击可编辑
-        const nameEditable = !isStart && !isFinish;
-        const nameAttrs = nameEditable ?
-          `ondblclick="event.stopPropagation();startEditNodeName('${node.id}')"` : '';
-        const nameClass = nameEditable ? 'node-name editable' : 'node-name';
-
         html += `
           <div class="node ${selectionClass} ${status}"
                id="node-${node.id}"
@@ -3826,7 +3820,7 @@
             <div class="node-header">
               <div class="node-icon ${type.split('_')[0]}">${getIcon(type)}</div>
               <div class="node-info">
-                <div class="${nameClass}" ${nameAttrs}>${node.name || node.id}</div>
+                <div class="node-name">${node.name || node.id}</div>
                 <div class="node-type">${getTypeName(type)}</div>
               </div>
               ${status ? `<div class="node-status-badge ${status}">${getStatusText(status)}</div>` : ''}
@@ -6251,21 +6245,121 @@
     // 添加日志 - type: 'execution' 或 'agent'
     function addLog(level, msg, type = 'execution') {
       const time = new Date().toLocaleTimeString();
-      const logEntry = { level, msg, time, type };
+      const traceId = generateTraceId();
+      const logEntry = { level, msg, time, type, traceId };
 
       // 存储到对应类型的日志数组
       if (!state.logs[type]) state.logs[type] = [];
       state.logs[type].push(logEntry);
 
+      // 发送日志到后端保存
+      saveLogToBackend(logEntry);
+
       // 更新对应的内容区
       const contentId = type === 'agent' ? 'agentLogContent' : 'execLogContent';
       const content = document.getElementById(contentId);
       if (content) {
-        content.innerHTML += `<div class="log-entry"><span class="log-time">${time}</span><span class="log-level ${level}">[${level.toUpperCase()}]</span><span class="log-message">${msg}</span></div>`;
+        content.innerHTML += `<div class="log-entry">
+          <span class="log-time">${time}</span>
+          <span class="log-trace" title="点击复制TraceID" onclick="copyTraceId('${traceId}')">${traceId}</span>
+          <button class="log-copy-btn" onclick="copyTraceId('${traceId}')" title="复制TraceID">📋</button>
+          <span class="log-level ${level}">[${level.toUpperCase()}]</span>
+          <span class="log-message">${msg}</span>
+        </div>`;
         content.scrollTop = content.scrollHeight;
       }
 
       // 更新计数
+      updateLogCounts();
+    }
+
+    // 生成traceId
+    function generateTraceId() {
+      return 'TRC-' + Date.now() + '-' + Math.random().toString(16).substr(2, 4).toUpperCase();
+    }
+
+    // 复制traceId
+    function copyTraceId(traceId) {
+      navigator.clipboard.writeText(traceId).then(() => {
+        showToast('success', 'TraceID已复制: ' + traceId);
+      }).catch(() => {
+        showToast('error', '复制失败');
+      });
+    }
+
+    // 保存日志到后端
+    async function saveLogToBackend(logEntry) {
+      try {
+        await fetch(`${API}/logs/save`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(logEntry)
+        });
+      } catch (e) {
+        console.error('保存日志失败:', e);
+      }
+    }
+
+    // 从后端加载日志
+    async function loadLogsFromBackend() {
+      try {
+        const res = await fetch(`${API}/logs/file?limit=200`);
+        const data = await res.json();
+        if (data.success && data.data) {
+          // 清空现有日志
+          state.logs = { execution: [], agent: [] };
+
+          // 解析并填充日志
+          data.data.forEach(log => {
+            const logEntry = {
+              traceId: log.traceId || 'N/A',
+              time: log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : '-',
+              level: log.success ? 'info' : 'error',
+              msg: log.operation || log.message || log.error || '-',
+              type: log.type === 'AI' ? 'agent' : 'execution'
+            };
+            if (!state.logs[logEntry.type]) state.logs[logEntry.type] = [];
+            state.logs[logEntry.type].unshift(logEntry);
+          });
+
+          // 重新渲染日志
+          renderLogs();
+        }
+      } catch (e) {
+        console.error('加载日志失败:', e);
+      }
+    }
+
+    // 渲染日志到UI
+    function renderLogs() {
+      // 渲染执行日志
+      const execContent = document.getElementById('execLogContent');
+      if (execContent) {
+        execContent.innerHTML = state.logs.execution.map(log => `
+          <div class="log-entry">
+            <span class="log-time">${log.time}</span>
+            <span class="log-trace" title="点击复制TraceID" onclick="copyTraceId('${log.traceId}')">${log.traceId}</span>
+            <button class="log-copy-btn" onclick="copyTraceId('${log.traceId}')" title="复制TraceID">📋</button>
+            <span class="log-level ${log.level}">[${log.level.toUpperCase()}]</span>
+            <span class="log-message">${log.msg}</span>
+          </div>
+        `).join('');
+      }
+
+      // 渲染Agent日志
+      const agentContent = document.getElementById('agentLogContent');
+      if (agentContent) {
+        agentContent.innerHTML = state.logs.agent.map(log => `
+          <div class="log-entry">
+            <span class="log-time">${log.time}</span>
+            <span class="log-trace" title="点击复制TraceID" onclick="copyTraceId('${log.traceId}')">${log.traceId}</span>
+            <button class="log-copy-btn" onclick="copyTraceId('${log.traceId}')" title="复制TraceID">📋</button>
+            <span class="log-level ${log.level}">[${log.level.toUpperCase()}]</span>
+            <span class="log-message">${log.msg}</span>
+          </div>
+        `).join('');
+      }
+
       updateLogCounts();
     }
 
@@ -6838,23 +6932,8 @@
 
       if (nodeIdsToDelete.length === 0) return;
 
-      // 过滤掉开始和结束节点（不能删除）
-      const filteredNodeIds = nodeIdsToDelete.filter(nodeId => {
-        const node = state.currentWorkflow.nodes.find(n => n.id === nodeId);
-        if (node && (node.type === 'start' || node.type === 'finish')) {
-          showToast('warn', `开始和结束节点不能删除: ${node.name}`);
-          return false;
-        }
-        return true;
-      });
-
-      if (filteredNodeIds.length === 0) {
-        showToast('warn', '选中的节点无法删除');
-        return;
-      }
-
       let successCount = 0;
-      for (const nodeId of filteredNodeIds) {
+      for (const nodeId of nodeIdsToDelete) {
         try {
           await fetch(`${API}/workflows/${state.currentWorkflow.id}/nodes/${nodeId}`, {
             method: 'DELETE'
