@@ -4613,51 +4613,68 @@
         const data = await res.json();
         if (data.success) {
           const record = data.data;
+          const statusColors = {
+            'running': { bg: '#3b82f6', icon: '⚡' },
+            'completed': { bg: '#22c55e', icon: '✓' },
+            'failed': { bg: '#ef4444', icon: '✕' },
+            'stopped': { bg: '#f97316', icon: '◼' }
+          };
+          const statusStyle = statusColors[record.status] || { bg: '#6b7280', icon: '?' };
 
           // 创建模态框显示详情
           const modalHtml = `
             <div class="modal-overlay show" onclick="this.remove()">
-              <div class="modal-content" style="max-width:500px;" onclick="event.stopPropagation()">
-                <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:16px;border-bottom:1px solid #3a3a3a;">
-                  <h3 style="margin:0;font-size:16px;">📋 执行详情</h3>
-                  <button onclick="this.closest('.modal-overlay').remove()" style="background:none;border:none;color:#888;font-size:20px;cursor:pointer;">&times;</button>
+              <div class="modal" style="background:linear-gradient(145deg, #2d2d2d, #252525);border:1px solid #444;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,0.5);min-width:420px;max-width:90vw;overflow:hidden;" onclick="event.stopPropagation()">
+                <div style="padding:24px;border-bottom:1px solid #333;display:flex;align-items:center;gap:16px;">
+                  <div style="width:48px;height:48px;background:${statusStyle.bg};border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 4px 15px ${statusStyle.bg}40;">${statusStyle.icon}</div>
+                  <div>
+                    <h3 style="margin:0;font-size:18px;color:#fff;">${record.taskConfig?.name || '未命名任务'}</h3>
+                    <p style="margin:4px 0 0;font-size:12px;color:#888;">执行详情</p>
+                  </div>
+                  <button onclick="this.closest('.modal-overlay').remove()" style="margin-left:auto;background:#333;border:none;width:32px;height:32px;border-radius:8px;color:#888;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center;" onmouseover="this.style.background='#444';this.style.color='#fff';" onmouseout="this.style.background='#333';this.style.color='#888';">&times;</button>
                 </div>
-                <div class="modal-body" style="padding:16px;max-height:400px;overflow-y:auto;">
-                  <div style="margin-bottom:12px;">
-                    <strong>执行ID:</strong> ${record.executionId || record.id}
+                <div style="padding:20px;max-height:400px;overflow-y:auto;">
+                  <div style="display:grid;gap:12px;">
+                    <div style="display:flex;justify-content:space-between;padding:12px;background:#1a1a1a;border-radius:10px;">
+                      <span style="color:#888;font-size:13px;">执行ID</span>
+                      <code style="color:#89b4fa;font-size:13px;">${record.executionId || record.id}</code>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:12px;background:#1a1a1a;border-radius:10px;">
+                      <span style="color:#888;font-size:13px;">状态</span>
+                      <span style="color:${statusStyle.bg};font-weight:500;">${getStatusText(record.status)}</span>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:12px;background:#1a1a1a;border-radius:10px;">
+                      <span style="color:#888;font-size:13px;">项目路径</span>
+                      <code style="color:#a78bfa;font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;">${record.taskConfig?.projectPath || '未设置'}</code>
+                    </div>
+                    <div style="display:flex;justify-content:space-between;padding:12px;background:#1a1a1a;border-radius:10px;">
+                      <span style="color:#888;font-size:13px;">开始时间</span>
+                      <span style="color:#e0e0e0;font-size:13px;">${formatDate(record.startTime)}</span>
+                    </div>
+                    ${record.endTime ? `
+                    <div style="display:flex;justify-content:space-between;padding:12px;background:#1a1a1a;border-radius:10px;">
+                      <span style="color:#888;font-size:13px;">结束时间</span>
+                      <span style="color:#e0e0e0;font-size:13px;">${formatDate(record.endTime)}</span>
+                    </div>` : ''}
                   </div>
-                  <div style="margin-bottom:12px;">
-                    <strong>状态:</strong> <span class="status ${record.status}">${getStatusText(record.status)}</span>
-                  </div>
-                  <div style="margin-bottom:12px;">
-                    <strong>任务名称:</strong> ${record.taskConfig?.name || '未命名'}
-                  </div>
-                  <div style="margin-bottom:12px;">
-                    <strong>项目路径:</strong> <code style="background:#1a1a1a;padding:2px 6px;border-radius:3px;">${record.taskConfig?.projectPath || '未设置'}</code>
-                  </div>
-                  <div style="margin-bottom:12px;">
-                    <strong>上下文文件:</strong> ${record.contextFilePath || '未创建'}
-                  </div>
-                  <div style="margin-bottom:12px;">
-                    <strong>开始时间:</strong> ${formatDate(record.startTime)}
-                  </div>
-                  ${record.endTime ? `<div style="margin-bottom:12px;"><strong>结束时间:</strong> ${formatDate(record.endTime)}</div>` : ''}
                   ${record.contextData?.agentPayloads?.length > 0 ? `
-                    <div style="margin-top:16px;padding-top:16px;border-top:1px solid #3a3a3a;">
-                      <strong>Agent执行记录 (${record.contextData.agentPayloads.length}条)</strong>
-                      <div style="margin-top:8px;background:#1a1a1a;border-radius:6px;padding:8px;">
-                        ${record.contextData.agentPayloads.slice(0, 5).map(p => `
-                          <div style="padding:4px 0;border-bottom:1px solid #2a2a2a;">
-                            <span style="color:#89b4fa;">${p.agentId}</span>: ${p.nodeName}
+                    <div style="margin-top:20px;">
+                      <div style="font-size:13px;color:#888;margin-bottom:10px;">Agent执行记录 (${record.contextData.agentPayloads.length}条)</div>
+                      <div style="background:#1a1a1a;border-radius:10px;overflow:hidden;">
+                        ${record.contextData.agentPayloads.slice(0, 5).map((p, i) => `
+                          <div style="padding:10px 12px;${i > 0 ? 'border-top:1px solid #2a2a2a;' : ''}display:flex;align-items:center;gap:10px;">
+                            <div style="width:8px;height:8px;background:#22c55e;border-radius:50%;"></div>
+                            <span style="color:#89b4fa;font-size:13px;min-width:100px;">${p.agentId}</span>
+                            <span style="color:#888;font-size:12px;">${p.nodeName}</span>
                           </div>
                         `).join('')}
-                        ${record.contextData.agentPayloads.length > 5 ? `<div style="padding:4px 0;color:#888;">... 还有${record.contextData.agentPayloads.length - 5}条</div>` : ''}
+                        ${record.contextData.agentPayloads.length > 5 ? `<div style="padding:10px 12px;color:#666;font-size:12px;text-align:center;">还有 ${record.contextData.agentPayloads.length - 5} 条记录</div>` : ''}
                       </div>
                     </div>
                   ` : ''}
                 </div>
-                <div class="modal-footer" style="padding:12px 16px;border-top:1px solid #3a3a3a;text-align:right;">
-                  <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">关闭</button>
+                <div style="padding:16px 20px;border-top:1px solid #333;display:flex;justify-content:flex-end;">
+                  <button onclick="this.closest('.modal-overlay').remove()" style="padding:10px 24px;background:linear-gradient(135deg, #6366f1, #4f46e5);border:none;border-radius:10px;color:#fff;font-size:14px;cursor:pointer;box-shadow:0 4px 15px rgba(99,102,241,0.3);">关闭</button>
                 </div>
               </div>
             </div>
