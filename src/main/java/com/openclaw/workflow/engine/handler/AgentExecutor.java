@@ -1,5 +1,7 @@
 package com.openclaw.workflow.engine.handler;
 
+import com.openclaw.workflow.engine.connector.AgentRequest;
+import com.openclaw.workflow.engine.connector.AgentResponse;
 import com.openclaw.workflow.engine.connector.OpenClawGatewayClient;
 import com.openclaw.workflow.engine.model.NodeExecutionContext;
 import org.slf4j.Logger;
@@ -63,14 +65,14 @@ public class AgentExecutor {
                 context.getExecutionId(),
                 context.getNode().getId());
 
-        OpenClawGatewayClient.AgentRequest request = OpenClawGatewayClient.AgentRequest.builder()
+        AgentRequest request = AgentRequest.builder()
                 .agentId(agentId)
                 .message(prompt)
                 .context(sessionContext)
                 .build();
 
         long startTime = System.currentTimeMillis();
-        OpenClawGatewayClient.AgentResponse response = client.executeAgent(request);
+        AgentResponse response = client.executeAgent(request);
         long duration = System.currentTimeMillis() - startTime;
 
         logger.info("Gateway API调用完成，耗时: {}ms, Tokens: {}", duration, response.getTotalTokens());

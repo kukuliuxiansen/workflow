@@ -22,15 +22,20 @@ public class WriteArtifactActionHandler implements ActionHandler {
             return ActionResult.error("缺少content参数");
         }
 
-        Map<String, Object> artifact = new java.util.HashMap<>();
-        artifact.put("name", name);
-        artifact.put("content", content);
-        artifact.put("type", type);
-        artifact.put("timestamp", System.currentTimeMillis());
+        Map<String, Object> artifactMap = new java.util.HashMap<>();
+        artifactMap.put("name", name);
+        artifactMap.put("content", content);
+        artifactMap.put("type", type);
+        artifactMap.put("timestamp", System.currentTimeMillis());
+
+        DecomposeContext.Artifact artifact = new DecomposeContext.Artifact();
+        artifact.setType(type);
+        artifact.setContent(content != null ? content.toString() : "");
+        artifact.setCreateTime(new java.util.Date());
 
         context.getArtifacts().add(artifact);
 
-        return ActionResult.success("产物已保存: " + name, artifact, true);
+        return ActionResult.success("产物已保存: " + name, artifactMap, true);
     }
 
     @Override

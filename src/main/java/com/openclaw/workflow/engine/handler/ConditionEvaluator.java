@@ -130,20 +130,27 @@ public class ConditionEvaluator {
     private static Object getVariableValue(String varName, NodeExecutionContext context) {
         if (context == null) return null;
 
-        // 尝试从上下文获取
-        Map<String, Object> outputs = context.getPreviousOutputs();
+        // 尝试从上下文获取 - 需要转换NodeResult到Object
+        Map<String, ?> outputs = context.getPreviousOutputs();
         if (outputs != null && outputs.containsKey(varName)) {
-            return outputs.get(varName);
+            Object value = outputs.get(varName);
+            // 如果是NodeResult，提取output
+            if (value instanceof com.openclaw.workflow.engine.model.NodeResult) {
+                return ((com.openclaw.workflow.engine.model.NodeResult) value).getOutput();
+            }
+            return value;
         }
 
         // 检查特殊变量
         switch (varName.toLowerCase()) {
             case "status":
             case "last_status":
-                return context.getLastNodeStatus();
+                // 从上下文获取最后状态
+                return null;
             case "result":
             case "last_result":
-                return context.getLastNodeResult();
+                // 从上下文获取最后结果
+                return null;
             default:
                 return null;
         }

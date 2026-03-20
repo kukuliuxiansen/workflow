@@ -40,24 +40,29 @@ public class LoopDecisionHelper {
     public String decide(WorkflowNode node, LoopConfig config,
                          NodeResult.LoopContext loopContext,
                          NodeExecutionContext context) {
-        String prompt = buildPrompt(context, node, config, loopContext);
+        try {
+            String prompt = buildPrompt(context, node, config, loopContext);
 
-        OpenClawGatewayClient client = new OpenClawGatewayClient(gatewayUrl, gatewayToken);
-        String sessionContext = String.format("%s_%s_%s_loop_%d",
-                context.getWorkflowId(), context.getExecutionId(), node.getId(),
-                loopContext.getCurrentIteration());
+            OpenClawGatewayClient client = new OpenClawGatewayClient(gatewayUrl, gatewayToken);
+            String sessionContext = String.format("%s_%s_%s_loop_%d",
+                    context.getWorkflowId(), context.getExecutionId(), node.getId(),
+                    loopContext.getCurrentIteration());
 
-        AgentRequest request = AgentRequest.builder()
-                .agentId(decisionAgentId)
-                .message(prompt)
-                .context(sessionContext)
-                .build();
+            AgentRequest request = AgentRequest.builder()
+                    .agentId(decisionAgentId)
+                    .message(prompt)
+                    .context(sessionContext)
+                    .build();
 
-        logger.info("循环决策Agent调用: {} (迭代{}) - 提示词长度: {}",
-                node.getName(), loopContext.getCurrentIteration() + 1, prompt.length());
+            logger.info("循环决策Agent调用: {} (迭代{}) - 提示词长度: {}",
+                    node.getName(), loopContext.getCurrentIteration() + 1, prompt.length());
 
-        AgentResponse response = client.executeAgent(request);
-        return parseAgentDecision(response);
+            AgentResponse response = client.executeAgent(request);
+            return parseAgentDecision(response);
+        } catch (Exception e) {
+            logger.error("循环决策Agent调用失败: {}", e.getMessage());
+            return "exit";
+        }
     }
 
     private String buildPrompt(NodeExecutionContext context, WorkflowNode node,

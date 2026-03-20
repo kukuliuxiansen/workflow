@@ -1,5 +1,7 @@
 package com.openclaw.workflow.engine.smartdecompose;
 
+import com.openclaw.workflow.engine.connector.AgentRequest;
+import com.openclaw.workflow.engine.connector.AgentResponse;
 import com.openclaw.workflow.engine.connector.OpenClawGatewayClient;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -66,7 +68,7 @@ public class SmartDecomposeIntegrationTest {
         logger.info(">>> 发送API请求...");
         long startTime = System.currentTimeMillis();
 
-        OpenClawGatewayClient.AgentRequest request = OpenClawGatewayClient.AgentRequest.builder()
+        AgentRequest request = AgentRequest.builder()
             .agentId(AGENT_ID)
             .systemPrompt(systemPrompt)
             .message(userPrompt)
@@ -75,7 +77,7 @@ public class SmartDecomposeIntegrationTest {
             .temperature(0.7)
             .build();
 
-        OpenClawGatewayClient.AgentResponse response = client.executeAgent(request);
+        AgentResponse response = client.executeAgent(request);
 
         long duration = System.currentTimeMillis() - startTime;
         logger.info("API响应: success={}, duration={}ms", response.isSuccess(), duration);
@@ -113,7 +115,7 @@ public class SmartDecomposeIntegrationTest {
         logger.info(">>> 发送API请求...");
         long startTime = System.currentTimeMillis();
 
-        OpenClawGatewayClient.AgentRequest request = OpenClawGatewayClient.AgentRequest.builder()
+        AgentRequest request = AgentRequest.builder()
             .agentId(AGENT_ID)
             .systemPrompt(systemPrompt)
             .message(userPrompt)
@@ -122,7 +124,7 @@ public class SmartDecomposeIntegrationTest {
             .temperature(0.7)
             .build();
 
-        OpenClawGatewayClient.AgentResponse response = client.executeAgent(request);
+        AgentResponse response = client.executeAgent(request);
 
         long duration = System.currentTimeMillis() - startTime;
         logger.info("API响应: success={}, duration={}ms", response.isSuccess(), duration);
@@ -206,7 +208,7 @@ public class SmartDecomposeIntegrationTest {
 
         // 调用Agent
         OpenClawGatewayClient client = new OpenClawGatewayClient(GATEWAY_URL, GATEWAY_TOKEN);
-        OpenClawGatewayClient.AgentRequest request = OpenClawGatewayClient.AgentRequest.builder()
+        AgentRequest request = AgentRequest.builder()
             .agentId(AGENT_ID)
             .systemPrompt("你是一个智能任务执行引擎。")
             .message(prompt)
@@ -215,7 +217,7 @@ public class SmartDecomposeIntegrationTest {
             .temperature(0.7)
             .build();
 
-        OpenClawGatewayClient.AgentResponse response = client.executeAgent(request);
+        AgentResponse response = client.executeAgent(request);
 
         logger.info("Agent响应: success={}", response.isSuccess());
         logger.info("响应内容:\n{}", truncate(response.getContent(), 500));

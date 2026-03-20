@@ -1,5 +1,7 @@
 package com.openclaw.workflow.engine.smartdecompose;
 
+import com.openclaw.workflow.engine.connector.AgentRequest;
+import com.openclaw.workflow.engine.connector.AgentResponse;
 import com.openclaw.workflow.engine.connector.OpenClawGatewayClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,7 +50,7 @@ public class SubAgentExecutor {
 
             logger.info("子Agent API请求: agentId={}, context={}", agentId, contextKey);
 
-            OpenClawGatewayClient.AgentRequest agentRequest = OpenClawGatewayClient.AgentRequest.builder()
+            AgentRequest agentRequest = AgentRequest.builder()
                 .agentId(agentId)
                 .systemPrompt(systemPrompt)
                 .message(userPrompt)
@@ -57,7 +59,7 @@ public class SubAgentExecutor {
                 .temperature(0.7)
                 .build();
 
-            OpenClawGatewayClient.AgentResponse response = client.executeAgent(agentRequest);
+            AgentResponse response = client.executeAgent(agentRequest);
 
             long duration = System.currentTimeMillis() - startTime;
             logger.info("子Agent API响应: success={}, duration={}ms, tokens={}",

@@ -2,6 +2,8 @@ package com.openclaw.workflow.engine.handler;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.openclaw.workflow.engine.connector.AgentRequest;
+import com.openclaw.workflow.engine.connector.AgentResponse;
 import com.openclaw.workflow.engine.connector.OpenClawGatewayClient;
 import com.openclaw.workflow.engine.model.NodeExecutionContext;
 import com.openclaw.workflow.engine.model.NodeResult;
@@ -32,7 +34,7 @@ public class ConditionNodeHandler extends BaseNodeHandler {
 
     @Override
     public NodeResult execute(NodeExecutionContext context) throws Exception {
-        WorkflowNode node = context.getCurrentNode();
+        WorkflowNode node = context.getNode();
         ConditionConfig config = parseConfig(node);
 
         Branch selectedBranch;
@@ -52,7 +54,7 @@ public class ConditionNodeHandler extends BaseNodeHandler {
         }
 
         if (selectedBranch == null) {
-            return NodeResult.failure("没有可用的分支");
+            return NodeResult.failed("没有可用的分支");
         }
 
         return NodeResult.success(
@@ -80,7 +82,7 @@ public class ConditionNodeHandler extends BaseNodeHandler {
         String sessionContext = String.format("%s_%s_%s_condition",
                 context.getWorkflowId(), context.getExecutionId(), node.getId());
 
-        OpenClawGatewayClient.AgentRequest request = OpenClawGatewayClient.AgentRequest.builder()
+        AgentRequest request = AgentRequest.builder()
                 .agentId(decisionAgentId)
                 .message(prompt)
                 .context(sessionContext)
@@ -88,7 +90,7 @@ public class ConditionNodeHandler extends BaseNodeHandler {
 
         logger.info("条件判断Agent调用: {} - 提示词长度: {}", node.getName(), prompt.length());
 
-        OpenClawGatewayClient.AgentResponse response = client.executeAgent(request);
+        AgentResponse response = client.executeAgent(request);
 
         if (!response.isSuccess()) {
             logger.error("决策Agent执行失败: {}", response.getErrorMessage());

@@ -96,8 +96,9 @@ public class WorkflowEngine {
                 checkWait();
                 if (isStopped) break;
 
-                WorkflowNode node = nodeRepository.findById(nodeId)
-                        .orElseThrow(() -> new RuntimeException("节点不存在: " + nodeId));
+                final String currentLookupNodeId = nodeId;
+                WorkflowNode node = nodeRepository.findById(currentLookupNodeId)
+                        .orElseThrow(() -> new RuntimeException("节点不存在: " + currentLookupNodeId));
 
                 this.previousNodeId = this.currentNodeId;
                 this.currentNodeId = nodeId;
