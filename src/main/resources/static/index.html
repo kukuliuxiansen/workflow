@@ -1726,6 +1726,303 @@
       border-radius: 8px;
       pointer-events: none;
     }
+
+    /* 框选矩形 */
+    .selection-rect {
+      position: absolute;
+      border: 2px dashed #89b4fa;
+      background: rgba(137, 180, 250, 0.1);
+      pointer-events: none;
+      z-index: 1000;
+      display: none;
+    }
+    .selection-rect.active {
+      display: block;
+    }
+
+    /* 对齐辅助线 */
+    .align-guide {
+      position: absolute;
+      background: #cba6f7;
+      pointer-events: none;
+      z-index: 999;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .align-guide.visible {
+      opacity: 1;
+    }
+    .align-guide.horizontal {
+      height: 1px;
+      width: 100%;
+      left: 0;
+    }
+    .align-guide.vertical {
+      width: 1px;
+      height: 100%;
+      top: 0;
+    }
+
+    /* 多选节点样式 */
+    .node.selected-multi {
+      box-shadow: 0 0 0 2px #89b4fa, 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    /* 小地图 */
+    .minimap {
+      position: absolute;
+      right: 10px;
+      bottom: 50px;
+      width: 180px;
+      height: 120px;
+      background: #1a1a1a;
+      border: 1px solid #3a3a3a;
+      border-radius: 6px;
+      overflow: hidden;
+      z-index: 100;
+      transition: opacity 0.2s;
+    }
+    .minimap.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .minimap-viewport {
+      position: absolute;
+      border: 2px solid #89b4fa;
+      background: rgba(137, 180, 250, 0.1);
+      pointer-events: none;
+    }
+    .minimap-node {
+      position: absolute;
+      background: #4a4a6a;
+      border-radius: 2px;
+    }
+
+    /* 节点颜色样式 */
+    .node[data-color="red"] { border-left: 4px solid #f38ba8; }
+    .node[data-color="orange"] { border-left: 4px solid #fab387; }
+    .node[data-color="yellow"] { border-left: 4px solid #f9e2af; }
+    .node[data-color="green"] { border-left: 4px solid #a6e3a1; }
+    .node[data-color="cyan"] { border-left: 4px solid #89dceb; }
+    .node[data-color="blue"] { border-left: 4px solid #89b4fa; }
+    .node[data-color="purple"] { border-left: 4px solid #cba6f7; }
+    .node[data-color="pink"] { border-left: 4px solid #f5c2e7; }
+    .node[data-color="gray"] { border-left: 4px solid #6c7086; }
+
+    /* 连线样式 */
+    .edge-path.success { stroke: #a6e3a1; }
+    .edge-path.failure { stroke: #f38ba8; }
+    .edge-path.condition { stroke: #f9e2af; }
+    .edge-path.default { stroke: #89b4fa; }
+    .edge-path.animated {
+      stroke-dasharray: 5;
+      animation: edge-flow 0.5s linear infinite;
+    }
+    @keyframes edge-flow {
+      from { stroke-dashoffset: 10; }
+      to { stroke-dashoffset: 0; }
+    }
+
+    /* 连线标签 */
+    .edge-label {
+      font-size: 11px;
+      fill: #e0e0e0;
+      background: #2a2a2a;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+
+    /* 快捷键帮助面板 */
+    .shortcut-help {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #2a2a2a;
+      border: 1px solid #4a4a4a;
+      border-radius: 12px;
+      padding: 24px;
+      z-index: 3000;
+      max-width: 500px;
+      max-height: 80vh;
+      overflow-y: auto;
+      display: none;
+    }
+    .shortcut-help.show {
+      display: block;
+    }
+    .shortcut-help h3 {
+      margin-bottom: 16px;
+      font-size: 16px;
+      color: #fff;
+    }
+    .shortcut-group {
+      margin-bottom: 16px;
+    }
+    .shortcut-group-title {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+    .shortcut-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      font-size: 13px;
+    }
+    .shortcut-key {
+      background: #1a1a1a;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: Monaco, monospace;
+      font-size: 11px;
+      color: #89b4fa;
+    }
+
+    /* 右键菜单增强 */
+    .context-menu-item .shortcut {
+      margin-left: auto;
+      font-size: 11px;
+      color: #888;
+      background: #1a1a1a;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+    .context-menu-submenu {
+      position: relative;
+    }
+    .context-menu-submenu > .submenu {
+      display: none;
+      position: absolute;
+      left: 100%;
+      top: 0;
+      background: #2a2a2a;
+      border: 1px solid #4a4a4a;
+      border-radius: 6px;
+      min-width: 120px;
+    }
+    .context-menu-submenu:hover > .submenu {
+      display: block;
+    }
+
+    /* 节点工具栏 */
+    .node-toolbar {
+      position: absolute;
+      top: -36px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #2a2a2a;
+      border: 1px solid #4a4a4a;
+      border-radius: 6px;
+      padding: 4px;
+      display: none;
+      gap: 4px;
+      z-index: 100;
+    }
+    .node:hover .node-toolbar {
+      display: flex;
+    }
+    .node-toolbar-btn {
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: transparent;
+      color: #e0e0e0;
+      cursor: pointer;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+    .node-toolbar-btn:hover {
+      background: #3a3a3a;
+    }
+
+    /* 颜色选择器 */
+    .color-picker {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 8px;
+    }
+    .color-option {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      border: 2px solid transparent;
+    }
+    .color-option:hover {
+      border-color: #fff;
+    }
+
+    /* 画布信息统计 */
+    .canvas-info {
+      position: absolute;
+      left: 10px;
+      bottom: 10px;
+      background: rgba(42, 42, 42, 0.9);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #888;
+      z-index: 100;
+      display: flex;
+      gap: 12px;
+    }
+    .canvas-info-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .canvas-info-value {
+      color: #e0e0e0;
+    }
+
+    /* 搜索面板 */
+    .search-panel {
+      position: absolute;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #2a2a2a;
+      border: 1px solid #4a4a4a;
+      border-radius: 8px;
+      padding: 12px;
+      z-index: 200;
+      display: none;
+      min-width: 300px;
+    }
+    .search-panel.show {
+      display: block;
+    }
+    .search-panel input {
+      width: 100%;
+      padding: 8px 12px;
+      background: #1a1a1a;
+      border: 1px solid #4a4a4a;
+      border-radius: 4px;
+      color: #e0e0e0;
+      font-size: 13px;
+    }
+    .search-results {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 8px;
+    }
+    .search-result-item {
+      padding: 8px;
+      cursor: pointer;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .search-result-item:hover {
+      background: #3a3a3a;
+    }
   </style>
 </head>
 <body>
@@ -1784,12 +2081,32 @@
         <div class="canvas-content" id="canvasContent">
           <svg class="edges-svg" id="edgesSvg"></svg>
         </div>
+        <!-- 框选矩形 -->
+        <div class="selection-rect" id="selectionRect"></div>
+        <!-- 对齐辅助线容器 -->
+        <div id="alignGuidesContainer"></div>
       </div>
       <div class="zoom-controls">
         <button class="zoom-btn" onclick="zoomOut()">−</button>
         <span class="zoom-level" id="zoomLevel">100%</span>
         <button class="zoom-btn" onclick="zoomIn()">+</button>
         <button class="zoom-btn" onclick="zoomReset()">⟲</button>
+      </div>
+      <!-- 小地图 -->
+      <div class="minimap" id="minimap">
+        <canvas id="minimapCanvas" width="180" height="120"></canvas>
+        <div class="minimap-viewport" id="minimapViewport"></div>
+      </div>
+      <!-- 画布信息统计 -->
+      <div class="canvas-info" id="canvasInfo">
+        <div class="canvas-info-item">节点: <span class="canvas-info-value" id="nodeCount">0</span></div>
+        <div class="canvas-info-item">连线: <span class="canvas-info-value" id="edgeCount">0</span></div>
+        <div class="canvas-info-item">选中: <span class="canvas-info-value" id="selectedCount">0</span></div>
+      </div>
+      <!-- 搜索面板 -->
+      <div class="search-panel" id="searchPanel">
+        <input type="text" id="nodeSearchInput" placeholder="搜索节点名称..." oninput="handleNodeSearch(this.value)">
+        <div class="search-results" id="searchResults"></div>
       </div>
     </div>
 
@@ -1912,14 +2229,115 @@
   <!-- Toast -->
   <div class="toast-container" id="toastContainer"></div>
 
+  <!-- 快捷键帮助面板 -->
+  <div class="shortcut-help" id="shortcutHelpPanel">
+    <h3>⌨️ 快捷键帮助</h3>
+    <div class="shortcut-group">
+      <div class="shortcut-group-title">编辑操作</div>
+      <div class="shortcut-item"><span>复制</span><span class="shortcut-key">Ctrl+C</span></div>
+      <div class="shortcut-item"><span>粘贴</span><span class="shortcut-key">Ctrl+V</span></div>
+      <div class="shortcut-item"><span>剪切</span><span class="shortcut-key">Ctrl+X</span></div>
+      <div class="shortcut-item"><span>复制为副本</span><span class="shortcut-key">Ctrl+D</span></div>
+      <div class="shortcut-item"><span>撤销</span><span class="shortcut-key">Ctrl+Z</span></div>
+      <div class="shortcut-item"><span>重做</span><span class="shortcut-key">Ctrl+Y</span></div>
+      <div class="shortcut-item"><span>全选</span><span class="shortcut-key">Ctrl+A</span></div>
+      <div class="shortcut-item"><span>删除</span><span class="shortcut-key">Delete</span></div>
+    </div>
+    <div class="shortcut-group">
+      <div class="shortcut-group-title">画布操作</div>
+      <div class="shortcut-item"><span>搜索节点</span><span class="shortcut-key">Ctrl+F</span></div>
+      <div class="shortcut-item"><span>放大</span><span class="shortcut-key">Ctrl++</span></div>
+      <div class="shortcut-item"><span>缩小</span><span class="shortcut-key">Ctrl+-</span></div>
+      <div class="shortcut-item"><span>适应画布</span><span class="shortcut-key">Ctrl+0</span></div>
+      <div class="shortcut-item"><span>平移画布</span><span class="shortcut-key">Ctrl+拖动</span></div>
+      <div class="shortcut-item"><span>框选节点</span><span class="shortcut-key">拖动空白处</span></div>
+    </div>
+    <div class="shortcut-group">
+      <div class="shortcut-group-title">文件操作</div>
+      <div class="shortcut-item"><span>保存工作流</span><span class="shortcut-key">Ctrl+S</span></div>
+    </div>
+    <div class="shortcut-group">
+      <div class="shortcut-group-title">其他</div>
+      <div class="shortcut-item"><span>显示此帮助</span><span class="shortcut-key">?</span></div>
+      <div class="shortcut-item"><span>关闭弹窗</span><span class="shortcut-key">Esc</span></div>
+    </div>
+  </div>
+
   <!-- 右键菜单 -->
   <div class="context-menu" id="contextMenu">
     <div class="context-menu-item" onclick="contextMenuAction('edit')">✏️ 编辑节点</div>
-    <div class="context-menu-item" onclick="contextMenuAction('duplicate')">📋 复制节点</div>
+    <div class="context-menu-item" onclick="contextMenuAction('duplicate')">📋 复制为副本 <span class="shortcut">Ctrl+D</span></div>
+    <div class="context-menu-item" onclick="contextMenuAction('copy')">📄 复制 <span class="shortcut">Ctrl+C</span></div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item" onclick="contextMenuAction('select-all')">☑️ 全选节点 <span class="shortcut">Ctrl+A</span></div>
+    <div class="context-menu-item" onclick="contextMenuAction('invert-selection')">🔄 反选节点</div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item context-menu-submenu">
+      📐 对齐
+      <div class="submenu">
+        <div class="context-menu-item" onclick="contextMenuAction('align-left')">⬅️ 左对齐</div>
+        <div class="context-menu-item" onclick="contextMenuAction('align-center-h')">↔️ 水平居中</div>
+        <div class="context-menu-item" onclick="contextMenuAction('align-right')">➡️ 右对齐</div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" onclick="contextMenuAction('align-top')">⬆️ 顶对齐</div>
+        <div class="context-menu-item" onclick="contextMenuAction('align-center-v')">↕️ 垂直居中</div>
+        <div class="context-menu-item" onclick="contextMenuAction('align-bottom')">⬇️ 底对齐</div>
+      </div>
+    </div>
+    <div class="context-menu-item context-menu-submenu">
+      📏 分布
+      <div class="submenu">
+        <div class="context-menu-item" onclick="contextMenuAction('distribute-h')">↔️ 水平均匀分布</div>
+        <div class="context-menu-item" onclick="contextMenuAction('distribute-v')">↕️ 垂直均匀分布</div>
+      </div>
+    </div>
+    <div class="context-menu-item context-menu-submenu">
+      🎨 节点颜色
+      <div class="submenu">
+        <div class="color-picker">
+          <div class="color-option" style="background:#f38ba8" onclick="contextMenuAction('color-red')"></div>
+          <div class="color-option" style="background:#fab387" onclick="contextMenuAction('color-orange')"></div>
+          <div class="color-option" style="background:#f9e2af" onclick="contextMenuAction('color-yellow')"></div>
+          <div class="color-option" style="background:#a6e3a1" onclick="contextMenuAction('color-green')"></div>
+          <div class="color-option" style="background:#89dceb" onclick="contextMenuAction('color-cyan')"></div>
+          <div class="color-option" style="background:#89b4fa" onclick="contextMenuAction('color-blue')"></div>
+          <div class="color-option" style="background:#cba6f7" onclick="contextMenuAction('color-purple')"></div>
+          <div class="color-option" style="background:#f5c2e7" onclick="contextMenuAction('color-pink')"></div>
+          <div class="color-option" style="background:#6c7086" onclick="contextMenuAction('color-gray')"></div>
+          <div class="color-option" style="background:transparent;border:1px dashed #888" onclick="contextMenuAction('color-none')">✕</div>
+        </div>
+      </div>
+    </div>
     <div class="context-menu-divider"></div>
     <div class="context-menu-item" onclick="contextMenuAction('run-from')">▶️ 从此节点执行</div>
     <div class="context-menu-divider"></div>
-    <div class="context-menu-item danger" onclick="contextMenuAction('delete')">🗑️ 删除节点</div>
+    <div class="context-menu-item danger" onclick="contextMenuAction('delete')">🗑️ 删除节点 <span class="shortcut">Delete</span></div>
+  </div>
+
+  <!-- 画布右键菜单 -->
+  <div class="context-menu" id="canvasContextMenu">
+    <div class="context-menu-item" onclick="canvasContextMenuAction('paste')">📄 粘贴节点 <span class="shortcut">Ctrl+V</span></div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item" onclick="canvasContextMenuAction('select-all')">☑️ 全选节点 <span class="shortcut">Ctrl+A</span></div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item" onclick="canvasContextMenuAction('toggle-grid')">🔲 切换网格显示</div>
+    <div class="context-menu-item" onclick="canvasContextMenuAction('toggle-snap')">🧲 切换网格吸附</div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item" onclick="canvasContextMenuAction('fit-canvas')">📐 适应画布 <span class="shortcut">Ctrl+0</span></div>
+    <div class="context-menu-item" onclick="canvasContextMenuAction('reset-view')">🔄 重置视图</div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item" onclick="canvasContextMenuAction('export-png')">📷 导出为图片</div>
+    <div class="context-menu-item" onclick="canvasContextMenuAction('export-json')">📋 导出为JSON</div>
+  </div>
+
+  <!-- 连线右键菜单 -->
+  <div class="context-menu" id="edgeContextMenu">
+    <div class="context-menu-item" onclick="edgeContextMenuAction('edit-label')">✏️ 编辑标签</div>
+    <div class="context-menu-item" onclick="edgeContextMenuAction('toggle-type-success')">✅ 设为成功连线</div>
+    <div class="context-menu-item" onclick="edgeContextMenuAction('toggle-type-failure')">❌ 设为失败连线</div>
+    <div class="context-menu-item" onclick="edgeContextMenuAction('toggle-type-default')">➡️ 设为默认连线</div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item danger" onclick="edgeContextMenuAction('delete')">🗑️ 删除连线</div>
   </div>
 
   <!-- 快速操作面板 -->
@@ -2530,7 +2948,7 @@
       canvas.addEventListener('wheel', (e) => {
         e.preventDefault();
         const delta = e.deltaY > 0 ? -0.1 : 0.1;
-        const newZoom = Math.max(0.25, Math.min(2, state.zoom + delta));
+        const newZoom = Math.max(0.1, Math.min(4, state.zoom + delta));
 
         // 以鼠标位置为中心缩放
         const rect = canvas.getBoundingClientRect();
@@ -2543,36 +2961,144 @@
 
         state.zoom = newZoom;
         updateCanvasTransform();
+        updateMinimap();
+        updateZoomLevel();
       });
 
-      // 中键拖拽平移
+      // 画布拖拽和框选
       let isPanning = false;
-      let lastX, lastY;
+      let isBoxSelecting = false;
+      let boxSelectStartX = 0;
+      let boxSelectStartY = 0;
+      let lastPanX = 0;
+      let lastPanY = 0;
 
       canvas.addEventListener('mousedown', (e) => {
-        if (e.button === 1 || (e.button === 0 && e.altKey)) {
+        // 中键或Ctrl+左键: 平移
+        if (e.button === 1 || (e.button === 0 && e.ctrlKey)) {
           isPanning = true;
-          lastX = e.clientX;
-          lastY = e.clientY;
+          lastPanX = e.clientX;
+          lastPanY = e.clientY;
           canvas.style.cursor = 'grabbing';
+          e.preventDefault();
+          return;
+        }
+
+        // 左键在空白处: 框选
+        if (e.button === 0 && !e.target.closest('.node') && !e.target.closest('.edge')) {
+          isBoxSelecting = true;
+          const rect = canvas.getBoundingClientRect();
+          boxSelectStartX = e.clientX - rect.left;
+          boxSelectStartY = e.clientY - rect.top;
+
+          // 如果没有按Shift，清除之前的选择
+          if (!e.shiftKey) {
+            clearNodeSelection();
+          }
+
+          const selectionRect = document.getElementById('selectionRect');
+          selectionRect.style.left = boxSelectStartX + 'px';
+          selectionRect.style.top = boxSelectStartY + 'px';
+          selectionRect.style.width = '0';
+          selectionRect.style.height = '0';
+          selectionRect.classList.add('active');
           e.preventDefault();
         }
       });
 
       document.addEventListener('mousemove', (e) => {
+        // 平移
         if (isPanning) {
-          state.panX += e.clientX - lastX;
-          state.panY += e.clientY - lastY;
-          lastX = e.clientX;
-          lastY = e.clientY;
+          state.panX += e.clientX - lastPanX;
+          state.panY += e.clientY - lastPanY;
+          lastPanX = e.clientX;
+          lastPanY = e.clientY;
           updateCanvasTransform();
+          updateMinimap();
+        }
+
+        // 框选
+        if (isBoxSelecting) {
+          const rect = canvas.getBoundingClientRect();
+          const currentX = e.clientX - rect.left;
+          const currentY = e.clientY - rect.top;
+
+          const selectionRect = document.getElementById('selectionRect');
+          const left = Math.min(boxSelectStartX, currentX);
+          const top = Math.min(boxSelectStartY, currentY);
+          const width = Math.abs(currentX - boxSelectStartX);
+          const height = Math.abs(currentY - boxSelectStartY);
+
+          selectionRect.style.left = left + 'px';
+          selectionRect.style.top = top + 'px';
+          selectionRect.style.width = width + 'px';
+          selectionRect.style.height = height + 'px';
         }
       });
 
-      document.addEventListener('mouseup', () => {
+      document.addEventListener('mouseup', (e) => {
         if (isPanning) {
           isPanning = false;
           canvas.style.cursor = '';
+        }
+
+        if (isBoxSelecting) {
+          isBoxSelecting = false;
+          const selectionRect = document.getElementById('selectionRect');
+          selectionRect.classList.remove('active');
+
+          // 计算框选区域内的节点
+          const rect = canvas.getBoundingClientRect();
+          const endX = e.clientX - rect.left;
+          const endY = e.clientY - rect.top;
+
+          const boxLeft = Math.min(boxSelectStartX, endX);
+          const boxTop = Math.min(boxSelectStartY, endY);
+          const boxRight = Math.max(boxSelectStartX, endX);
+          const boxBottom = Math.max(boxSelectStartY, endY);
+
+          // 转换为画布坐标
+          const canvasBoxLeft = (boxLeft - state.panX) / state.zoom;
+          const canvasBoxTop = (boxTop - state.panY) / state.zoom;
+          const canvasBoxRight = (boxRight - state.panX) / state.zoom;
+          const canvasBoxBottom = (boxBottom - state.panY) / state.zoom;
+
+          // 检查每个节点是否在框选区域内
+          if (state.currentWorkflow && state.currentWorkflow.nodes) {
+            state.currentWorkflow.nodes.forEach(node => {
+              const nodeLeft = node.position_x;
+              const nodeTop = node.position_y;
+              const nodeRight = node.position_x + 180;  // 节点宽度
+              const nodeBottom = node.position_y + 80;   // 节点高度
+
+              // 检查是否相交（部分选中模式）
+              if (nodeRight >= canvasBoxLeft && nodeLeft <= canvasBoxRight &&
+                  nodeBottom >= canvasBoxTop && nodeTop <= canvasBoxBottom) {
+                state.selectedNodes.add(node.id);
+              }
+            });
+          }
+
+          // 如果只选中了一个节点，设置为selectedNode以便兼容
+          if (state.selectedNodes.size === 1) {
+            state.selectedNode = state.currentWorkflow?.nodes?.find(n => state.selectedNodes.has(n.id)) || null;
+          } else {
+            state.selectedNode = null;
+          }
+
+          renderCanvas();
+          updateSelectedCount();
+        }
+      });
+
+      // 画布右键菜单
+      canvas.addEventListener('contextmenu', (e) => {
+        if (!e.target.closest('.node') && !e.target.closest('.edge')) {
+          e.preventDefault();
+          const menu = document.getElementById('canvasContextMenu');
+          menu.style.left = e.clientX + 'px';
+          menu.style.top = e.clientY + 'px';
+          menu.classList.add('show');
         }
       });
 
@@ -3052,6 +3578,9 @@
       const content = document.getElementById('canvasContent');
       const workflow = state.currentWorkflow;
 
+      // 更新统计信息
+      updateCanvasInfo();
+
       if (!workflow || !workflow.nodes || workflow.nodes.length === 0) {
         content.innerHTML = `
           <svg class="edges-svg" id="edgesSvg"></svg>
@@ -3073,10 +3602,32 @@
         const type = node.type || 'agent_execution';
         const status = state.nodeStatus.get(node.id) || '';
 
+        // 多选和高亮
+        const isSelected = state.selectedNode?.id === node.id || state.selectedNodes.has(node.id);
+        const selectionClass = isSelected ? (state.selectedNodes.size > 1 ? 'selected-multi' : 'selected') : '';
+
+        // 节点颜色
+        let nodeColor = '';
+        try {
+          const config = typeof node.config === 'string' ? JSON.parse(node.config || '{}') : (node.config || {});
+          if (config.color) {
+            nodeColor = config.color;
+          }
+        } catch (e) {}
+
         html += `
-          <div class="node ${state.selectedNode?.id === node.id ? 'selected' : ''} ${status}"
-               id="node-${node.id}" style="left:${x}px;top:${y}px;"
-               onclick="selectNode('${node.id}')" onmousedown="startDrag(event,'${node.id}')">
+          <div class="node ${selectionClass} ${status}"
+               id="node-${node.id}"
+               style="left:${x}px;top:${y}px;"
+               data-color="${nodeColor}"
+               onclick="selectNode('${node.id}')"
+               onmousedown="startDrag(event,'${node.id}')"
+               oncontextmenu="showNodeContextMenu(event,'${node.id}')">
+            <div class="node-toolbar">
+              <button class="node-toolbar-btn" onclick="event.stopPropagation();selectNode('${node.id}')" title="编辑">✏️</button>
+              <button class="node-toolbar-btn" onclick="event.stopPropagation();duplicateNodeById('${node.id}')" title="复制">📋</button>
+              <button class="node-toolbar-btn" onclick="event.stopPropagation();deleteNodeById('${node.id}')" title="删除">🗑️</button>
+            </div>
             <div class="node-header">
               <div class="node-icon ${type.split('_')[0]}">${getIcon(type)}</div>
               <div class="node-info">
@@ -3157,7 +3708,30 @@
 
           // 绘制平滑的贝塞尔曲线
           const controlOffset = Math.min(100, Math.abs(x2 - x1) / 2);
-          paths += `<path class="edge-path ${edgeType}" d="M${x1},${y1} C${x1 + controlOffset},${y1} ${x2 - controlOffset},${y2} ${x2},${y2}" onclick="deleteEdgeById('${edge.id}')"/>`;
+
+          // 获取连线类型（success/failure/condition/default）
+          const pathType = edge.type || edgeType;
+          const typeClass = pathType === 'failure' ? 'failure' :
+                           pathType === 'condition' ? 'condition' :
+                           pathType === 'default' ? 'default' : 'success';
+
+          // 是否显示动画（执行中时）
+          const animateClass = state.nodeStatus.get(edge.source_node_id) === 'running' ? 'animated' : '';
+
+          // 生成唯一edgeId
+          const edgeIdStr = edge.id || `${edge.source_node_id}-${edge.target_node_id}`;
+
+          paths += `<path class="edge-path ${typeClass} ${animateClass}"
+                         d="M${x1},${y1} C${x1 + controlOffset},${y1} ${x2 - controlOffset},${y2} ${x2},${y2}"
+                         id="edge-${edgeIdStr}"
+                         oncontextmenu="event.preventDefault();showEdgeContextMenu(event,'${edgeIdStr}')"/>`;
+
+          // 如果有标签，显示标签
+          if (edge.label) {
+            const midX = (x1 + x2) / 2;
+            const midY = (y1 + y2) / 2;
+            paths += `<text x="${midX}" y="${midY}" class="edge-label" text-anchor="middle">${edge.label}</text>`;
+          }
         });
       }
 
@@ -4867,50 +5441,95 @@
     // 1. 键盘快捷键
     function setupKeyboardShortcuts() {
       document.addEventListener('keydown', (e) => {
+        // 忽略输入框中的快捷键
+        const isInputFocused = document.activeElement.tagName === 'INPUT' ||
+                               document.activeElement.tagName === 'TEXTAREA';
+        const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+
         // Ctrl/Cmd + S: 保存
-        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        if (isCtrlOrCmd && e.key === 's') {
           e.preventDefault();
           saveWorkflow();
         }
         // Ctrl/Cmd + Z: 撤销
-        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        if (isCtrlOrCmd && e.key === 'z' && !e.shiftKey) {
           e.preventDefault();
           undo();
         }
-        // Ctrl/Cmd + Shift + Z: 重做
-        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && e.shiftKey) {
+        // Ctrl/Cmd + Y 或 Ctrl/Cmd + Shift + Z: 重做
+        if ((isCtrlOrCmd && e.key === 'y') || (isCtrlOrCmd && e.key === 'z' && e.shiftKey)) {
           e.preventDefault();
           redo();
         }
         // Ctrl/Cmd + C: 复制节点
-        if ((e.ctrlKey || e.metaKey) && e.key === 'c' && state.selectedNode) {
-          e.preventDefault();
-          copyNode();
-        }
-        // Ctrl/Cmd + V: 粘贴节点
-        if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
-          e.preventDefault();
-          pasteNode();
-        }
-        // Delete/Backspace: 删除选中节点
-        if ((e.key === 'Delete' || e.key === 'Backspace') && state.selectedNode) {
-          // 确保不是在输入框中
-          if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+        if (isCtrlOrCmd && e.key === 'c') {
+          if (state.selectedNode || state.selectedNodes.size > 0) {
             e.preventDefault();
-            deleteSelectedNode();
+            copyNodes();
           }
         }
-        // Escape: 取消选择
+        // Ctrl/Cmd + V: 粘贴节点
+        if (isCtrlOrCmd && e.key === 'v') {
+          e.preventDefault();
+          pasteNodes();
+        }
+        // Ctrl/Cmd + X: 剪切节点
+        if (isCtrlOrCmd && e.key === 'x') {
+          if (state.selectedNode || state.selectedNodes.size > 0) {
+            e.preventDefault();
+            cutNodes();
+          }
+        }
+        // Ctrl/Cmd + D: 复制为副本
+        if (isCtrlOrCmd && e.key === 'd') {
+          e.preventDefault();
+          duplicateNodes();
+        }
+        // Ctrl/Cmd + A: 全选
+        if (isCtrlOrCmd && e.key === 'a' && !isInputFocused) {
+          e.preventDefault();
+          selectAllNodes();
+        }
+        // Delete/Backspace: 删除选中节点
+        if ((e.key === 'Delete' || e.key === 'Backspace') && !isInputFocused) {
+          if (state.selectedNode || state.selectedNodes.size > 0) {
+            e.preventDefault();
+            deleteSelectedNodes();
+          }
+        }
+        // Escape: 取消选择/关闭弹窗
         if (e.key === 'Escape') {
-          state.selectedNode = null;
+          clearNodeSelection();
+          closeContextMenu();
+          closeSearchPanel();
+          closeShortcutHelp();
           renderCanvas();
           renderPropertyPanel();
-          closeContextMenu();
         }
         // Ctrl/Cmd + F: 搜索节点
-        if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        if (isCtrlOrCmd && e.key === 'f') {
           e.preventDefault();
-          document.getElementById('searchInput').focus();
+          toggleSearchPanel();
+        }
+        // Ctrl/Cmd + 0: 适应画布
+        if (isCtrlOrCmd && e.key === '0') {
+          e.preventDefault();
+          fitCanvas();
+        }
+        // Ctrl/Cmd + +: 放大
+        if (isCtrlOrCmd && (e.key === '+' || e.key === '=')) {
+          e.preventDefault();
+          zoomIn();
+        }
+        // Ctrl/Cmd + -: 缩小
+        if (isCtrlOrCmd && e.key === '-') {
+          e.preventDefault();
+          zoomOut();
+        }
+        // ?: 显示快捷键帮助
+        if (e.key === '?' && !isInputFocused) {
+          e.preventDefault();
+          toggleShortcutHelp();
         }
       });
     }
@@ -5017,23 +5636,40 @@
     }
 
     // 7. 右键上下文菜单
-    function showContextMenu(event, nodeId) {
+    function showNodeContextMenu(event, nodeId) {
       event.preventDefault();
-      const menu = document.getElementById('contextMenu');
-      state.contextMenuNode = nodeId;
+      event.stopPropagation();
 
+      // 如果右键的节点不在选中列表中，则选中它
+      if (!state.selectedNodes.has(nodeId) && state.selectedNode?.id !== nodeId) {
+        clearNodeSelection();
+        state.selectedNode = state.currentWorkflow?.nodes?.find(n => n.id === nodeId) || null;
+        state.selectedNodes.add(nodeId);
+        renderCanvas();
+      }
+
+      state.contextMenuNode = nodeId;
+      const menu = document.getElementById('contextMenu');
       menu.style.left = event.clientX + 'px';
       menu.style.top = event.clientY + 'px';
       menu.classList.add('show');
     }
 
+    // 兼容旧函数名
+    function showContextMenu(event, nodeId) {
+      showNodeContextMenu(event, nodeId);
+    }
+
     function closeContextMenu() {
-      const menu = document.getElementById('contextMenu');
-      if (menu) menu.classList.remove('show');
+      document.querySelectorAll('.context-menu').forEach(menu => {
+        menu.classList.remove('show');
+      });
       state.contextMenuNode = null;
     }
 
-    function contextMenuAction(action) {
+    // 兼容旧的contextMenuAction函数（已在上面的画布优化功能中重写）
+    // 这里保留一个简化版本作为备份
+    function contextMenuActionOld(action) {
       const nodeId = state.contextMenuNode;
       closeContextMenu();
 
@@ -5045,12 +5681,12 @@
           break;
         case 'duplicate':
           selectNode(nodeId);
-          copyNode();
-          pasteNode();
+          copyNodes();
+          pasteNodes();
           break;
         case 'delete':
           selectNode(nodeId);
-          deleteSelectedNode();
+          deleteSelectedNodes();
           break;
         case 'run-from':
           if (state.currentWorkflow && confirm('是否从此节点开始执行？')) {
@@ -5102,14 +5738,30 @@
     }
 
     function duplicateNodeById(nodeId) {
-      selectNode(nodeId);
-      copyNode();
-      pasteNode();
+      clearNodeSelection();
+      state.selectedNode = state.currentWorkflow?.nodes?.find(n => n.id === nodeId) || null;
+      state.selectedNodes.add(nodeId);
+      duplicateNodes();
     }
 
     function deleteNodeById(nodeId) {
-      selectNode(nodeId);
-      deleteSelectedNode();
+      clearNodeSelection();
+      state.selectedNode = state.currentWorkflow?.nodes?.find(n => n.id === nodeId) || null;
+      state.selectedNodes.add(nodeId);
+      deleteSelectedNodes();
+    }
+
+    // 兼容旧函数名
+    function deleteSelectedNode() {
+      deleteSelectedNodes();
+    }
+
+    function copyNode() {
+      copyNodes();
+    }
+
+    function pasteNode() {
+      pasteNodes();
     }
 
     // 10. 双击编辑节点
@@ -5127,13 +5779,24 @@
 
       // 点击其他地方关闭上下文菜单
       document.addEventListener('click', (e) => {
-        if (!e.target.closest('#contextMenu')) {
+        if (!e.target.closest('.context-menu')) {
           closeContextMenu();
         }
         if (!e.target.closest('.quick-action-btn')) {
           hideQuickActions();
         }
+        // 关闭快捷键帮助面板
+        if (!e.target.closest('#shortcutHelpPanel')) {
+          closeShortcutHelp();
+        }
       });
+
+      // 初始化小地图
+      updateMinimap();
+
+      // 初始化画布信息
+      updateCanvasInfo();
+      updateZoomLevel();
     }
 
     // ==================== 结束 UX改进功能 ====================
@@ -5497,6 +6160,750 @@
         showToast('error', '重置失败: ' + e.message);
       }
     }
+
+    // ==================== 画布优化功能 ====================
+
+    // 节点选择管理
+    function clearNodeSelection() {
+      state.selectedNode = null;
+      state.selectedNodes.clear();
+      updateSelectedCount();
+    }
+
+    function selectAllNodes() {
+      if (state.currentWorkflow && state.currentWorkflow.nodes) {
+        state.selectedNodes.clear();
+        state.currentWorkflow.nodes.forEach(node => state.selectedNodes.add(node.id));
+        if (state.selectedNodes.size === 1) {
+          state.selectedNode = state.currentWorkflow.nodes[0];
+        } else {
+          state.selectedNode = null;
+        }
+        renderCanvas();
+        updateSelectedCount();
+        showToast('info', `已选中 ${state.selectedNodes.size} 个节点`);
+      }
+    }
+
+    function invertSelection() {
+      if (state.currentWorkflow && state.currentWorkflow.nodes) {
+        const allNodeIds = new Set(state.currentWorkflow.nodes.map(n => n.id));
+        const newSelection = new Set();
+        allNodeIds.forEach(id => {
+          if (!state.selectedNodes.has(id)) {
+            newSelection.add(id);
+          }
+        });
+        state.selectedNodes = newSelection;
+        state.selectedNode = null;
+        renderCanvas();
+        updateSelectedCount();
+      }
+    }
+
+    // 复制/粘贴/剪切功能
+    function copyNodes() {
+      const nodesToCopy = [];
+      if (state.selectedNode) {
+        nodesToCopy.push(state.selectedNode);
+      } else if (state.selectedNodes.size > 0) {
+        state.currentWorkflow.nodes.forEach(node => {
+          if (state.selectedNodes.has(node.id)) {
+            nodesToCopy.push(node);
+          }
+        });
+      }
+
+      if (nodesToCopy.length > 0) {
+        state.clipboard = {
+          nodes: JSON.parse(JSON.stringify(nodesToCopy)),
+          edges: [] // TODO: 也要复制连线
+        };
+        showToast('success', `已复制 ${nodesToCopy.length} 个节点`);
+      }
+    }
+
+    function pasteNodes() {
+      if (!state.clipboard || !state.clipboard.nodes || state.clipboard.nodes.length === 0) {
+        showToast('warn', '剪贴板为空');
+        return;
+      }
+      if (!state.currentWorkflow) {
+        showToast('warn', '请先选择工作流');
+        return;
+      }
+
+      pushUndo();
+      clearNodeSelection();
+
+      const offset = 30;
+      state.clipboard.nodes.forEach((node, index) => {
+        const newNode = {
+          ...node,
+          id: 'node-' + Date.now() + '-' + index,
+          position_x: node.position_x + offset,
+          position_y: node.position_y + offset,
+          name: node.name + ' (副本)'
+        };
+        state.currentWorkflow.nodes.push(newNode);
+        state.selectedNodes.add(newNode.id);
+      });
+
+      renderCanvas();
+      markDirty();
+      updateSelectedCount();
+      showToast('success', `已粘贴 ${state.clipboard.nodes.length} 个节点`);
+    }
+
+    function cutNodes() {
+      copyNodes();
+      deleteSelectedNodes();
+    }
+
+    function duplicateNodes() {
+      copyNodes();
+      pasteNodes();
+    }
+
+    // 删除选中节点
+    function deleteSelectedNodes() {
+      if (!state.currentWorkflow) return;
+
+      const nodeIdsToDelete = [];
+      if (state.selectedNode) {
+        nodeIdsToDelete.push(state.selectedNode.id);
+      } else if (state.selectedNodes.size > 0) {
+        nodeIdsToDelete.push(...state.selectedNodes);
+      }
+
+      if (nodeIdsToDelete.length === 0) return;
+
+      pushUndo();
+
+      // 删除节点
+      state.currentWorkflow.nodes = state.currentWorkflow.nodes.filter(
+        node => !nodeIdsToDelete.includes(node.id)
+      );
+
+      // 删除相关连线
+      if (state.currentWorkflow.edges) {
+        state.currentWorkflow.edges = state.currentWorkflow.edges.filter(
+          edge => !nodeIdsToDelete.includes(edge.source) && !nodeIdsToDelete.includes(edge.target)
+        );
+      }
+
+      clearNodeSelection();
+      renderCanvas();
+      renderPropertyPanel();
+      markDirty();
+      showToast('info', `已删除 ${nodeIdsToDelete.length} 个节点`);
+    }
+
+    // 缩放控制
+    function zoomIn() {
+      state.zoom = Math.min(4, state.zoom + 0.1);
+      updateCanvasTransform();
+      updateMinimap();
+      updateZoomLevel();
+    }
+
+    function zoomOut() {
+      state.zoom = Math.max(0.1, state.zoom - 0.1);
+      updateCanvasTransform();
+      updateMinimap();
+      updateZoomLevel();
+    }
+
+    function zoomReset() {
+      state.zoom = 1;
+      state.panX = 0;
+      state.panY = 0;
+      updateCanvasTransform();
+      updateMinimap();
+      updateZoomLevel();
+    }
+
+    function updateZoomLevel() {
+      const el = document.getElementById('zoomLevel');
+      if (el) {
+        el.textContent = Math.round(state.zoom * 100) + '%';
+      }
+    }
+
+    function fitCanvas() {
+      if (!state.currentWorkflow || !state.currentWorkflow.nodes || state.currentWorkflow.nodes.length === 0) {
+        zoomReset();
+        return;
+      }
+
+      // 计算所有节点的边界
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      state.currentWorkflow.nodes.forEach(node => {
+        minX = Math.min(minX, node.position_x);
+        minY = Math.min(minY, node.position_y);
+        maxX = Math.max(maxX, node.position_x + 180);
+        maxY = Math.max(maxY, node.position_y + 80);
+      });
+
+      const padding = 50;
+      const canvasEl = document.getElementById('canvas');
+      const canvasWidth = canvasEl.clientWidth - padding * 2;
+      const canvasHeight = canvasEl.clientHeight - padding * 2;
+
+      const nodesWidth = maxX - minX;
+      const nodesHeight = maxY - minY;
+
+      const scaleX = canvasWidth / nodesWidth;
+      const scaleY = canvasHeight / nodesHeight;
+      state.zoom = Math.min(1, Math.min(scaleX, scaleY));
+
+      // 居中
+      const centerX = (minX + maxX) / 2;
+      const centerY = (minY + maxY) / 2;
+      state.panX = canvasEl.clientWidth / 2 - centerX * state.zoom;
+      state.panY = canvasEl.clientHeight / 2 - centerY * state.zoom;
+
+      updateCanvasTransform();
+      updateMinimap();
+      updateZoomLevel();
+    }
+
+    // 小地图
+    function updateMinimap() {
+      if (!state.showMinimap) return;
+
+      const canvas = document.getElementById('minimapCanvas');
+      if (!canvas) return;
+
+      const ctx = canvas.getContext('2d');
+      const width = canvas.width;
+      const height = canvas.height;
+
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(0, 0, width, height);
+
+      if (!state.currentWorkflow || !state.currentWorkflow.nodes) return;
+
+      // 计算边界
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      state.currentWorkflow.nodes.forEach(node => {
+        minX = Math.min(minX, node.position_x);
+        minY = Math.min(minY, node.position_y);
+        maxX = Math.max(maxX, node.position_x + 180);
+        maxY = Math.max(maxY, node.position_y + 80);
+      });
+
+      if (minX === Infinity) return;
+
+      const padding = 20;
+      const scaleX = (width - padding * 2) / (maxX - minX || 1);
+      const scaleY = (height - padding * 2) / (maxY - minY || 1);
+      const scale = Math.min(scaleX, scaleY);
+
+      // 绘制节点
+      ctx.fillStyle = '#4a4a6a';
+      state.currentWorkflow.nodes.forEach(node => {
+        const x = padding + (node.position_x - minX) * scale;
+        const y = padding + (node.position_y - minY) * scale;
+        const w = 180 * scale;
+        const h = 80 * scale;
+        ctx.fillRect(x, y, Math.max(2, w), Math.max(2, h));
+      });
+
+      // 更新视口框
+      const viewportEl = document.getElementById('minimapViewport');
+      if (viewportEl) {
+        const canvasEl = document.getElementById('canvas');
+        const viewX = padding + (-state.panX / state.zoom - minX) * scale;
+        const viewY = padding + (-state.panY / state.zoom - minY) * scale;
+        const viewW = (canvasEl.clientWidth / state.zoom) * scale;
+        const viewH = (canvasEl.clientHeight / state.zoom) * scale;
+
+        viewportEl.style.left = Math.max(0, viewX) + 'px';
+        viewportEl.style.top = Math.max(0, viewY) + 'px';
+        viewportEl.style.width = Math.min(width, viewW) + 'px';
+        viewportEl.style.height = Math.min(height, viewH) + 'px';
+      }
+    }
+
+    // 统计更新
+    function updateSelectedCount() {
+      const el = document.getElementById('selectedCount');
+      if (el) {
+        const count = state.selectedNode ? 1 : state.selectedNodes.size;
+        el.textContent = count;
+      }
+    }
+
+    function updateCanvasInfo() {
+      const nodeCountEl = document.getElementById('nodeCount');
+      const edgeCountEl = document.getElementById('edgeCount');
+
+      if (nodeCountEl) {
+        nodeCountEl.textContent = state.currentWorkflow?.nodes?.length || 0;
+      }
+      if (edgeCountEl) {
+        edgeCountEl.textContent = state.currentWorkflow?.edges?.length || 0;
+      }
+    }
+
+    // 搜索功能
+    function toggleSearchPanel() {
+      const panel = document.getElementById('searchPanel');
+      if (panel.classList.contains('show')) {
+        closeSearchPanel();
+      } else {
+        panel.classList.add('show');
+        document.getElementById('nodeSearchInput').focus();
+      }
+    }
+
+    function closeSearchPanel() {
+      const panel = document.getElementById('searchPanel');
+      if (panel) panel.classList.remove('show');
+    }
+
+    function handleNodeSearch(query) {
+      const resultsEl = document.getElementById('searchResults');
+      if (!query.trim()) {
+        resultsEl.innerHTML = '';
+        return;
+      }
+
+      const lowerQuery = query.toLowerCase();
+      const results = [];
+
+      if (state.currentWorkflow && state.currentWorkflow.nodes) {
+        state.currentWorkflow.nodes.forEach(node => {
+          if (node.name.toLowerCase().includes(lowerQuery) ||
+              (node.description && node.description.toLowerCase().includes(lowerQuery))) {
+            results.push(node);
+          }
+        });
+      }
+
+      if (results.length === 0) {
+        resultsEl.innerHTML = '<div style="padding:10px;text-align:center;color:#888;">无匹配结果</div>';
+        return;
+      }
+
+      resultsEl.innerHTML = results.map(node => {
+        const icon = getNodeIcon(node.type);
+        return `<div class="search-result-item" onclick="focusNode('${node.id}')">
+          <span>${icon}</span>
+          <span>${node.name}</span>
+          <span style="font-size:11px;color:#888;margin-left:auto;">${node.type}</span>
+        </div>`;
+      }).join('');
+    }
+
+    function focusNode(nodeId) {
+      const node = state.currentWorkflow?.nodes?.find(n => n.id === nodeId);
+      if (!node) return;
+
+      // 平移画布使节点居中
+      const canvasEl = document.getElementById('canvas');
+      state.panX = canvasEl.clientWidth / 2 - node.position_x * state.zoom - 90 * state.zoom;
+      state.panY = canvasEl.clientHeight / 2 - node.position_y * state.zoom - 40 * state.zoom;
+
+      // 选中节点
+      clearNodeSelection();
+      state.selectedNode = node;
+      state.selectedNodes.add(nodeId);
+
+      updateCanvasTransform();
+      renderCanvas();
+      renderPropertyPanel();
+      closeSearchPanel();
+      updateSelectedCount();
+    }
+
+    function getNodeIcon(type) {
+      const icons = {
+        'start': '▶️',
+        'finish': '⏹️',
+        'agent_execution': '🤖',
+        'api_call': '🌐',
+        'condition': '❓',
+        'parallel': '⚡',
+        'loop': '🔄',
+        'wait': '⏸️',
+        'human_review': '👤',
+        'subworkflow': '📦'
+      };
+      return icons[type] || '📄';
+    }
+
+    // 快捷键帮助
+    function toggleShortcutHelp() {
+      const panel = document.getElementById('shortcutHelpPanel');
+      if (panel.classList.contains('show')) {
+        closeShortcutHelp();
+      } else {
+        panel.classList.add('show');
+      }
+    }
+
+    function closeShortcutHelp() {
+      const panel = document.getElementById('shortcutHelpPanel');
+      if (panel) panel.classList.remove('show');
+    }
+
+    // 节点对齐功能
+    function alignNodes(direction) {
+      if (state.selectedNodes.size < 2) {
+        showToast('warn', '请至少选中2个节点');
+        return;
+      }
+
+      const nodes = state.currentWorkflow.nodes.filter(n => state.selectedNodes.has(n.id));
+      if (nodes.length < 2) return;
+
+      pushUndo();
+
+      switch(direction) {
+        case 'left':
+          const minLeft = Math.min(...nodes.map(n => n.position_x));
+          nodes.forEach(n => n.position_x = minLeft);
+          break;
+        case 'right':
+          const maxRight = Math.max(...nodes.map(n => n.position_x + 180));
+          nodes.forEach(n => n.position_x = maxRight - 180);
+          break;
+        case 'top':
+          const minTop = Math.min(...nodes.map(n => n.position_y));
+          nodes.forEach(n => n.position_y = minTop);
+          break;
+        case 'bottom':
+          const maxBottom = Math.max(...nodes.map(n => n.position_y + 80));
+          nodes.forEach(n => n.position_y = maxBottom - 80);
+          break;
+        case 'center-h':
+          const avgX = nodes.reduce((sum, n) => sum + n.position_x + 90, 0) / nodes.length;
+          nodes.forEach(n => n.position_x = avgX - 90);
+          break;
+        case 'center-v':
+          const avgY = nodes.reduce((sum, n) => sum + n.position_y + 40, 0) / nodes.length;
+          nodes.forEach(n => n.position_y = avgY - 40);
+          break;
+      }
+
+      renderCanvas();
+      markDirty();
+      showToast('success', '节点已对齐');
+    }
+
+    // 节点分布
+    function distributeNodes(direction) {
+      if (state.selectedNodes.size < 3) {
+        showToast('warn', '请至少选中3个节点');
+        return;
+      }
+
+      const nodes = state.currentWorkflow.nodes.filter(n => state.selectedNodes.has(n.id));
+      if (nodes.length < 3) return;
+
+      pushUndo();
+
+      if (direction === 'horizontal') {
+        nodes.sort((a, b) => a.position_x - b.position_x);
+        const minX = nodes[0].position_x;
+        const maxX = nodes[nodes.length - 1].position_x + 180;
+        const spacing = (maxX - minX - 180 * nodes.length) / (nodes.length - 1);
+
+        nodes.forEach((node, index) => {
+          node.position_x = minX + index * (180 + spacing);
+        });
+      } else {
+        nodes.sort((a, b) => a.position_y - b.position_y);
+        const minY = nodes[0].position_y;
+        const maxY = nodes[nodes.length - 1].position_y + 80;
+        const spacing = (maxY - minY - 80 * nodes.length) / (nodes.length - 1);
+
+        nodes.forEach((node, index) => {
+          node.position_y = minY + index * (80 + spacing);
+        });
+      }
+
+      renderCanvas();
+      markDirty();
+      showToast('success', '节点已均匀分布');
+    }
+
+    // 节点颜色设置
+    function setNodeColor(color) {
+      const nodeIds = [];
+      if (state.selectedNode) {
+        nodeIds.push(state.selectedNode.id);
+      } else if (state.selectedNodes.size > 0) {
+        nodeIds.push(...state.selectedNodes);
+      }
+
+      if (nodeIds.length === 0) return;
+
+      pushUndo();
+
+      nodeIds.forEach(nodeId => {
+        const node = state.currentWorkflow.nodes.find(n => n.id === nodeId);
+        if (node) {
+          if (!node.config) node.config = {};
+          try {
+            const config = typeof node.config === 'string' ? JSON.parse(node.config) : node.config;
+            config.color = color === 'none' ? undefined : color;
+            node.config = JSON.stringify(config);
+          } catch (e) {
+            node.config = JSON.stringify({ color: color === 'none' ? undefined : color });
+          }
+        }
+      });
+
+      renderCanvas();
+      markDirty();
+      showToast('success', '节点颜色已更新');
+    }
+
+    // 增强的右键菜单动作
+    function contextMenuAction(action) {
+      const nodeId = state.contextMenuNode;
+      closeContextMenu();
+
+      if (!nodeId && !['select-all', 'paste'].includes(action)) return;
+
+      switch(action) {
+        case 'edit':
+          selectNode(nodeId);
+          break;
+        case 'duplicate':
+          selectNode(nodeId);
+          duplicateNodes();
+          break;
+        case 'copy':
+          selectNode(nodeId);
+          copyNodes();
+          break;
+        case 'delete':
+          selectNode(nodeId);
+          deleteSelectedNodes();
+          break;
+        case 'run-from':
+          if (state.currentWorkflow && confirm('是否从此节点开始执行？')) {
+            executeWorkflow(nodeId);
+          }
+          break;
+        case 'select-all':
+          selectAllNodes();
+          break;
+        case 'invert-selection':
+          invertSelection();
+          break;
+        // 对齐
+        case 'align-left':
+          alignNodes('left');
+          break;
+        case 'align-center-h':
+          alignNodes('center-h');
+          break;
+        case 'align-right':
+          alignNodes('right');
+          break;
+        case 'align-top':
+          alignNodes('top');
+          break;
+        case 'align-center-v':
+          alignNodes('center-v');
+          break;
+        case 'align-bottom':
+          alignNodes('bottom');
+          break;
+        // 分布
+        case 'distribute-h':
+          distributeNodes('horizontal');
+          break;
+        case 'distribute-v':
+          distributeNodes('vertical');
+          break;
+        // 颜色
+        case 'color-red':
+        case 'color-orange':
+        case 'color-yellow':
+        case 'color-green':
+        case 'color-cyan':
+        case 'color-blue':
+        case 'color-purple':
+        case 'color-pink':
+        case 'color-gray':
+        case 'color-none':
+          setNodeColor(action.replace('color-', ''));
+          break;
+      }
+    }
+
+    // 画布右键菜单动作
+    function canvasContextMenuAction(action) {
+      closeContextMenu();
+
+      switch(action) {
+        case 'paste':
+          pasteNodes();
+          break;
+        case 'select-all':
+          selectAllNodes();
+          break;
+        case 'toggle-grid':
+          state.showGrid = !state.showGrid;
+          document.querySelector('.canvas-grid').style.display = state.showGrid ? 'block' : 'none';
+          showToast('info', state.showGrid ? '网格已显示' : '网格已隐藏');
+          break;
+        case 'toggle-snap':
+          state.gridSnap = !state.gridSnap;
+          showToast('info', state.gridSnap ? '网格吸附已开启' : '网格吸附已关闭');
+          break;
+        case 'fit-canvas':
+          fitCanvas();
+          break;
+        case 'reset-view':
+          zoomReset();
+          break;
+        case 'export-png':
+          exportCanvasAsImage();
+          break;
+        case 'export-json':
+          exportWorkflowAsJson();
+          break;
+      }
+    }
+
+    // 连线右键菜单动作
+    let currentEdgeId = null;
+
+    function showEdgeContextMenu(event, edgeId) {
+      event.preventDefault();
+      currentEdgeId = edgeId;
+      const menu = document.getElementById('edgeContextMenu');
+      menu.style.left = event.clientX + 'px';
+      menu.style.top = event.clientY + 'px';
+      menu.classList.add('show');
+    }
+
+    function edgeContextMenuAction(action) {
+      closeContextMenu();
+
+      if (!currentEdgeId) return;
+
+      switch(action) {
+        case 'edit-label':
+          const label = prompt('输入连线标签:');
+          if (label !== null) {
+            updateEdgeLabel(currentEdgeId, label);
+          }
+          break;
+        case 'toggle-type-success':
+          updateEdgeType(currentEdgeId, 'success');
+          break;
+        case 'toggle-type-failure':
+          updateEdgeType(currentEdgeId, 'failure');
+          break;
+        case 'toggle-type-default':
+          updateEdgeType(currentEdgeId, 'default');
+          break;
+        case 'delete':
+          deleteEdge(currentEdgeId);
+          break;
+      }
+
+      currentEdgeId = null;
+    }
+
+    function updateEdgeLabel(edgeId, label) {
+      if (!state.currentWorkflow || !state.currentWorkflow.edges) return;
+
+      pushUndo();
+      const edge = state.currentWorkflow.edges.find(e =>
+        `${e.source}-${e.target}` === edgeId || e.id === edgeId
+      );
+      if (edge) {
+        edge.label = label;
+        renderCanvas();
+        markDirty();
+      }
+    }
+
+    function updateEdgeType(edgeId, type) {
+      if (!state.currentWorkflow || !state.currentWorkflow.edges) return;
+
+      pushUndo();
+      const edge = state.currentWorkflow.edges.find(e =>
+        `${e.source}-${e.target}` === edgeId || e.id === edgeId
+      );
+      if (edge) {
+        edge.type = type;
+        renderCanvas();
+        markDirty();
+      }
+    }
+
+    function deleteEdge(edgeId) {
+      if (!state.currentWorkflow || !state.currentWorkflow.edges) return;
+
+      pushUndo();
+      state.currentWorkflow.edges = state.currentWorkflow.edges.filter(e =>
+        `${e.source}-${e.target}` !== edgeId && e.id !== edgeId
+      );
+      renderCanvas();
+      markDirty();
+      showToast('info', '连线已删除');
+    }
+
+    // 导出功能
+    function exportCanvasAsImage() {
+      showToast('info', '正在导出图片...');
+
+      // 使用html2canvas或svg转图片
+      const svg = document.getElementById('edgesSvg');
+      const content = document.getElementById('canvasContent');
+
+      // 简单实现：创建截图
+      const canvas = document.createElement('canvas');
+      const rect = content.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+
+      // 这里需要更复杂的实现来捕获SVG和HTML节点
+      // 暂时提示用户
+      showToast('warn', '图片导出功能开发中，请使用浏览器截图');
+    }
+
+    function exportWorkflowAsJson() {
+      if (!state.currentWorkflow) return;
+
+      const dataStr = JSON.stringify(state.currentWorkflow, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${state.currentWorkflow.name || 'workflow'}.json`;
+      a.click();
+
+      URL.revokeObjectURL(url);
+      showToast('success', '工作流已导出');
+    }
+
+    // 关闭所有右键菜单
+    function closeContextMenu() {
+      document.querySelectorAll('.context-menu').forEach(menu => {
+        menu.classList.remove('show');
+      });
+      state.contextMenuNode = null;
+    }
+
+    // 点击其他地方关闭菜单
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.context-menu')) {
+        closeContextMenu();
+      }
+    });
 
     function showToast(type, msg) {
       const container = document.getElementById('toastContainer');
