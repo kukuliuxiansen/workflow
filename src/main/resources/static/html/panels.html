@@ -1,0 +1,69 @@
+  <!-- 执行历史面板（右侧滑入，包含列表和详情） -->
+  <div class="history-panel" id="historyPanel">
+    <div class="history-panel-header">
+      <div class="history-panel-title">📋 执行历史</div>
+      <button class="modal-close" onclick="closeHistoryPanel()">×</button>
+    </div>
+    <div class="history-panel-body">
+      <div class="history-list-section">
+        <div class="history-list-header">
+          <span>执行记录</span>
+          <button class="log-action-btn" onclick="refreshHistoryList()">🔄</button>
+        </div>
+        <div class="history-list" id="historyList">
+          <div class="loading"><div class="spinner"></div></div>
+        </div>
+      </div>
+      <div class="history-detail-section" id="historyDetailSection">
+        <div class="history-detail-header">执行详情</div>
+        <div class="history-detail-content" id="historyDetailContent">
+          <div class="empty-state" style="position:relative;top:40%;">
+            <div class="icon">📋</div>
+            <div class="title">选择一条记录查看详情</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 路径选择模态框 -->
+  <div class="modal-overlay" id="pathSelectModal">
+    <div class="modal" style="width: 640px;">
+      <div class="modal-header">
+        <div class="modal-title" id="pathSelectTitle">📁 选择路径</div>
+        <button class="modal-close" onclick="closeModal('pathSelectModal')">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">手动输入路径</label>
+          <div class="file-input-group">
+            <input type="text" class="form-input" id="pathManualInput" placeholder="输入完整路径...">
+            <button class="btn btn-primary" onclick="confirmManualPath()">✓ 确认</button>
+          </div>
+        </div>
+        <div class="path-divider">
+          <span>或者浏览服务器目录</span>
+        </div>
+        <div class="form-group">
+          <div class="path-browser">
+            <div class="path-browser-header">
+              <button class="btn btn-sm" onclick="browseParentDir()">⬆️ 上级</button>
+              <input type="text" class="form-input" id="currentBrowsePath" placeholder="/" readonly>
+              <button class="btn btn-sm btn-secondary" onclick="refreshCurrentDir()">🔄 刷新</button>
+            </div>
+            <div class="path-browser-content" id="pathBrowserContent">
+              <div class="loading"><div class="spinner"></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="form-group" id="pathLocalUploadGroup" style="display:none;">
+          <label class="form-label">或从本地上传文件</label>
+          <input type="file" class="form-input" id="pathLocalFile" style="padding: 8px;">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('pathSelectModal')">取消</button>
+      </div>
+    </div>
+  </div>
+

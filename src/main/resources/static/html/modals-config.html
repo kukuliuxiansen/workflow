@@ -1,0 +1,111 @@
+              <label class="form-label">飞书 OpenID</label>
+              <input type="text" class="form-input" id="globalFeishuOpenId" placeholder="用于通知">
+            </div>
+            <div class="form-group" style="flex:1;">
+              <label class="form-label">最大循环次数</label>
+              <input type="number" class="form-input" id="globalMaxLoop" value="3" min="1" max="10">
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('globalConfigModal')">取消</button>
+        <button class="btn btn-primary" onclick="saveGlobalConfig()">💾 保存配置</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 任务配置模态框 -->
+  <div class="modal-overlay" id="taskConfigModal">
+    <div class="modal" style="width: 560px;">
+      <div class="modal-header">
+        <div class="modal-title">📋 任务配置</div>
+        <button class="modal-close" onclick="closeModal('taskConfigModal')">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">任务名称 <span style="color:#f66;">*</span></label>
+          <input type="text" class="form-input" id="taskName" placeholder="输入任务名称">
+        </div>
+        <div class="form-group">
+          <label class="form-label">任务描述 <span style="color:#f66;">*</span></label>
+          <textarea class="form-input form-textarea" id="taskDescription" style="min-height: 80px;" placeholder="描述任务目标和要求..."></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">项目路径 <span style="color:#f66;">*</span></label>
+          <div class="file-input-group">
+            <input type="text" class="form-input" id="taskProjectPath" placeholder="/path/to/project">
+            <button class="btn btn-secondary" onclick="selectTaskProjectPath()">📁 选择目录</button>
+          </div>
+          <div class="form-hint">Agent 生成的文件将保存到: {项目路径}/{agentId}/ 目录</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('taskConfigModal')">取消</button>
+        <button class="btn btn-primary" onclick="saveTaskConfig()">✅ 确认配置</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 添加节点模态框 -->
+  <div class="modal-overlay" id="addNodeModal">
+    <div class="modal">
+      <div class="modal-header">
+        <div class="modal-title">添加节点</div>
+        <button class="modal-close" onclick="closeModal('addNodeModal')">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">节点名称</label>
+          <input type="text" class="form-input" id="newNodeName" placeholder="输入节点名称">
+        </div>
+        <div class="form-group">
+          <label class="form-label">节点类型</label>
+          <div class="node-types" id="nodeTypes">
+            <div class="node-type-card selected" data-type="agent_execution" onclick="selectNodeType(this)">
+              <div class="icon">🤖</div>
+              <div class="name">Agent 执行</div>
+            </div>
+            <div class="node-type-card" data-type="api_call" onclick="selectNodeType(this)">
+              <div class="icon">🔗</div>
+              <div class="name">API 调用</div>
+            </div>
+            <div class="node-type-card" data-type="condition" onclick="selectNodeType(this)">
+              <div class="icon">❓</div>
+              <div class="name">条件判断</div>
+            </div>
+            <div class="node-type-card" data-type="human_review" onclick="selectNodeType(this)">
+              <div class="icon">👤</div>
+              <div class="name">人工审核</div>
+            </div>
+            <div class="node-type-card" data-type="parallel" onclick="selectNodeType(this)">
+              <div class="icon">⚡</div>
+              <div class="name">并行执行</div>
+            </div>
+            <div class="node-type-card" data-type="loop" onclick="selectNodeType(this)">
+              <div class="icon">🔄</div>
+              <div class="name">循环执行</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="closeModal('addNodeModal')">取消</button>
+        <button class="btn btn-primary" onclick="addNode()">添加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 模板选择模态框 -->
+  <div class="modal-overlay" id="templateModal">
+    <div class="modal" style="width:560px;">
+      <div class="modal-header">
+        <div class="modal-title">选择模板</div>
+        <button class="modal-close" onclick="closeModal('templateModal')">×</button>
+      </div>
+      <div class="modal-body" id="templateList">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+    </div>
+  </div>
+

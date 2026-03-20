@@ -1,0 +1,21 @@
+<body>
+  <div class="app">
+    <!-- 左侧边栏 -->
+    <div class="sidebar" id="sidebar">
+      <div class="resize-handle" onmousedown="startResize(event,'sidebar')"></div>
+      <div class="sidebar-header">
+        <h1>OpenClaw 工作流</h1>
+        <p>可视化编排 Agent 协作</p>
+      </div>
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="搜索工作流..." oninput="filterWorkflows()">
+      </div>
+      <div class="workflow-list" id="workflowList">
+        <div class="loading"><div class="spinner"></div></div>
+      </div>
+      <div class="sidebar-footer">
+        <button class="btn btn-primary" onclick="showCreateModal()">新建工作流</button>
+        <button class="btn btn-secondary" onclick="showTemplateModal()">从模板创建</button>
+      </div>
+    </div>
+

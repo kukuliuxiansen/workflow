@@ -1,0 +1,77 @@
+  <!-- 右键菜单 -->
+  <div class="context-menu" id="contextMenu">
+    <div class="context-menu-item" onclick="contextMenuAction('edit')">✏️ 编辑节点</div>
+    <div class="context-menu-item" onclick="contextMenuAction('duplicate')">📋 复制为副本 <span class="shortcut">Ctrl+D</span></div>
+    <div class="context-menu-item" onclick="contextMenuAction('copy')">📄 复制 <span class="shortcut">Ctrl+C</span></div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item" onclick="contextMenuAction('select-all')">☑️ 全选节点 <span class="shortcut">Ctrl+A</span></div>
+    <div class="context-menu-item" onclick="contextMenuAction('invert-selection')">🔄 反选节点</div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item context-menu-submenu">
+      📐 对齐
+      <div class="submenu">
+        <div class="context-menu-item" onclick="contextMenuAction('align-left')">⬅️ 左对齐</div>
+        <div class="context-menu-item" onclick="contextMenuAction('align-center-h')">↔️ 水平居中</div>
+        <div class="context-menu-item" onclick="contextMenuAction('align-right')">➡️ 右对齐</div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" onclick="contextMenuAction('align-top')">⬆️ 顶对齐</div>
+        <div class="context-menu-item" onclick="contextMenuAction('align-center-v')">↕️ 垂直居中</div>
+        <div class="context-menu-item" onclick="contextMenuAction('align-bottom')">⬇️ 底对齐</div>
+      </div>
+    </div>
+    <div class="context-menu-item context-menu-submenu">
+      📏 分布
+      <div class="submenu">
+        <div class="context-menu-item" onclick="contextMenuAction('distribute-h')">↔️ 水平均匀分布</div>
+        <div class="context-menu-item" onclick="contextMenuAction('distribute-v')">↕️ 垂直均匀分布</div>
+      </div>
+    </div>
+    <div class="context-menu-item context-menu-submenu">
+      🎨 节点颜色
+      <div class="submenu">
+        <div class="color-picker">
+          <div class="color-option" style="background:#f38ba8" onclick="contextMenuAction('color-red')"></div>
+          <div class="color-option" style="background:#fab387" onclick="contextMenuAction('color-orange')"></div>
+          <div class="color-option" style="background:#f9e2af" onclick="contextMenuAction('color-yellow')"></div>
+          <div class="color-option" style="background:#a6e3a1" onclick="contextMenuAction('color-green')"></div>
+          <div class="color-option" style="background:#89dceb" onclick="contextMenuAction('color-cyan')"></div>
+          <div class="color-option" style="background:#89b4fa" onclick="contextMenuAction('color-blue')"></div>
+          <div class="color-option" style="background:#cba6f7" onclick="contextMenuAction('color-purple')"></div>
+          <div class="color-option" style="background:#f5c2e7" onclick="contextMenuAction('color-pink')"></div>
+          <div class="color-option" style="background:#6c7086" onclick="contextMenuAction('color-gray')"></div>
+          <div class="color-option" style="background:transparent;border:1px dashed #888" onclick="contextMenuAction('color-none')">✕</div>
+        </div>
+      </div>
+    </div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item" onclick="contextMenuAction('run-from')">▶️ 从此节点执行</div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item danger" onclick="contextMenuAction('delete')">🗑️ 删除节点 <span class="shortcut">Delete</span></div>
+  </div>
+
+  <!-- 画布右键菜单 -->
+  <div class="context-menu" id="canvasContextMenu">
+    <div class="context-menu-item" onclick="canvasContextMenuAction('paste')">📄 粘贴节点 <span class="shortcut">Ctrl+V</span></div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item" onclick="canvasContextMenuAction('select-all')">☑️ 全选节点 <span class="shortcut">Ctrl+A</span></div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item" onclick="canvasContextMenuAction('toggle-grid')">🔲 切换网格显示</div>
+    <div class="context-menu-item" onclick="canvasContextMenuAction('toggle-snap')">🧲 切换网格吸附</div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item" onclick="canvasContextMenuAction('fit-canvas')">📐 适应画布 <span class="shortcut">Ctrl+0</span></div>
+    <div class="context-menu-item" onclick="canvasContextMenuAction('reset-view')">🔄 重置视图</div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item" onclick="canvasContextMenuAction('export-png')">📷 导出为图片</div>
+    <div class="context-menu-item" onclick="canvasContextMenuAction('export-json')">📋 导出为JSON</div>
+  </div>
+
+  <!-- 连线右键菜单 -->
+  <div class="context-menu" id="edgeContextMenu">
+    <div class="context-menu-item" onclick="edgeContextMenuAction('edit-label')">✏️ 编辑标签</div>
+    <div class="context-menu-item" onclick="edgeContextMenuAction('toggle-type-success')">✅ 设为成功连线</div>
+    <div class="context-menu-item" onclick="edgeContextMenuAction('toggle-type-failure')">❌ 设为失败连线</div>
+    <div class="context-menu-item" onclick="edgeContextMenuAction('toggle-type-default')">➡️ 设为默认连线</div>
+    <div class="context-menu-divider"></div>
+    <div class="context-menu-item danger" onclick="edgeContextMenuAction('delete')">🗑️ 删除连线</div>
+  </div>
+

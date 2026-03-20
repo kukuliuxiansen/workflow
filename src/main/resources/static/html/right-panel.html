@@ -1,0 +1,25 @@
+    <!-- 右侧面板 -->
+    <div class="right-panel collapsed" id="rightPanel">
+      <div class="resize-handle" onmousedown="startResize(event,'rightPanel')"></div>
+
+      <!-- 节点属性面板 -->
+      <div class="panel-body active" id="propertyPanel">
+        <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #3a3a3a;">
+          <span style="font-size:14px;font-weight:500;">📝 节点属性</span>
+          <button class="btn-icon" onclick="collapseRightPanel()" title="收起">✕</button>
+        </div>
+        <div class="panel-content" id="propertyPanelContent" style="padding:12px;overflow-y:auto;flex:1;">
+          <div class="empty-state" style="position:relative;top:50%;transform:translateY(-50%);">
+            <div class="icon">📝</div>
+            <div class="title">选择节点查看属性</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 浮动切换按钮 -->
+    <button class="floating-toggle" id="toggleSidebarBtn" onclick="togglePanel('sidebar')" title="收起侧边栏">◀</button>
+    <button class="floating-toggle" id="toggleRightPanelBtn" onclick="togglePanel('rightPanel')" title="收起属性面板">▶</button>
+    <button class="floating-toggle" id="toggleLogPanelBtn" onclick="togglePanel('logPanel')" title="收起日志面板">▼</button>
+  </div>
+

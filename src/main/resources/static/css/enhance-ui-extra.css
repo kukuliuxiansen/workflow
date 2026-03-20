@@ -1,0 +1,144 @@
+    }
+
+    /* 节点高亮效果 */
+    .node.highlight {
+      animation: highlight-pulse 0.5s ease-out;
+    }
+    @keyframes highlight-pulse {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(100,180,255,0.7); }
+      50% { transform: scale(1.02); box-shadow: 0 0 20px 5px rgba(100,180,255,0.3); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(100,180,255,0); }
+    }
+
+    /* 文件夹样式 */
+    .folder-item {
+      margin-bottom: 2px;
+    }
+    .folder-header {
+      display: flex;
+      align-items: center;
+      padding: 8px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: #2a2a2a;
+      border: 1px solid transparent;
+    }
+    .folder-header:hover {
+      background: #333;
+      border-color: #444;
+    }
+    .folder-header.drag-over {
+      background: #3a2f6e;
+      border-color: #6b5ce7;
+    }
+    .folder-toggle {
+      width: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 6px;
+      color: #888;
+      font-size: 10px;
+      transition: transform 0.2s;
+    }
+    .folder-toggle.expanded {
+      transform: rotate(90deg);
+    }
+    .folder-icon {
+      margin-right: 8px;
+      font-size: 14px;
+    }
+    .folder-name {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 500;
+      color: #e0e0e0;
+    }
+    .folder-count {
+      font-size: 11px;
+      color: #666;
+      margin-right: 8px;
+    }
+    .folder-actions {
+      display: none;
+      gap: 4px;
+    }
+    .folder-header:hover .folder-actions {
+      display: flex;
+    }
+    .folder-action-btn {
+      padding: 2px 6px;
+      border: none;
+      border-radius: 3px;
+      background: #3a3a3a;
+      color: #888;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .folder-action-btn:hover {
+      background: #444;
+      color: #fff;
+    }
+    .folder-action-btn.danger:hover {
+      background: #4a2020;
+      color: #f88;
+    }
+    .folder-content {
+      display: none;
+      padding-left: 16px;
+    }
+    .folder-content.expanded {
+      display: block;
+    }
+    .folder-drop-zone {
+      height: 4px;
+      margin: 2px 0;
+      border-radius: 2px;
+      transition: all 0.15s;
+    }
+    .folder-drop-zone.drag-over {
+      height: 30px;
+      background: rgba(107,92,231,0.2);
+      border: 2px dashed #6b5ce7;
+    }
+    .new-folder-btn {
+      display: flex;
+      align-items: center;
+      padding: 8px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+      color: #666;
+      font-size: 13px;
+      margin-top: 4px;
+    }
+    .new-folder-btn:hover {
+      background: #333;
+      color: #888;
+    }
+    .new-folder-btn .icon {
+      margin-right: 8px;
+      font-size: 14px;
+    }
+
+    /* 拖拽提示 */
+    .drop-zone {
+      position: absolute;
+      border: 2px dashed #4a6aff;
+      background: rgba(74,106,255,0.1);
+      border-radius: 8px;
+      pointer-events: none;
+    }
+
+    /* 框选矩形 */
+    .selection-rect {
+      position: absolute;
+      border: 2px dashed #89b4fa;
+      background: rgba(137, 180, 250, 0.1);
+      pointer-events: none;
+      z-index: 1000;
+      display: none;
+    }
