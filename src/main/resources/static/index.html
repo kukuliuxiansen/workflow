@@ -3515,8 +3515,10 @@
     // 选择工作流
     async function selectWorkflow(id) {
       try {
+        console.log('selectWorkflow: loading workflow', id);
         const res = await fetch(`${API}/workflows/${id}`);
         const data = await res.json();
+        console.log('selectWorkflow: response', data);
         if (data.success) {
           state.currentWorkflow = data.data;
           state.selectedNode = null;
@@ -3537,9 +3539,13 @@
 
           // 自动加载该工作流的最新执行历史
           await loadLatestExecutionHistory(id);
+        } else {
+          console.error('selectWorkflow: API returned error', data);
+          showToast('error', data.message || '加载失败');
         }
       } catch (e) {
-        showToast('error', '加载失败');
+        console.error('selectWorkflow error:', e);
+        showToast('error', '加载失败: ' + e.message);
       }
     }
 
@@ -3656,7 +3662,18 @@
     function renderEdges() {
       const svg = document.getElementById('edgesSvg');
       const workflow = state.currentWorkflow;
-      if (!workflow || !workflow.nodes) { svg.innerHTML = ''; return; }
+
+      console.log('renderEdges called, svg:', svg, 'workflow:', workflow?.id);
+
+      if (!svg) {
+        console.error('renderEdges: SVG element not found!');
+        return;
+      }
+
+      if (!workflow || !workflow.nodes) {
+        svg.innerHTML = '';
+        return;
+      }
 
       // 构建节点位置和尺寸映射
       const nodeMap = {};
@@ -3744,7 +3761,10 @@
         });
       }
 
+      console.log('renderEdges: paths length:', paths.length);
+      console.log('renderEdges: svg element:', svg);
       svg.innerHTML = paths;
+      console.log('renderEdges: svg innerHTML set, children:', svg.children.length);
     }
 
     // 通过edge id删除连线
@@ -4888,13 +4908,18 @@
       document.removeEventListener('mousemove', onDragConnect);
       document.removeEventListener('mouseup', endDragConnect);
 
+      console.log('endDragConnect: connectingFrom', connectingFrom);
+
       // 检测目标节点
       if (connectingFrom && state.currentWorkflow) {
         const targetEl = document.elementFromPoint(e.clientX, e.clientY);
         const targetNode = targetEl ? targetEl.closest('.node') : null;
 
+        console.log('endDragConnect: targetEl', targetEl, 'targetNode', targetNode);
+
         if (targetNode) {
           const targetId = targetNode.id.replace('node-', '');
+          console.log('endDragConnect: targetId', targetId, 'sourceId', connectingFrom.nodeId);
           if (targetId !== connectingFrom.nodeId) {
             try {
               addLog('info', `创建连线: ${connectingFrom.nodeId} -> ${targetId} (${connectingFrom.type})`);
@@ -4909,21 +4934,25 @@
                 })
               });
 
+              console.log('endDragConnect: response status', res.status);
+
               if (!res.ok) {
                 throw new Error(`HTTP ${res.status}`);
               }
 
               const data = await res.json();
+              console.log('endDragConnect: response data', data);
               if (data.success) {
+                console.log('endDragConnect: calling selectWorkflow');
                 await selectWorkflow(state.currentWorkflow.id);
                 showToast('success', '连线创建成功');
               } else {
                 showToast('error', data.message || '创建连线失败');
               }
             } catch (err) {
+              console.error('endDragConnect error:', err);
               showToast('error', '创建连线失败');
               addLog('error', '创建连线失败: ' + err.message);
-              console.error('连线错误:', err);
             }
           }
         }
