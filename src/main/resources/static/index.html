@@ -3666,6 +3666,9 @@
         nodeMap[node.id] = { x, y, width: 200, height: 100 };
       });
 
+      console.log('renderEdges: nodeMap', nodeMap);
+      console.log('renderEdges: edges', workflow.edges);
+
       let paths = '';
 
       // 使用 edges 数组渲染连线
@@ -3676,6 +3679,9 @@
           const targetNodeId = edge.targetNodeId || edge.target_node_id;
           const srcNode = nodeMap[sourceNodeId];
           const tgtNode = nodeMap[targetNodeId];
+
+          console.log('Edge:', edge, 'sourceNodeId:', sourceNodeId, 'targetNodeId:', targetNodeId, 'srcNode:', srcNode, 'tgtNode:', tgtNode);
+
           if (!srcNode || !tgtNode) return;
 
           // 获取实际节点元素
