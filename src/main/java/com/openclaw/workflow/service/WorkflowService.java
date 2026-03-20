@@ -133,6 +133,8 @@ public class WorkflowService {
                 node.setCreatedAt(LocalDateTime.now());
             }
             node.setUpdatedAt(LocalDateTime.now());
+            // 显式序列化extraConfig到config字段
+            node.serializeExtraConfig();
             nodeRepository.save(node);
         }
     }
