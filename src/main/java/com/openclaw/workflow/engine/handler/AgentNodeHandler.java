@@ -2,7 +2,6 @@ package com.openclaw.workflow.engine.handler;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.openclaw.workflow.engine.connector.OpenClawGatewayClient;
 import com.openclaw.workflow.engine.model.NodeExecutionContext;
 import com.openclaw.workflow.engine.model.NodeResult;
 import com.openclaw.workflow.engine.util.AgentDecisionParser;
@@ -10,75 +9,46 @@ import com.openclaw.workflow.entity.WorkflowNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Agent执行节点处理器
  *
- * 支持两种执行模式：
- * 1. Gateway API模式（推荐）：通过HTTP调用Agent，支持会话隔离
- * 2. CLI模式：通过命令行调用Agent（向后兼容）
+ * 协调 AgentPromptBuilder 构建提示词，通过 AgentExecutor 执行Agent，
+ * 并解析执行结果和决策信息。
  */
 public class AgentNodeHandler extends BaseNodeHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(AgentNodeHandler.class);
     private static final ObjectMapper objectMapper = new ObjectMapper();
-    private static final int DEFAULT_TIMEOUT = 600;
 
-    // CLI模式配置
-    private String openclawCommand = "openclaw";
-
-    // Gateway API配置
-    private boolean useGatewayApi = true;
-    private String gatewayUrl = "http://localhost:18789";
-    private String gatewayToken = "56b640cc2d91411f63255af68355c19ee33c88ec458878ca";
+    private final AgentPromptBuilder promptBuilder;
+    private final AgentExecutor executor;
 
     // 决策提示配置
     private boolean enableDecisionPrompt = true;
     private List<AgentDecisionParser.DownstreamNode> downstreamNodes;
 
+    public AgentNodeHandler() {
+        this.promptBuilder = new AgentPromptBuilder();
+        this.executor = new AgentExecutor();
+    }
+
     @Override
     public NodeResult execute(NodeExecutionContext context) throws Exception {
         WorkflowNode node = context.getNode();
         String agentId = getAgentId(node);
-        String prompt = buildPrompt(node, context);
-        int timeout = getTimeout(node, DEFAULT_TIMEOUT);
-
-        logger.info("执行Agent: {} - 节点: {} (模式: {})", agentId, node.getName(),
-                useGatewayApi ? "Gateway API" : "CLI");
+        String prompt = promptBuilder.buildPrompt(node, context);
+        int timeout = getTimeout(node, executor.getDefaultTimeout());
 
         try {
-            String output;
-            if (useGatewayApi) {
-                output = executeViaGateway(agentId, prompt, context, timeout);
-            } else {
-                output = executeViaCli(agentId, prompt, context, timeout);
-            }
-
-            // 解析Agent输出中的决策（如果有）
+            String output = executor.execute(agentId, prompt, context, timeout);
             NodeResult result = parseAgentResult(output);
 
             // 如果配置了下游节点，尝试解析决策
             if (enableDecisionPrompt && downstreamNodes != null && !downstreamNodes.isEmpty()) {
-                AgentDecisionParser.AgentDecision decision = AgentDecisionParser.parse(output);
-                if (decision != null && decision.getNodeIds() != null && !decision.getNodeIds().isEmpty()) {
-                    // 验证决策
-                    List<String> validNodeIds = new ArrayList<>();
-                    for (AgentDecisionParser.DownstreamNode dn : downstreamNodes) {
-                        validNodeIds.add(dn.getId());
-                    }
-
-                    if (AgentDecisionParser.validate(decision, validNodeIds)) {
-                        result.setNextNodeIds(decision.getNodeIds());
-                        result.setDecisionReason(decision.getReason());
-                        logger.info("Agent决策: {} -> {}", node.getName(), decision.getNodeIds());
-                    }
-                }
+                parseAndApplyDecision(output, result, node);
             }
 
             return result;
@@ -90,80 +60,27 @@ public class AgentNodeHandler extends BaseNodeHandler {
     }
 
     /**
-     * 通过Gateway API执行Agent（推荐方式）
+     * 解析Agent输出中的决策并应用到结果
      */
-    private String executeViaGateway(String agentId, String prompt, NodeExecutionContext context, int timeout) throws Exception {
-        OpenClawGatewayClient client = new OpenClawGatewayClient(gatewayUrl, gatewayToken);
+    private void parseAndApplyDecision(String output, NodeResult result, WorkflowNode node) {
+        AgentDecisionParser.AgentDecision decision = AgentDecisionParser.parse(output);
+        if (decision != null && decision.getNodeIds() != null && !decision.getNodeIds().isEmpty()) {
+            List<String> validNodeIds = new ArrayList<>();
+            for (AgentDecisionParser.DownstreamNode dn : downstreamNodes) {
+                validNodeIds.add(dn.getId());
+            }
 
-        // 构建会话Key（实现会话隔离）
-        String sessionContext = String.format("%s_%s_%s",
-                context.getWorkflowId(),
-                context.getExecutionId(),
-                context.getNode().getId());
-
-        OpenClawGatewayClient.AgentRequest request = OpenClawGatewayClient.AgentRequest.builder()
-                .agentId(agentId)
-                .message(prompt)
-                .context(sessionContext)
-                .build();
-
-        long startTime = System.currentTimeMillis();
-        OpenClawGatewayClient.AgentResponse response = client.executeAgent(request);
-        long duration = System.currentTimeMillis() - startTime;
-
-        logger.info("Gateway API调用完成，耗时: {}ms, Tokens: {}", duration, response.getTotalTokens());
-
-        if (!response.isSuccess()) {
-            throw new RuntimeException("Agent执行失败: " + response.getErrorMessage());
+            if (AgentDecisionParser.validate(decision, validNodeIds)) {
+                result.setNextNodeIds(decision.getNodeIds());
+                result.setDecisionReason(decision.getReason());
+                logger.info("Agent决策: {} -> {}", node.getName(), decision.getNodeIds());
+            }
         }
-
-        return response.getContent();
     }
 
     /**
-     * 通过CLI执行Agent（向后兼容）
+     * 解析Agent执行结果
      */
-    private String executeViaCli(String agentId, String prompt, NodeExecutionContext context, int timeout) throws Exception {
-        List<String> command = new ArrayList<>();
-        command.add(openclawCommand);
-        command.add("agent");
-        command.add("--agent");
-        command.add(agentId);
-        command.add("--message");
-        command.add(prompt);
-        command.add("--local");
-        command.add("--json");
-        command.add("--timeout");
-        command.add(String.valueOf(timeout));
-
-        String sessionId = context.getExecutionId();
-        if (sessionId != null) {
-            command.add("--session-id");
-            command.add(sessionId);
-        }
-
-        ProcessBuilder pb = new ProcessBuilder(command);
-        pb.redirectErrorStream(true);
-        Process process = pb.start();
-
-        StringBuilder output = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(process.getInputStream()))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                output.append(line).append("\n");
-            }
-        }
-
-        boolean completed = process.waitFor(timeout, TimeUnit.SECONDS);
-        if (!completed) {
-            process.destroyForcibly();
-            throw new RuntimeException("Agent执行超时");
-        }
-
-        return output.toString().trim();
-    }
-
     private NodeResult parseAgentResult(String output) {
         try {
             JsonNode jsonNode = objectMapper.readTree(output);
@@ -179,7 +96,6 @@ public class AgentNodeHandler extends BaseNodeHandler {
                 }
                 return NodeResult.success(output);
             }
-            // 非JSON格式，直接返回内容
             return NodeResult.success(output);
         } catch (Exception e) {
             // 解析失败，仍然返回成功（Agent输出可能不是JSON格式）
@@ -187,6 +103,9 @@ public class AgentNodeHandler extends BaseNodeHandler {
         }
     }
 
+    /**
+     * 获取Agent ID
+     */
     private String getAgentId(WorkflowNode node) {
         try {
             if (node.getConfig() != null) {
@@ -216,109 +135,40 @@ public class AgentNodeHandler extends BaseNodeHandler {
         return defaultTimeout;
     }
 
-    private String buildPrompt(WorkflowNode node, NodeExecutionContext context) {
-        StringBuilder prompt = new StringBuilder();
-
-        // 工作流上下文信息
-        prompt.append("## 工作流上下文\n");
-        prompt.append("- 工作流ID: ").append(context.getWorkflowId()).append("\n");
-        prompt.append("- 执行ID: ").append(context.getExecutionId()).append("\n");
-        if (context.getWorkflowName() != null) {
-            prompt.append("- 工作流名称: ").append(context.getWorkflowName()).append("\n");
-        }
-        prompt.append("- 当前节点: ").append(node.getName()).append(" (").append(node.getId()).append(")\n");
-        if (context.getProjectPath() != null) {
-            prompt.append("- 项目路径: ").append(context.getProjectPath()).append("\n");
-        }
-        prompt.append("\n");
-
-        // 任务描述
-        if (context.getTaskDescription() != null && !context.getTaskDescription().isEmpty()) {
-            prompt.append("## 任务描述\n").append(context.getTaskDescription()).append("\n\n");
-        }
-
-        // 全局提示
-        if (context.getGlobalPrompt() != null && !context.getGlobalPrompt().isEmpty()) {
-            prompt.append("## 全局提示\n").append(context.getGlobalPrompt()).append("\n\n");
-        }
-
-        // 节点配置的提示词（这是最重要的部分）
-        try {
-            if (node.getConfig() != null) {
-                JsonNode config = objectMapper.readTree(node.getConfig());
-                if (config.has("prompt") && config.get("prompt").asText() != null && !config.get("prompt").asText().isEmpty()) {
-                    prompt.append("## 执行任务\n").append(config.get("prompt").asText()).append("\n\n");
-                }
-            }
-        } catch (Exception e) {
-            logger.warn("解析节点配置失败: {}", e.getMessage());
-        }
-
-        // 上游节点输出
-        Map<String, NodeResult> previousOutputs = context.getPreviousOutputs();
-        if (previousOutputs != null && !previousOutputs.isEmpty()) {
-            prompt.append("## 上游节点输出\n");
-            for (Map.Entry<String, NodeResult> entry : previousOutputs.entrySet()) {
-                prompt.append("### ").append(entry.getKey()).append("\n");
-                if (entry.getValue() != null && entry.getValue().getOutput() != null) {
-                    String output = entry.getValue().getOutput().toString();
-                    // 如果输出太长，截断显示
-                    if (output.length() > 2000) {
-                        prompt.append(output.substring(0, 2000)).append("\n... (输出已截断)\n");
-                    } else {
-                        prompt.append(output).append("\n");
-                    }
-                }
-            }
-            prompt.append("\n");
-        }
-
-        // 添加决策提示（如果配置了下游节点）
-        if (enableDecisionPrompt && downstreamNodes != null && !downstreamNodes.isEmpty()) {
-            String decisionPrompt = AgentDecisionParser.buildDecisionPrompt(
-                    node.getType().name(),
-                    node.getName(),
-                    downstreamNodes);
-            prompt.append(decisionPrompt);
-        }
-
-        logger.debug("构建的Agent提示词长度: {}", prompt.length());
-        return prompt.toString();
-    }
-
     // ==================== 配置方法 ====================
 
     public void setOpenclawCommand(String openclawCommand) {
-        this.openclawCommand = openclawCommand;
+        this.executor.setOpenclawCommand(openclawCommand);
     }
 
     public void setUseGatewayApi(boolean useGatewayApi) {
-        this.useGatewayApi = useGatewayApi;
+        this.executor.setUseGatewayApi(useGatewayApi);
     }
 
     public void setGatewayUrl(String gatewayUrl) {
-        this.gatewayUrl = gatewayUrl;
+        this.executor.setGatewayUrl(gatewayUrl);
     }
 
     public void setGatewayToken(String gatewayToken) {
-        this.gatewayToken = gatewayToken;
+        this.executor.setGatewayToken(gatewayToken);
     }
 
     public void setEnableDecisionPrompt(boolean enableDecisionPrompt) {
         this.enableDecisionPrompt = enableDecisionPrompt;
+        this.promptBuilder.setEnableDecisionPrompt(enableDecisionPrompt);
     }
 
     public void setDownstreamNodes(List<AgentDecisionParser.DownstreamNode> downstreamNodes) {
         this.downstreamNodes = downstreamNodes;
+        this.promptBuilder.setDownstreamNodes(downstreamNodes);
     }
 
-    /**
-     * 添加下游节点信息（用于生成决策提示）
-     */
     public void addDownstreamNode(String id, String name, String description) {
         if (this.downstreamNodes == null) {
             this.downstreamNodes = new ArrayList<>();
         }
-        this.downstreamNodes.add(new AgentDecisionParser.DownstreamNode(id, name, description));
+        AgentDecisionParser.DownstreamNode node = new AgentDecisionParser.DownstreamNode(id, name, description);
+        this.downstreamNodes.add(node);
+        this.promptBuilder.addDownstreamNode(id, name, description);
     }
 }
