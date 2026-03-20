@@ -8,6 +8,7 @@ import com.openclaw.workflow.repository.WorkflowEdgeRepository;
 import com.openclaw.workflow.repository.WorkflowNodeRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
@@ -18,6 +19,7 @@ import java.util.Optional;
  *
  * 提供模板填充、值格式化、上游输出格式化等通用功能
  */
+@Component
 public class PromptBuilderHelper {
 
     private static final Logger logger = LoggerFactory.getLogger(PromptBuilderHelper.class);
