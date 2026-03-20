@@ -2549,6 +2549,11 @@
               <div class="icon">🔄</div>
               <div class="name">循环执行</div>
             </div>
+            <div class="node-type-card" data-type="smart_decompose" onclick="selectNodeType(this)">
+              <div class="icon">🧠</div>
+              <div class="name">智能分解</div>
+              <div class="desc" style="font-size:10px;color:#888;margin-top:2px;">ReAct循环</div>
+            </div>
             <div class="node-type-card" data-type="start" onclick="selectNodeType(this)">
               <div class="icon">▶️</div>
               <div class="name">开始节点</div>
@@ -4343,6 +4348,41 @@
             </select>
           </div>
         ` : ''}
+        ${node.type === 'smart_decompose' ? `
+          <div class="config-section" style="margin-top:12px;padding:12px;background:#1a1a1a;border-radius:6px;">
+            <div class="config-section-title" style="margin-bottom:8px;display:flex;align-items:center;gap:8px;">
+              <span>🧠 智能分解配置</span>
+              <span style="font-size:10px;color:#888;background:#252525;padding:2px 6px;border-radius:3px;">ReAct循环</span>
+            </div>
+            <p style="font-size:11px;color:#888;margin-bottom:12px;">智能分解节点使用 ReAct 模式（推理+行动）自动分解和执行复杂任务。</p>
+          </div>
+          <div class="form-group">
+            <label class="form-label">最大迭代次数</label>
+            <input type="number" class="form-input" id="maxIterationsInput" value="${(() => { try { const c = JSON.parse(node.config || '{}'); return c.maxIterations || 50; } catch(e) { return 50; } })()}" onchange="updateSmartDecomposeConfig('maxIterations', parseInt(this.value))" min="1" max="1000">
+            <p style="font-size:10px;color:#666;margin-top:4px;">Agent思考-行动循环的最大次数（建议50-100）</p>
+          </div>
+          <div class="form-group">
+            <label class="form-label">最大递归深度</label>
+            <input type="number" class="form-input" id="maxDepthInput" value="${(() => { try { const c = JSON.parse(node.config || '{}'); return c.maxDepth || 5; } catch(e) { return 5; } })()}" onchange="updateSmartDecomposeConfig('maxDepth', parseInt(this.value))" min="1" max="10">
+            <p style="font-size:10px;color:#666;margin-top:4px;">任务分解的最大层级（建议3-5）</p>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Agent ID</label>
+            <input type="text" class="form-input" id="agentIdInput" value="${(() => { try { const c = JSON.parse(node.config || '{}'); return c.agentId || 'project-manager'; } catch(e) { return 'project-manager'; } })()}" onchange="updateSmartDecomposeConfig('agentId', this.value)" placeholder="project-manager">
+            <p style="font-size:10px;color:#666;margin-top:4px;">执行智能分解的Agent ID</p>
+          </div>
+          <div class="form-group">
+            <label class="form-label">可用工具</label>
+            <div style="background:#252525;border-radius:6px;padding:10px;font-size:11px;">
+              <div style="color:#4CAF50;margin-bottom:6px;">✅ 分解任务 (decompose)</div>
+              <div style="color:#2196F3;margin-bottom:6px;">⚡ 执行动作 (execute)</div>
+              <div style="color:#FF9800;margin-bottom:6px;">🤖 生成子Agent (spawn_agent)</div>
+              <div style="color:#9C27B0;margin-bottom:6px;">📝 读取上下文 (read_context)</div>
+              <div style="color:#00BCD4;margin-bottom:6px;">✓ 标记完成 (mark_complete)</div>
+              <div style="color:#f44336;">✗ 标记失败 (mark_failed)</div>
+            </div>
+          </div>
+        ` : ''}
         <div class="form-group">
           <label class="form-label">超时(秒)</label>
           <input type="number" class="form-input" value="${node.timeout || 600}" onchange="updateNode('timeout',parseInt(this.value))">
@@ -4408,6 +4448,21 @@
       markDirty();  // 标记为已修改
       renderCanvas();
       addLog('info', `更新: ${key} = ${value}`);
+    }
+
+    // 更新智能分解节点配置
+    function updateSmartDecomposeConfig(key, value) {
+      if (!state.selectedNode || state.selectedNode.type !== 'smart_decompose') return;
+      pushUndo();
+      try {
+        const config = JSON.parse(state.selectedNode.config || '{}');
+        config[key] = value;
+        state.selectedNode.config = JSON.stringify(config);
+        markDirty();
+        addLog('info', `智能分解配置: ${key} = ${value}`);
+      } catch (e) {
+        console.error('更新智能分解配置失败:', e);
+      }
     }
 
     // 更新节点名称
@@ -5820,16 +5875,42 @@
     }
 
     function getIcon(type) {
-      return { agent_execution:'🤖', api_call:'🔗', start:'▶️', finish:'⏹️', condition:'❓', human_review:'👤' }[type] || '📦';
+      return {
+        agent_execution: '🤖',
+        api_call: '🔗',
+        start: '▶️',
+        finish: '⏹️',
+        condition: '❓',
+        human_review: '👤',
+        parallel: '⚡',
+        loop: '🔄',
+        smart_decompose: '🧠'
+      }[type] || '📦';
     }
 
     function getTypeName(type) {
-      return { agent_execution:'Agent执行', api_call:'API调用', start:'开始', finish:'结束', condition:'条件判断', human_review:'人工审核', parallel:'并行执行', loop:'循环执行' }[type] || type;
+      return {
+        agent_execution: 'Agent执行',
+        api_call: 'API调用',
+        start: '开始',
+        finish: '结束',
+        condition: '条件判断',
+        human_review: '人工审核',
+        parallel: '并行执行',
+        loop: '循环执行',
+        smart_decompose: '智能分解'
+      }[type] || type;
     }
 
     function getNodeDesc(node) {
       if (node.type === 'agent_execution') return node.agent_id ? `Agent: ${node.agent_id}` : '未配置 Agent';
       if (node.type === 'api_call') return node.url || '未配置 URL';
+      if (node.type === 'smart_decompose') {
+        try {
+          const config = typeof node.config === 'string' ? JSON.parse(node.config || '{}') : (node.config || {});
+          return config.maxIterations ? `最大迭代: ${config.maxIterations}` : 'ReAct循环模式';
+        } catch (e) { return 'ReAct循环模式'; }
+      }
       return node.description || '';
     }
 
