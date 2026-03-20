@@ -3515,10 +3515,8 @@
     // 选择工作流
     async function selectWorkflow(id) {
       try {
-        console.log('selectWorkflow: loading workflow', id);
         const res = await fetch(`${API}/workflows/${id}`);
         const data = await res.json();
-        console.log('selectWorkflow: response', data);
         if (data.success) {
           state.currentWorkflow = data.data;
           state.selectedNode = null;
@@ -3539,13 +3537,9 @@
 
           // 自动加载该工作流的最新执行历史
           await loadLatestExecutionHistory(id);
-        } else {
-          console.error('selectWorkflow: API returned error', data);
-          showToast('error', data.message || '加载失败');
         }
       } catch (e) {
-        console.error('selectWorkflow error:', e);
-        showToast('error', '加载失败: ' + e.message);
+        showToast('error', '加载失败');
       }
     }
 
@@ -3663,17 +3657,8 @@
       const svg = document.getElementById('edgesSvg');
       const workflow = state.currentWorkflow;
 
-      console.log('renderEdges called, svg:', svg, 'workflow:', workflow?.id);
-
-      if (!svg) {
-        console.error('renderEdges: SVG element not found!');
-        return;
-      }
-
-      if (!workflow || !workflow.nodes) {
-        svg.innerHTML = '';
-        return;
-      }
+      if (!svg) return;
+      if (!workflow || !workflow.nodes) { svg.innerHTML = ''; return; }
 
       // 构建节点位置和尺寸映射
       const nodeMap = {};
@@ -3682,9 +3667,6 @@
         const y = node.position_y || 50 + Math.floor(i / 3) * 180;
         nodeMap[node.id] = { x, y, width: 200, height: 100 };
       });
-
-      console.log('renderEdges: nodeMap', nodeMap);
-      console.log('renderEdges: edges', workflow.edges);
 
       let paths = '';
 
@@ -3696,8 +3678,6 @@
           const targetNodeId = edge.targetNodeId || edge.target_node_id;
           const srcNode = nodeMap[sourceNodeId];
           const tgtNode = nodeMap[targetNodeId];
-
-          console.log('Edge:', edge, 'sourceNodeId:', sourceNodeId, 'targetNodeId:', targetNodeId, 'srcNode:', srcNode, 'tgtNode:', tgtNode);
 
           if (!srcNode || !tgtNode) return;
 
@@ -3761,10 +3741,7 @@
         });
       }
 
-      console.log('renderEdges: paths length:', paths.length);
-      console.log('renderEdges: svg element:', svg);
       svg.innerHTML = paths;
-      console.log('renderEdges: svg innerHTML set, children:', svg.children.length);
     }
 
     // 通过edge id删除连线
@@ -4908,18 +4885,13 @@
       document.removeEventListener('mousemove', onDragConnect);
       document.removeEventListener('mouseup', endDragConnect);
 
-      console.log('endDragConnect: connectingFrom', connectingFrom);
-
       // 检测目标节点
       if (connectingFrom && state.currentWorkflow) {
         const targetEl = document.elementFromPoint(e.clientX, e.clientY);
         const targetNode = targetEl ? targetEl.closest('.node') : null;
 
-        console.log('endDragConnect: targetEl', targetEl, 'targetNode', targetNode);
-
         if (targetNode) {
           const targetId = targetNode.id.replace('node-', '');
-          console.log('endDragConnect: targetId', targetId, 'sourceId', connectingFrom.nodeId);
           if (targetId !== connectingFrom.nodeId) {
             try {
               addLog('info', `创建连线: ${connectingFrom.nodeId} -> ${targetId} (${connectingFrom.type})`);
@@ -4934,23 +4906,18 @@
                 })
               });
 
-              console.log('endDragConnect: response status', res.status);
-
               if (!res.ok) {
                 throw new Error(`HTTP ${res.status}`);
               }
 
               const data = await res.json();
-              console.log('endDragConnect: response data', data);
               if (data.success) {
-                console.log('endDragConnect: calling selectWorkflow');
                 await selectWorkflow(state.currentWorkflow.id);
                 showToast('success', '连线创建成功');
               } else {
                 showToast('error', data.message || '创建连线失败');
               }
             } catch (err) {
-              console.error('endDragConnect error:', err);
               showToast('error', '创建连线失败');
               addLog('error', '创建连线失败: ' + err.message);
             }
@@ -5660,21 +5627,32 @@
       }
     }
 
-    function pasteNode() {
+    async function pasteNode() {
       if (state.clipboard && state.currentWorkflow) {
-        pushUndo();
-        const newNode = {
-          ...state.clipboard,
-          id: 'node-' + Date.now(),
-          position_x: state.clipboard.position_x + 40,
-          position_y: state.clipboard.position_y + 40,
-          name: state.clipboard.name + ' (副本)'
-        };
-        state.currentWorkflow.nodes.push(newNode);
-        renderCanvas();
-        selectNode(newNode.id);
-        markDirty();
-        showToast('success', '节点已粘贴');
+        try {
+          // 调用后端API创建新节点
+          const res = await fetch(`${API}/workflows/${state.currentWorkflow.id}/nodes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: state.clipboard.type,
+              name: state.clipboard.name + ' (副本)',
+              position_x: state.clipboard.position_x + 40,
+              position_y: state.clipboard.position_y + 40,
+              config: state.clipboard.config
+            })
+          });
+          const data = await res.json();
+          if (data.success) {
+            await selectWorkflow(state.currentWorkflow.id);
+            selectNode(data.data.id);
+            showToast('success', '节点已粘贴');
+          } else {
+            showToast('error', data.message || '粘贴失败');
+          }
+        } catch (e) {
+          showToast('error', '粘贴失败');
+        }
       }
     }
 
@@ -6280,7 +6258,7 @@
       }
     }
 
-    function pasteNodes() {
+    async function pasteNodes() {
       if (!state.clipboard || !state.clipboard.nodes || state.clipboard.nodes.length === 0) {
         showToast('warn', '剪贴板为空');
         return;
@@ -6290,26 +6268,42 @@
         return;
       }
 
-      pushUndo();
       clearNodeSelection();
 
       const offset = 30;
-      state.clipboard.nodes.forEach((node, index) => {
-        const newNode = {
-          ...node,
-          id: 'node-' + Date.now() + '-' + index,
-          position_x: node.position_x + offset,
-          position_y: node.position_y + offset,
-          name: node.name + ' (副本)'
-        };
-        state.currentWorkflow.nodes.push(newNode);
-        state.selectedNodes.add(newNode.id);
-      });
+      let successCount = 0;
 
-      renderCanvas();
-      markDirty();
+      for (let i = 0; i < state.clipboard.nodes.length; i++) {
+        const node = state.clipboard.nodes[i];
+        try {
+          const res = await fetch(`${API}/workflows/${state.currentWorkflow.id}/nodes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              type: node.type,
+              name: node.name + ' (副本)',
+              position_x: node.position_x + offset,
+              position_y: node.position_y + offset,
+              config: node.config
+            })
+          });
+          const data = await res.json();
+          if (data.success) {
+            successCount++;
+            state.selectedNodes.add(data.data.id);
+          }
+        } catch (e) {
+          console.error('粘贴节点失败:', e);
+        }
+      }
+
+      await selectWorkflow(state.currentWorkflow.id);
       updateSelectedCount();
-      showToast('success', `已粘贴 ${state.clipboard.nodes.length} 个节点`);
+      if (successCount > 0) {
+        showToast('success', `已粘贴 ${successCount} 个节点`);
+      } else {
+        showToast('error', '粘贴失败');
+      }
     }
 
     function cutNodes() {
