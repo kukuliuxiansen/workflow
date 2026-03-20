@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openclaw.workflow.engine.connector.OpenClawGatewayClient;
 import com.openclaw.workflow.engine.model.NodeExecutionContext;
 import com.openclaw.workflow.engine.model.NodeResult;
+import com.openclaw.workflow.engine.service.NodePromptService;
 import com.openclaw.workflow.engine.util.AgentDecisionParser;
 import com.openclaw.workflow.engine.util.NodePromptBuilder;
 import com.openclaw.workflow.entity.WorkflowNode;
@@ -56,6 +57,9 @@ public class ConditionNodeHandler extends BaseNodeHandler {
 
     // 决策Agent配置
     private String decisionAgentId = "project-manager";
+
+    // 提示词服务（可选，用于可定制模板）
+    private NodePromptService promptService;
 
     @Override
     public NodeResult execute(NodeExecutionContext context) throws Exception {
@@ -164,29 +168,53 @@ public class ConditionNodeHandler extends BaseNodeHandler {
                                                   NodeExecutionContext context) throws Exception {
         AgentDecisionResult result = new AgentDecisionResult();
 
-        // 构建分支信息列表
-        List<NodePromptBuilder.BranchInfo> branchInfos = new ArrayList<>();
-        for (Branch branch : config.branches) {
-            branchInfos.add(new NodePromptBuilder.BranchInfo(
-                    branch.id,
-                    branch.name,
-                    branch.description,
-                    branch.conditionDesc  // 条件描述（给Agent看）
-            ));
+        // 使用提示词服务或构建器
+        String prompt;
+        if (promptService != null) {
+            // 使用可定制的提示词服务
+            List<NodePromptService.BranchInfo> branchInfos = new ArrayList<>();
+            for (Branch branch : config.branches) {
+                branchInfos.add(new NodePromptService.BranchInfo(
+                        branch.id,
+                        branch.name,
+                        branch.description,
+                        branch.conditionDesc  // 条件描述（给Agent看）
+                ));
+            }
+            prompt = promptService.buildConditionPrompt(
+                    context.getWorkflowId(),
+                    context.getExecutionId(),
+                    node.getId(),
+                    node.getName(),
+                    branchInfos,
+                    config.defaultBranch,
+                    context.getPreviousOutputs(),
+                    context.getTaskDescription(),
+                    config.customPrompt
+            );
+        } else {
+            // 回退到静态构建器
+            List<NodePromptBuilder.BranchInfo> branchInfos = new ArrayList<>();
+            for (Branch branch : config.branches) {
+                branchInfos.add(new NodePromptBuilder.BranchInfo(
+                        branch.id,
+                        branch.name,
+                        branch.description,
+                        branch.conditionDesc  // 条件描述（给Agent看）
+                ));
+            }
+            prompt = NodePromptBuilder.buildConditionPrompt(
+                    context.getWorkflowId(),
+                    context.getExecutionId(),
+                    node.getId(),
+                    node.getName(),
+                    branchInfos,
+                    config.defaultBranch,
+                    context.getPreviousOutputs(),
+                    context.getTaskDescription(),
+                    config.customPrompt
+            );
         }
-
-        // 使用通用的提示词构建器
-        String prompt = NodePromptBuilder.buildConditionPrompt(
-                context.getWorkflowId(),
-                context.getExecutionId(),
-                node.getId(),
-                node.getName(),
-                branchInfos,
-                config.defaultBranch,
-                context.getPreviousOutputs(),
-                context.getTaskDescription(),
-                config.customPrompt
-        );
 
         // 调用Agent获取决策
         OpenClawGatewayClient client = new OpenClawGatewayClient(gatewayUrl, gatewayToken);
@@ -445,5 +473,9 @@ public class ConditionNodeHandler extends BaseNodeHandler {
 
     public void setDecisionAgentId(String decisionAgentId) {
         this.decisionAgentId = decisionAgentId;
+    }
+
+    public void setPromptService(NodePromptService promptService) {
+        this.promptService = promptService;
     }
 }

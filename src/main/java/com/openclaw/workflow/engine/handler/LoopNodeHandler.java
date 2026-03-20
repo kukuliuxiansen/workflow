@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openclaw.workflow.engine.connector.OpenClawGatewayClient;
 import com.openclaw.workflow.engine.model.NodeExecutionContext;
 import com.openclaw.workflow.engine.model.NodeResult;
+import com.openclaw.workflow.engine.service.NodePromptService;
 import com.openclaw.workflow.engine.util.AgentDecisionParser;
 import com.openclaw.workflow.engine.util.NodePromptBuilder;
 import com.openclaw.workflow.entity.WorkflowNode;
@@ -54,6 +55,9 @@ public class LoopNodeHandler extends BaseNodeHandler {
 
     // 决策Agent配置
     private String decisionAgentId = "project-manager";
+
+    // 提示词服务（可选，用于可定制模板）
+    private NodePromptService promptService;
 
     @Override
     public NodeResult execute(NodeExecutionContext context) throws Exception {
@@ -137,21 +141,39 @@ public class LoopNodeHandler extends BaseNodeHandler {
     private NodeResult decideViaAgent(WorkflowNode node, LoopConfig config,
                                        NodeResult.LoopContext loopContext,
                                        NodeExecutionContext context) throws Exception {
-        // 使用通用的提示词构建器
-        String prompt = NodePromptBuilder.buildLoopPrompt(
-                context.getWorkflowId(),
-                context.getExecutionId(),
-                node.getId(),
-                node.getName(),
-                "condition",
-                loopContext.getCurrentIteration() + 1,  // 显示为第N次
-                loopContext.getMaxIterations(),
-                config.exitCondition,
-                loopContext.getLoopVariable(),
-                loopContext.getCurrentValue(),
-                context.getPreviousOutputs(),
-                config.customPrompt
-        );
+        // 使用提示词服务或构建器
+        String prompt;
+        if (promptService != null) {
+            prompt = promptService.buildLoopPrompt(
+                    context.getWorkflowId(),
+                    context.getExecutionId(),
+                    node.getId(),
+                    node.getName(),
+                    "condition",
+                    loopContext.getCurrentIteration() + 1,  // 显示为第N次
+                    loopContext.getMaxIterations(),
+                    config.exitCondition,
+                    loopContext.getLoopVariable(),
+                    loopContext.getCurrentValue(),
+                    context.getPreviousOutputs(),
+                    config.customPrompt
+            );
+        } else {
+            prompt = NodePromptBuilder.buildLoopPrompt(
+                    context.getWorkflowId(),
+                    context.getExecutionId(),
+                    node.getId(),
+                    node.getName(),
+                    "condition",
+                    loopContext.getCurrentIteration() + 1,  // 显示为第N次
+                    loopContext.getMaxIterations(),
+                    config.exitCondition,
+                    loopContext.getLoopVariable(),
+                    loopContext.getCurrentValue(),
+                    context.getPreviousOutputs(),
+                    config.customPrompt
+            );
+        }
 
         // 调用Agent获取决策
         OpenClawGatewayClient client = new OpenClawGatewayClient(gatewayUrl, gatewayToken);
@@ -353,5 +375,9 @@ public class LoopNodeHandler extends BaseNodeHandler {
 
     public void setDecisionAgentId(String decisionAgentId) {
         this.decisionAgentId = decisionAgentId;
+    }
+
+    public void setPromptService(NodePromptService promptService) {
+        this.promptService = promptService;
     }
 }

@@ -1,9 +1,11 @@
 package com.openclaw.workflow.engine;
 
 import com.openclaw.workflow.engine.handler.*;
+import com.openclaw.workflow.engine.service.NodePromptService;
 import com.openclaw.workflow.entity.WorkflowNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -22,6 +24,9 @@ public class NodeHandlerFactory {
     private final LoopNodeHandler loopNodeHandler;
     private final ConditionNodeHandler conditionNodeHandler;
     private final HumanReviewNodeHandler humanReviewNodeHandler;
+
+    // 提示词服务
+    private NodePromptService promptService;
 
     // Gateway API配置
     private String gatewayUrl = "http://localhost:18789";
@@ -55,6 +60,13 @@ public class NodeHandlerFactory {
         // 条件处理器配置
         conditionNodeHandler.setGatewayUrl(gatewayUrl);
         conditionNodeHandler.setGatewayToken(gatewayToken);
+
+        // 设置提示词服务（如果已注入）
+        if (promptService != null) {
+            conditionNodeHandler.setPromptService(promptService);
+            parallelNodeHandler.setPromptService(promptService);
+            loopNodeHandler.setPromptService(promptService);
+        }
     }
 
     /**
@@ -118,5 +130,13 @@ public class NodeHandlerFactory {
 
     public void setReviewServerUrl(String reviewServerUrl) {
         this.humanReviewNodeHandler.setReviewServerUrl(reviewServerUrl);
+    }
+
+    public void setPromptService(NodePromptService promptService) {
+        this.promptService = promptService;
+        // 更新处理器的提示词服务
+        conditionNodeHandler.setPromptService(promptService);
+        parallelNodeHandler.setPromptService(promptService);
+        loopNodeHandler.setPromptService(promptService);
     }
 }
