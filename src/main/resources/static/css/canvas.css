@@ -1,0 +1,43 @@
+    /* 画布区域 - 覆盖整个屏幕 */
+    .canvas-container {
+      position: absolute;
+      top: 44px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      overflow: hidden;
+      background: #1a1a1a;
+    }
+    .canvas-container.full-height {
+      top: 0;
+    }
+    .canvas {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      overflow: hidden;
+    }
+    .canvas-grid {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-image:
+        linear-gradient(rgba(60,60,60,0.3) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(60,60,60,0.3) 1px, transparent 1px);
+      background-size: 20px 20px;
+      pointer-events: none;
+    }
+    /* 画布边界指示器 */
+    .canvas-boundary {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      border: 1px dashed rgba(107,92,231,0.2);
+      pointer-events: none;
+    }
+    /* 画布内容区域 - 覆盖整个可视区域 */
+    .canvas-content {
+      position: absolute;
+      transform-origin: 0 0;
+      /* 使用足够大的尺寸，让节点可以放置在任何位置 */
+      width: 10000px;
+      height: 10000px;
+    }
+

@@ -1,0 +1,574 @@
+    /* UX改进样式 */
+    .save-indicator {
+      font-size: 11px;
+      margin-left: 12px;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+    .save-indicator.saved {
+      color: #5f5;
+      background: rgba(0,100,0,0.2);
+    }
+    .save-indicator.dirty {
+      color: #fa5;
+      background: rgba(150,100,0,0.2);
+    }
+
+    /* 右键菜单 */
+    .context-menu {
+      position: fixed;
+      background: #2a2a2a;
+      border: 1px solid #4a4a4a;
+      border-radius: 6px;
+      padding: 4px 0;
+      min-width: 150px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      z-index: 2000;
+      display: none;
+    }
+    .context-menu.show {
+      display: block;
+    }
+    .context-menu-item {
+      padding: 8px 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #e0e0e0;
+    }
+    .context-menu-item:hover {
+      background: #3a3a3a;
+    }
+    .context-menu-item.danger {
+      color: #f66;
+    }
+    .context-menu-divider {
+      height: 1px;
+      background: #4a4a4a;
+      margin: 4px 0;
+    }
+
+    /* 节点状态徽章 */
+    .node-badge {
+      display: inline-block;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 8px;
+      margin-left: 6px;
+    }
+    .node-badge.pending { background: #3a3a3a; color: #888; }
+    .node-badge.running { background: #2a3a5a; color: #6af; animation: pulse 1s infinite; }
+    .node-badge.success { background: #1a3a1a; color: #5f5; }
+    .node-badge.failed { background: #3a1a1a; color: #f66; }
+    .node-badge.skipped { background: #2a2a2a; color: #666; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    /* 快速操作面板 */
+    .quick-actions {
+      position: fixed;
+      background: #2a2a2a;
+      border: 1px solid #4a4a4a;
+      border-radius: 6px;
+      padding: 4px;
+      display: none;
+      z-index: 1500;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    }
+    .quick-actions.show {
+      display: flex;
+      gap: 4px;
+    }
+    .quick-action-btn {
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: #3a3a3a;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .quick-action-btn:hover {
+      background: #4a4a4a;
+    }
+    .quick-action-btn.danger:hover {
+      background: #4a2a2a;
+    }
+
+    /* 搜索高亮 */
+    .node.search-match {
+      box-shadow: 0 0 0 3px rgba(100, 180, 255, 0.5);
+    }
+    .node.search-dim {
+      opacity: 0.3;
+    }
+
+    /* 键盘快捷键提示 */
+    .shortcut-hint {
+      font-size: 10px;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    /* 小地图 */
+    .minimap {
+      position: absolute;
+      bottom: 60px;
+      right: 20px;
+      width: 150px;
+      height: 100px;
+      background: rgba(30,30,30,0.9);
+      border: 1px solid #3a3a3a;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+    .minimap-viewport {
+      position: absolute;
+      border: 2px solid #4a6aff;
+      background: rgba(74,106,255,0.1);
+    }
+    .minimap-node {
+      position: absolute;
+      width: 6px;
+      height: 4px;
+      background: #666;
+      border-radius: 1px;
+    }
+
+    /* 节点高亮效果 */
+    .node.highlight {
+      animation: highlight-pulse 0.5s ease-out;
+    }
+    @keyframes highlight-pulse {
+      0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(100,180,255,0.7); }
+      50% { transform: scale(1.02); box-shadow: 0 0 20px 5px rgba(100,180,255,0.3); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(100,180,255,0); }
+    }
+
+    /* 文件夹样式 */
+    .folder-item {
+      margin-bottom: 2px;
+    }
+    .folder-header {
+      display: flex;
+      align-items: center;
+      padding: 8px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+      background: #2a2a2a;
+      border: 1px solid transparent;
+    }
+    .folder-header:hover {
+      background: #333;
+      border-color: #444;
+    }
+    .folder-header.drag-over {
+      background: #3a2f6e;
+      border-color: #6b5ce7;
+    }
+    .folder-toggle {
+      width: 16px;
+      height: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 6px;
+      color: #888;
+      font-size: 10px;
+      transition: transform 0.2s;
+    }
+    .folder-toggle.expanded {
+      transform: rotate(90deg);
+    }
+    .folder-icon {
+      margin-right: 8px;
+      font-size: 14px;
+    }
+    .folder-name {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 500;
+      color: #e0e0e0;
+    }
+    .folder-count {
+      font-size: 11px;
+      color: #666;
+      margin-right: 8px;
+    }
+    .folder-actions {
+      display: none;
+      gap: 4px;
+    }
+    .folder-header:hover .folder-actions {
+      display: flex;
+    }
+    .folder-action-btn {
+      padding: 2px 6px;
+      border: none;
+      border-radius: 3px;
+      background: #3a3a3a;
+      color: #888;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .folder-action-btn:hover {
+      background: #444;
+      color: #fff;
+    }
+    .folder-action-btn.danger:hover {
+      background: #4a2020;
+      color: #f88;
+    }
+    .folder-content {
+      display: none;
+      padding-left: 16px;
+    }
+    .folder-content.expanded {
+      display: block;
+    }
+    .folder-drop-zone {
+      height: 4px;
+      margin: 2px 0;
+      border-radius: 2px;
+      transition: all 0.15s;
+    }
+    .folder-drop-zone.drag-over {
+      height: 30px;
+      background: rgba(107,92,231,0.2);
+      border: 2px dashed #6b5ce7;
+    }
+    .new-folder-btn {
+      display: flex;
+      align-items: center;
+      padding: 8px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+      color: #666;
+      font-size: 13px;
+      margin-top: 4px;
+    }
+    .new-folder-btn:hover {
+      background: #333;
+      color: #888;
+    }
+    .new-folder-btn .icon {
+      margin-right: 8px;
+      font-size: 14px;
+    }
+
+    /* 拖拽提示 */
+    .drop-zone {
+      position: absolute;
+      border: 2px dashed #4a6aff;
+      background: rgba(74,106,255,0.1);
+      border-radius: 8px;
+      pointer-events: none;
+    }
+
+    /* 框选矩形 */
+    .selection-rect {
+      position: absolute;
+      border: 2px dashed #89b4fa;
+      background: rgba(137, 180, 250, 0.1);
+      pointer-events: none;
+      z-index: 1000;
+      display: none;
+    }
+    .selection-rect.active {
+      display: block;
+    }
+
+    /* 对齐辅助线 */
+    .align-guide {
+      position: absolute;
+      background: #cba6f7;
+      pointer-events: none;
+      z-index: 999;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .align-guide.visible {
+      opacity: 1;
+    }
+    .align-guide.horizontal {
+      height: 1px;
+      width: 100%;
+      left: 0;
+    }
+    .align-guide.vertical {
+      width: 1px;
+      height: 100%;
+      top: 0;
+    }
+
+    /* 多选节点样式 */
+    .node.selected-multi {
+      box-shadow: 0 0 0 2px #89b4fa, 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    /* 小地图 */
+    .minimap {
+      position: absolute;
+      right: 10px;
+      bottom: 50px;
+      width: 180px;
+      height: 120px;
+      background: #1a1a1a;
+      border: 1px solid #3a3a3a;
+      border-radius: 6px;
+      overflow: hidden;
+      z-index: 100;
+      transition: opacity 0.2s;
+    }
+    .minimap.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .minimap-viewport {
+      position: absolute;
+      border: 2px solid #89b4fa;
+      background: rgba(137, 180, 250, 0.1);
+      pointer-events: none;
+    }
+    .minimap-node {
+      position: absolute;
+      background: #4a4a6a;
+      border-radius: 2px;
+    }
+
+    /* 节点颜色样式 */
+    .node[data-color="red"] { border-left: 4px solid #f38ba8; }
+    .node[data-color="orange"] { border-left: 4px solid #fab387; }
+    .node[data-color="yellow"] { border-left: 4px solid #f9e2af; }
+    .node[data-color="green"] { border-left: 4px solid #a6e3a1; }
+    .node[data-color="cyan"] { border-left: 4px solid #89dceb; }
+    .node[data-color="blue"] { border-left: 4px solid #89b4fa; }
+    .node[data-color="purple"] { border-left: 4px solid #cba6f7; }
+    .node[data-color="pink"] { border-left: 4px solid #f5c2e7; }
+    .node[data-color="gray"] { border-left: 4px solid #6c7086; }
+
+    /* 连线样式 */
+    .edge-path.success { stroke: #a6e3a1; }
+    .edge-path.failure { stroke: #f38ba8; }
+    .edge-path.condition { stroke: #f9e2af; }
+    .edge-path.default { stroke: #89b4fa; }
+    .edge-path.animated {
+      stroke-dasharray: 5;
+      animation: edge-flow 0.5s linear infinite;
+    }
+    @keyframes edge-flow {
+      from { stroke-dashoffset: 10; }
+      to { stroke-dashoffset: 0; }
+    }
+
+    /* 连线标签 */
+    .edge-label {
+      font-size: 11px;
+      fill: #e0e0e0;
+      background: #2a2a2a;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+
+    /* 快捷键帮助面板 */
+    .shortcut-help {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #2a2a2a;
+      border: 1px solid #4a4a4a;
+      border-radius: 12px;
+      padding: 24px;
+      z-index: 3000;
+      max-width: 500px;
+      max-height: 80vh;
+      overflow-y: auto;
+      display: none;
+    }
+    .shortcut-help.show {
+      display: block;
+    }
+    .shortcut-help h3 {
+      margin-bottom: 16px;
+      font-size: 16px;
+      color: #fff;
+    }
+    .shortcut-group {
+      margin-bottom: 16px;
+    }
+    .shortcut-group-title {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+    .shortcut-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 0;
+      font-size: 13px;
+    }
+    .shortcut-key {
+      background: #1a1a1a;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: Monaco, monospace;
+      font-size: 11px;
+      color: #89b4fa;
+    }
+
+    /* 右键菜单增强 */
+    .context-menu-item .shortcut {
+      margin-left: auto;
+      font-size: 11px;
+      color: #888;
+      background: #1a1a1a;
+      padding: 2px 6px;
+      border-radius: 3px;
+    }
+    .context-menu-submenu {
+      position: relative;
+    }
+    .context-menu-submenu > .submenu {
+      display: none;
+      position: absolute;
+      left: 100%;
+      top: 0;
+      background: #2a2a2a;
+      border: 1px solid #4a4a4a;
+      border-radius: 6px;
+      min-width: 120px;
+    }
+    .context-menu-submenu:hover > .submenu {
+      display: block;
+    }
+
+    /* 节点工具栏 */
+    .node-toolbar {
+      position: absolute;
+      top: -36px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #2a2a2a;
+      border: 1px solid #4a4a4a;
+      border-radius: 6px;
+      padding: 4px;
+      display: none;
+      gap: 4px;
+      z-index: 100;
+    }
+    .node:hover .node-toolbar {
+      display: flex;
+    }
+    .node-toolbar-btn {
+      width: 28px;
+      height: 28px;
+      border: none;
+      background: transparent;
+      color: #e0e0e0;
+      cursor: pointer;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+    .node-toolbar-btn:hover {
+      background: #3a3a3a;
+    }
+
+    /* 颜色选择器 */
+    .color-picker {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 8px;
+    }
+    .color-option {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      border: 2px solid transparent;
+    }
+    .color-option:hover {
+      border-color: #fff;
+    }
+
+    /* 画布信息统计 */
+    .canvas-info {
+      position: absolute;
+      left: 10px;
+      bottom: 10px;
+      background: rgba(42, 42, 42, 0.9);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      color: #888;
+      z-index: 100;
+      display: flex;
+      gap: 12px;
+    }
+    .canvas-info-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .canvas-info-value {
+      color: #e0e0e0;
+    }
+
+    /* 搜索面板 */
+    .search-panel {
+      position: absolute;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #2a2a2a;
+      border: 1px solid #4a4a4a;
+      border-radius: 8px;
+      padding: 12px;
+      z-index: 200;
+      display: none;
+      min-width: 300px;
+    }
+    .search-panel.show {
+      display: block;
+    }
+    .search-panel input {
+      width: 100%;
+      padding: 8px 12px;
+      background: #1a1a1a;
+      border: 1px solid #4a4a4a;
+      border-radius: 4px;
+      color: #e0e0e0;
+      font-size: 13px;
+    }
+    .search-results {
+      max-height: 200px;
+      overflow-y: auto;
+      margin-top: 8px;
+    }
+    .search-result-item {
+      padding: 8px;
+      cursor: pointer;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .search-result-item:hover {
+      background: #3a3a3a;
+    }

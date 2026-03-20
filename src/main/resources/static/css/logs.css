@@ -1,0 +1,89 @@
+    /* 空状态 */
+    .empty-state {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: #666;
+    }
+    .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+    .empty-state .title { font-size: 14px; font-weight: 500; color: #888; }
+    .empty-state .desc { font-size: 12px; margin-top: 6px; }
+
+    /* 底部日志面板 - 浮动在画布上方 */
+    .log-panel {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 180px;
+      background: rgba(26, 26, 26, 0.95);
+      border-top: 1px solid #3a3a3a;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.3s ease;
+      z-index: 50;
+    }
+    .log-panel.collapsed {
+      transform: translateY(100%);
+    }
+    .log-header {
+      padding: 6px 12px;
+      background: #252525;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid #3a3a3a;
+    }
+    .log-main-tabs {
+      display: flex;
+      gap: 0;
+    }
+    .log-main-tab {
+      padding: 5px 16px;
+      border: none;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      color: #666;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .log-main-tab:hover { color: #aaa; }
+    .log-main-tab.active {
+      color: #6b5ce7;
+      border-bottom-color: #6b5ce7;
+    }
+    .log-main-tab .badge {
+      display: inline-block;
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      margin-left: 4px;
+      background: #3a3a3a;
+      border-radius: 8px;
+      font-size: 10px;
+      line-height: 16px;
+      text-align: center;
+      color: #888;
+    }
+    .log-main-tab.active .badge {
+      background: #6b5ce7;
+      color: #fff;
+    }
+    .log-actions {
+      margin-left: auto;
+      display: flex;
+      gap: 4px;
+    }
+    .log-action-btn {
+      padding: 2px 6px;
+      border: 1px solid #3a3a3a;
+      border-radius: 3px;
+      background: transparent;
+      color: #666;
+      font-size: 10px;
+      cursor: pointer;
+    }
+    .log-action-btn:hover { background: #3a3a3a; color: #aaa; }
