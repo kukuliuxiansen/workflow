@@ -5,10 +5,16 @@ import com.openclaw.workflow.engine.connector.OpenClawGatewayClient;
 import com.openclaw.workflow.engine.handler.BaseNodeHandler;
 import com.openclaw.workflow.engine.model.NodeExecutionContext;
 import com.openclaw.workflow.engine.model.NodeResult;
+import com.openclaw.workflow.entity.DecisionHistory;
+import com.openclaw.workflow.entity.DecisionHistoryId;
+import com.openclaw.workflow.entity.SmartDecomposeState;
 import com.openclaw.workflow.entity.WorkflowNode;
+import com.openclaw.workflow.repository.DecisionHistoryRepository;
+import com.openclaw.workflow.repository.SmartDecomposeStateRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.LocalDateTime;
 import java.util.*;
 
 /**
@@ -26,6 +32,10 @@ public class SmartDecomposeHandler extends BaseNodeHandler {
     private final String gatewayToken;
     private final String agentId;
 
+    // 数据库持久化（通过setter注入）
+    private SmartDecomposeStateRepository stateRepository;
+    private DecisionHistoryRepository decisionHistoryRepository;
+
     public SmartDecomposeHandler(String gatewayUrl, String gatewayToken, String agentId) {
         this.gatewayUrl = gatewayUrl;
         this.gatewayToken = gatewayToken;
@@ -38,6 +48,15 @@ public class SmartDecomposeHandler extends BaseNodeHandler {
         this("http://localhost:18789",
              "56b640cc2d91411f63255af68355c19ee33c88ec458878ca",
              "project-manager");
+    }
+
+    // Setter注入Repository
+    public void setStateRepository(SmartDecomposeStateRepository stateRepository) {
+        this.stateRepository = stateRepository;
+    }
+
+    public void setDecisionHistoryRepository(DecisionHistoryRepository decisionHistoryRepository) {
+        this.decisionHistoryRepository = decisionHistoryRepository;
     }
 
     @Override
@@ -115,7 +134,60 @@ public class SmartDecomposeHandler extends BaseNodeHandler {
         }
 
         // 4. 构建最终结果
+        // 保存最终状态到数据库
+        saveState(context);
         return buildFinalResult(context);
+    }
+
+    /**
+     * 保存状态到数据库
+     */
+    private void saveState(DecomposeContext context) {
+        if (stateRepository == null) return;
+
+        try {
+            SmartDecomposeState state = new SmartDecomposeState();
+            state.setId(context.getExecutionId() + "_" + context.getNodeId());
+            state.setExecutionId(context.getExecutionId());
+            state.setNodeId(context.getNodeId());
+            state.setStatus(context.getStatus().name());
+            state.setErrorMessage(context.getErrorMessage());
+            state.setCurrentIteration(context.getIterationCount());
+            state.setMaxIterations(context.getMaxIterations());
+            state.setCurrentDepth(context.getCurrentTask() != null ? context.getCurrentTask().getDepth() : 0);
+            state.setMaxDepth(context.getMaxDepth());
+            state.setCurrentTaskId(context.getCurrentTask() != null ? context.getCurrentTask().getTaskId() : null);
+
+            // 序列化任务栈
+            if (!context.getTaskStack().isEmpty()) {
+                state.setTaskStack(objectMapper.writeValueAsString(context.getTaskStack()));
+            }
+
+            // 序列化已完成任务
+            if (!context.getCompletedTasks().isEmpty()) {
+                state.setCompletedTasks(objectMapper.writeValueAsString(context.getCompletedTasks()));
+            }
+
+            // 序列化任务映射
+            if (!context.getTaskMap().isEmpty()) {
+                state.setTaskMap(objectMapper.writeValueAsString(context.getTaskMap()));
+            }
+
+            // 序列化决策历史
+            if (!context.getDecisionHistory().isEmpty()) {
+                state.setDecisionHistory(objectMapper.writeValueAsString(context.getDecisionHistory()));
+            }
+
+            state.setUpdatedAt(LocalDateTime.now());
+            if (state.getCreatedAt() == null) {
+                state.setCreatedAt(LocalDateTime.now());
+            }
+
+            stateRepository.save(state);
+            logger.debug("状态已保存到数据库: executionId={}, status={}", context.getExecutionId(), state.getStatus());
+        } catch (Exception e) {
+            logger.warn("保存状态到数据库失败: {}", e.getMessage());
+        }
     }
 
     /**
@@ -384,6 +456,7 @@ public class SmartDecomposeHandler extends BaseNodeHandler {
      */
     private void recordDecision(DecomposeContext context, TaskState task,
                                 AgentAction action, ActionResult result) {
+        // 记录到内存
         DecomposeContext.DecisionRecord record = new DecomposeContext.DecisionRecord();
         record.setIteration(context.getIterationCount());
         record.setTaskId(task != null ? task.getTaskId() : "unknown");
@@ -393,6 +466,32 @@ public class SmartDecomposeHandler extends BaseNodeHandler {
         record.setTimestamp(System.currentTimeMillis());
 
         context.getDecisionHistory().add(record);
+
+        // 持久化到数据库
+        if (decisionHistoryRepository != null) {
+            try {
+                DecisionHistory dh = new DecisionHistory();
+                dh.setId(context.getExecutionId() + "_" + context.getNodeId());
+                dh.setIteration(context.getIterationCount());
+                dh.setExecutionId(context.getExecutionId());
+                dh.setNodeId(context.getNodeId());
+                dh.setTaskId(task != null ? task.getTaskId() : "unknown");
+                dh.setThought(action != null ? action.getThought() : "");
+                dh.setAction(action != null && action.getTool() != null ? action.getTool().getName() : "unknown");
+                dh.setResultStatus(result != null && result.isSuccess() ? "SUCCESS" : "FAILED");
+                dh.setResultMessage(result != null ? result.getMessage() : "");
+                dh.setTimestamp(LocalDateTime.now());
+
+                // 序列化参数
+                if (action != null && action.getParameters() != null) {
+                    dh.setActionParameters(objectMapper.writeValueAsString(action.getParameters()));
+                }
+
+                decisionHistoryRepository.save(dh);
+            } catch (Exception e) {
+                logger.warn("保存决策历史失败: {}", e.getMessage());
+            }
+        }
     }
 
     /**

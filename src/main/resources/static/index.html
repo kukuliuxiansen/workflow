@@ -2707,9 +2707,13 @@
         onLocalUpload: options.onLocalUpload || null
       };
 
-      document.getElementById('pathSelectTitle').textContent = options.title || '📁 选择路径';
-      document.getElementById('pathManualInput').value = '';
-      document.getElementById('pathManualInput').placeholder = options.mode === 'directory' ? '输入目录完整路径...' : '输入文件完整路径...';
+      const pathSelectTitle = document.getElementById('pathSelectTitle');
+      if (pathSelectTitle) pathSelectTitle.textContent = options.title || '📁 选择路径';
+      const pathManualInput = document.getElementById('pathManualInput');
+      if (pathManualInput) {
+        pathManualInput.value = '';
+        pathManualInput.placeholder = options.mode === 'directory' ? '输入目录完整路径...' : '输入文件完整路径...';
+      }
 
       // 显示/隐藏本地文件上传
       const localUploadGroup = document.getElementById('pathLocalUploadGroup');
@@ -3123,8 +3127,13 @@
 
     function updateCanvasTransform() {
       const content = document.getElementById('canvasContent');
-      content.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
-      document.getElementById('zoomLevel').textContent = Math.round(state.zoom * 100) + '%';
+      if (content) {
+        content.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
+      }
+      const zoomLevelEl = document.getElementById('zoomLevel');
+      if (zoomLevelEl) {
+        zoomLevelEl.textContent = Math.round(state.zoom * 100) + '%';
+      }
     }
 
     function zoomIn() {
@@ -3505,9 +3514,11 @@
 
     // 选择工作流
     async function selectWorkflow(id) {
+      console.log('选择工作流:', id);
       try {
         const res = await fetch(`${API}/workflows/${id}`);
         const data = await res.json();
+        console.log('工作流数据:', data);
         if (data.success) {
           state.currentWorkflow = data.data;
           state.selectedNode = null;
@@ -3556,9 +3567,13 @@
 
           // 自动加载该工作流的最新执行历史
           await loadLatestExecutionHistory(id);
+        } else {
+          console.error('加载工作流失败:', data);
+          alert('加载工作流失败: ' + (data.message || '未知错误'));
         }
       } catch (e) {
-        showToast('error', '加载失败');
+        console.error('selectWorkflow error:', e);
+        alert('加载失败: ' + (e.message || e));
       }
     }
 
@@ -3679,6 +3694,8 @@
 
       content.innerHTML = html;
       renderEdges();
+      // 确保画布变换正确应用，节点能正确显示
+      setTimeout(() => updateCanvasTransform(), 0);
     }
 
     // 渲染连线
@@ -3692,8 +3709,9 @@
       // 构建节点位置和尺寸映射
       const nodeMap = {};
       workflow.nodes.forEach((node, i) => {
-        const x = node.position_x || 50 + (i % 3) * 280;
-        const y = node.position_y || 50 + Math.floor(i / 3) * 180;
+        // 兼容 snake_case 和 camelCase
+        const x = node.position_x || node.positionX || 50 + (i % 3) * 280;
+        const y = node.position_y || node.positionY || 50 + Math.floor(i / 3) * 180;
         nodeMap[node.id] = { x, y, width: 200, height: 100 };
       });
 
@@ -3912,10 +3930,14 @@
 
     // 更新任务配置显示
     function updateTaskConfigDisplay() {
-      document.getElementById('displayExecutionId').textContent = taskConfig.executionId || '-';
-      document.getElementById('displayTaskName').textContent = taskConfig.name || '-';
-      document.getElementById('displayTaskDesc').textContent = taskConfig.description || '-';
-      document.getElementById('displayProjectPath').textContent = taskConfig.projectPath || '-';
+      const displayExecutionId = document.getElementById('displayExecutionId');
+      const displayTaskName = document.getElementById('displayTaskName');
+      const displayTaskDesc = document.getElementById('displayTaskDesc');
+      const displayProjectPath = document.getElementById('displayProjectPath');
+      if (displayExecutionId) displayExecutionId.textContent = taskConfig.executionId || '-';
+      if (displayTaskName) displayTaskName.textContent = taskConfig.name || '-';
+      if (displayTaskDesc) displayTaskDesc.textContent = taskConfig.description || '-';
+      if (displayProjectPath) displayProjectPath.textContent = taskConfig.projectPath || '-';
     }
 
     // 保存当前任务配置
@@ -6038,9 +6060,12 @@
 
     // 更新日志计数显示
     function updateLogCounts() {
-      document.getElementById('execLogCount').textContent = state.logs.execution.length;
-      document.getElementById('agentLogCount').textContent = state.logs.agent.length;
-      document.getElementById('opLogCount').textContent = state.operationLogs.length;
+      const execLogCount = document.getElementById('execLogCount');
+      const agentLogCount = document.getElementById('agentLogCount');
+      const opLogCount = document.getElementById('opLogCount');
+      if (execLogCount) execLogCount.textContent = state.logs.execution.length;
+      if (agentLogCount) agentLogCount.textContent = state.logs.agent.length;
+      if (opLogCount) opLogCount.textContent = state.operationLogs.length;
     }
 
     // 切换日志tab
