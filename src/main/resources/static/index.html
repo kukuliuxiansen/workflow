@@ -2565,12 +2565,17 @@
     // 全局错误捕获
     window.onerror = function(msg, url, lineNo, columnNo, error) {
       console.error('全局错误:', msg, 'at line', lineNo);
-      alert('错误: ' + msg + '\n行号: ' + lineNo);
+      // showToast会在后面定义，函数声明会被提升
+      if (typeof showToast === 'function') {
+        showToast('error', '错误: ' + msg + ' (行号: ' + lineNo + ')');
+      }
       return false;
     };
     window.addEventListener('unhandledrejection', function(event) {
       console.error('Promise错误:', event.reason);
-      alert('Promise错误: ' + event.reason);
+      if (typeof showToast === 'function') {
+        showToast('error', 'Promise错误: ' + event.reason);
+      }
     });
 
     const API = '/api';
@@ -3318,7 +3323,7 @@
       const folder = state.folders.find(f => f.id === folderId);
       if (!folder) return;
 
-      if (!confirm(`确定要删除文件夹"${folder.name}"吗？文件夹内的工作流将移至根目录。`)) return;
+      if (!await confirmAsync(`确定要删除文件夹"${folder.name}"吗？\n文件夹内的工作流将移至根目录。`)) return;
 
       try {
         const res = await fetch(`${API}/folders/${folderId}`, { method: 'DELETE' });
@@ -3407,7 +3412,7 @@
 
     // 删除工作流
     async function deleteWorkflow(id) {
-      if (!confirm('确定要删除此工作流吗？此操作不可恢复。')) return;
+      if (!await confirmAsync('确定要删除此工作流吗？\n此操作不可恢复。')) return;
 
       try {
         const res = await fetch(`${API}/workflows/${id}`, { method: 'DELETE' });
@@ -3692,7 +3697,7 @@
 
     // 通过edge id删除连线
     async function deleteEdgeById(edgeId) {
-      if (!confirm('删除此连线？')) return;
+      if (!await confirmAsync('删除此连线？')) return;
       try {
         await fetch(`${API}/workflows/${state.currentWorkflow.id}/edges/${edgeId}`, {
           method: 'DELETE'
@@ -4263,8 +4268,7 @@
       }
 
       // 确认执行
-      const confirmed = confirm(`确认执行任务？\n\n任务名称: ${taskConfig.name}\n项目路径: ${taskConfig.projectPath}`);
-      if (!confirmed) return;
+      if (!await confirmAsync(`确认执行任务？\n\n任务名称: ${taskConfig.name}\n项目路径: ${taskConfig.projectPath}`)) return;
 
       try {
         updateStatus('running');
@@ -4588,25 +4592,57 @@
         const data = await res.json();
         if (data.success) {
           const record = data.data;
-          let detail = `执行ID: ${record.executionId || record.id}\n`;
-          detail += `状态: ${getStatusText(record.status)}\n`;
-          detail += `任务名称: ${record.taskConfig?.name || '未命名'}\n`;
-          detail += `项目路径: ${record.taskConfig?.projectPath || '未设置'}\n`;
-          detail += `上下文文件: ${record.contextFilePath || '未创建'}\n`;
-          detail += `开始时间: ${formatDate(record.startTime)}\n`;
-          if (record.endTime) {
-            detail += `结束时间: ${formatDate(record.endTime)}\n`;
-          }
-          if (record.contextData?.agentPayloads?.length > 0) {
-            detail += `\nAgent执行记录(${record.contextData.agentPayloads.length}条):\n`;
-            record.contextData.agentPayloads.slice(0, 3).forEach(p => {
-              detail += `  - ${p.agentId}: ${p.nodeName}\n`;
-            });
-            if (record.contextData.agentPayloads.length > 3) {
-              detail += `  ... 还有${record.contextData.agentPayloads.length - 3}条\n`;
-            }
-          }
-          alert(detail);
+
+          // 创建模态框显示详情
+          const modalHtml = `
+            <div class="modal-overlay show" onclick="this.remove()">
+              <div class="modal-content" style="max-width:500px;" onclick="event.stopPropagation()">
+                <div class="modal-header" style="display:flex;justify-content:space-between;align-items:center;padding:16px;border-bottom:1px solid #3a3a3a;">
+                  <h3 style="margin:0;font-size:16px;">📋 执行详情</h3>
+                  <button onclick="this.closest('.modal-overlay').remove()" style="background:none;border:none;color:#888;font-size:20px;cursor:pointer;">&times;</button>
+                </div>
+                <div class="modal-body" style="padding:16px;max-height:400px;overflow-y:auto;">
+                  <div style="margin-bottom:12px;">
+                    <strong>执行ID:</strong> ${record.executionId || record.id}
+                  </div>
+                  <div style="margin-bottom:12px;">
+                    <strong>状态:</strong> <span class="status ${record.status}">${getStatusText(record.status)}</span>
+                  </div>
+                  <div style="margin-bottom:12px;">
+                    <strong>任务名称:</strong> ${record.taskConfig?.name || '未命名'}
+                  </div>
+                  <div style="margin-bottom:12px;">
+                    <strong>项目路径:</strong> <code style="background:#1a1a1a;padding:2px 6px;border-radius:3px;">${record.taskConfig?.projectPath || '未设置'}</code>
+                  </div>
+                  <div style="margin-bottom:12px;">
+                    <strong>上下文文件:</strong> ${record.contextFilePath || '未创建'}
+                  </div>
+                  <div style="margin-bottom:12px;">
+                    <strong>开始时间:</strong> ${formatDate(record.startTime)}
+                  </div>
+                  ${record.endTime ? `<div style="margin-bottom:12px;"><strong>结束时间:</strong> ${formatDate(record.endTime)}</div>` : ''}
+                  ${record.contextData?.agentPayloads?.length > 0 ? `
+                    <div style="margin-top:16px;padding-top:16px;border-top:1px solid #3a3a3a;">
+                      <strong>Agent执行记录 (${record.contextData.agentPayloads.length}条)</strong>
+                      <div style="margin-top:8px;background:#1a1a1a;border-radius:6px;padding:8px;">
+                        ${record.contextData.agentPayloads.slice(0, 5).map(p => `
+                          <div style="padding:4px 0;border-bottom:1px solid #2a2a2a;">
+                            <span style="color:#89b4fa;">${p.agentId}</span>: ${p.nodeName}
+                          </div>
+                        `).join('')}
+                        ${record.contextData.agentPayloads.length > 5 ? `<div style="padding:4px 0;color:#888;">... 还有${record.contextData.agentPayloads.length - 5}条</div>` : ''}
+                      </div>
+                    </div>
+                  ` : ''}
+                </div>
+                <div class="modal-footer" style="padding:12px 16px;border-top:1px solid #3a3a3a;text-align:right;">
+                  <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">关闭</button>
+                </div>
+              </div>
+            </div>
+          `;
+
+          document.body.insertAdjacentHTML('beforeend', modalHtml);
         }
       } catch (e) {
         showToast('error', '加载详情失败');
@@ -4614,7 +4650,7 @@
     }
 
     async function restartExecution(executionId) {
-      if (!confirm('确定要重新执行此任务吗？')) return;
+      if (!await confirmAsync('确定要重新执行此任务吗？')) return;
 
       try {
         const res = await fetch(`${API}/executions/records/${executionId}/restart`, {
@@ -4705,7 +4741,7 @@
         showToast('warn', '请先选择节点');
         return;
       }
-      if (!confirm('确定删除此节点？')) return;
+      if (!await confirmAsync('确定删除此节点？')) return;
 
       try {
         await fetch(`${API}/workflows/${state.currentWorkflow.id}/nodes/${state.selectedNode.id}`, { method: 'DELETE' });
@@ -4935,7 +4971,7 @@
     }
 
     async function deleteEdge(source, type) {
-      if (!confirm('删除此连线？')) return;
+      if (!await confirmAsync('删除此连线？')) return;
       try {
         await fetch(`${API}/workflows/${state.currentWorkflow.id}/edges`, {
           method: 'DELETE',
@@ -5705,8 +5741,10 @@
           deleteSelectedNodes();
           break;
         case 'run-from':
-          if (state.currentWorkflow && confirm('是否从此节点开始执行？')) {
-            executeWorkflow(nodeId);
+          if (state.currentWorkflow) {
+            confirmAsync('是否从此节点开始执行？').then(confirmed => {
+              if (confirmed) executeWorkflow(nodeId);
+            });
           }
           break;
       }
@@ -6147,7 +6185,7 @@
 
     // 重置提示词模板
     async function resetPromptTemplate(nodeType) {
-      if (!confirm('确定要重置为默认模板吗？这将清除您的自定义设置。')) {
+      if (!await confirmAsync('确定要重置为默认模板吗？\n这将清除您的自定义设置。')) {
         return;
       }
 
@@ -6713,8 +6751,10 @@
           deleteSelectedNodes();
           break;
         case 'run-from':
-          if (state.currentWorkflow && confirm('是否从此节点开始执行？')) {
-            executeWorkflow(nodeId);
+          if (state.currentWorkflow) {
+            confirmAsync('是否从此节点开始执行？').then(confirmed => {
+              if (confirmed) executeWorkflow(nodeId);
+            });
           }
           break;
         case 'select-all':
@@ -6925,6 +6965,36 @@
       toast.textContent = msg;
       container.appendChild(toast);
       setTimeout(() => toast.remove(), 3000);
+    }
+
+    // 确认对话框（替代confirm）
+    function showConfirm(message, onConfirm, onCancel) {
+      const modalHtml = `
+        <div class="modal-overlay show" id="confirmModal" onclick="if(event.target===this){this.remove();if(onCancel)onCancel();}">
+          <div class="modal-content" style="max-width:400px;" onclick="event.stopPropagation()">
+            <div class="modal-body" style="padding:24px;text-align:center;">
+              <div style="font-size:48px;margin-bottom:16px;">⚠️</div>
+              <div style="font-size:14px;color:#e0e0e0;white-space:pre-wrap;">${message}</div>
+            </div>
+            <div class="modal-footer" style="padding:16px;display:flex;gap:8px;justify-content:center;">
+              <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove();if(onCancel)onCancel();">取消</button>
+              <button class="btn btn-primary" id="confirmBtn">确定</button>
+            </div>
+          </div>
+        </div>
+      `;
+      document.body.insertAdjacentHTML('beforeend', modalHtml);
+      document.getElementById('confirmBtn').onclick = function() {
+        document.getElementById('confirmModal').remove();
+        if (onConfirm) onConfirm();
+      };
+    }
+
+    // 异步确认（返回Promise）
+    function confirmAsync(message) {
+      return new Promise((resolve) => {
+        showConfirm(message, () => resolve(true), () => resolve(false));
+      });
     }
   </script>
 </body>

@@ -232,6 +232,8 @@ public class AIService {
     @SuppressWarnings("unchecked")
     private WorkflowDto parseWorkflowResponse(String response, String name, String description) {
         try {
+            logger.info("AI返回原始内容: {}", response);
+
             // 提取JSON
             String jsonStr = response;
             if (response.contains("```")) {
@@ -242,6 +244,8 @@ public class AIService {
                     jsonStr = jsonStr.substring(4).trim();
                 }
             }
+
+            logger.info("解析JSON: {}", jsonStr);
 
             Map<String, Object> data = objectMapper.readValue(jsonStr, Map.class);
 
@@ -257,12 +261,25 @@ public class AIService {
             if (nodesData != null) {
                 int xPos = 100;
                 for (Map<String, Object> nodeData : nodesData) {
+                    logger.info("解析节点数据: {}", nodeData);
+
                     WorkflowNode node = new WorkflowNode();
                     node.setId((String) nodeData.getOrDefault("id", "node_" + UUID.randomUUID().toString().substring(0, 8)));
-                    node.setName((String) nodeData.getOrDefault("name", "节点"));
+                    // 尝试多个可能的名称字段
+                    String nodeName = (String) nodeData.get("name");
+                    if (nodeName == null) nodeName = (String) nodeData.get("nodeName");
+                    if (nodeName == null) nodeName = (String) nodeData.get("label");
+                    if (nodeName == null) nodeName = node.getId();
+                    node.setName(nodeName);
+
                     node.setType(parseNodeType((String) nodeData.get("type")));
-                    node.setPositionX((Integer) nodeData.getOrDefault("position_x", xPos));
-                    node.setPositionY((Integer) nodeData.getOrDefault("position_y", 150));
+
+                    // 位置可能是Integer或Number类型
+                    Object posX = nodeData.get("position_x");
+                    Object posY = nodeData.get("position_y");
+                    node.setPositionX(posX instanceof Number ? ((Number) posX).intValue() : xPos);
+                    node.setPositionY(posY instanceof Number ? ((Number) posY).intValue() : 150);
+
                     nodes.add(node);
                     xPos += 250;
                 }
