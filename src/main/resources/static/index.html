@@ -4132,8 +4132,12 @@
       panelContent.innerHTML = `
         <div class="form-group">
           <label class="form-label">节点名称</label>
-          <input type="text" class="form-input" value="${node.name || ''}" disabled style="background:#1a1a1a;color:#888;cursor:not-allowed;">
-          <p style="font-size:11px;color:#666;margin-top:4px;">节点名称创建后不可修改</p>
+          ${isStartOrFinish ?
+            `<input type="text" class="form-input" value="${node.name || ''}" disabled style="background:#1a1a1a;color:#888;cursor:not-allowed;">
+             <p style="font-size:11px;color:#666;margin-top:4px;">开始/结束节点名称不可修改</p>` :
+            `<input type="text" class="form-input" id="nodeNameInput" value="${node.name || ''}" onchange="updateNodeName(this.value)" placeholder="输入节点名称">
+             <p style="font-size:11px;color:#666;margin-top:4px;">按回车或失焦保存</p>`
+          }
         </div>
         <div class="form-group">
           <label class="form-label">节点类型</label>
@@ -4389,6 +4393,25 @@
       markDirty();  // 标记为已修改
       renderCanvas();
       addLog('info', `更新: ${key} = ${value}`);
+    }
+
+    // 更新节点名称
+    function updateNodeName(newName) {
+      if (!state.selectedNode) return;
+      if (state.selectedNode.type === 'start' || state.selectedNode.type === 'finish') {
+        showToast('error', '开始/结束节点名称不可修改');
+        return;
+      }
+      if (!newName || !newName.trim()) {
+        showToast('error', '节点名称不能为空');
+        return;
+      }
+      pushUndo();
+      state.selectedNode.name = newName.trim();
+      markDirty();
+      renderCanvas();
+      showToast('success', '节点名称已更新');
+      addLog('info', `节点名称更新为: ${newName.trim()}`);
     }
 
     // 获取下游边（从当前节点出发的边）
