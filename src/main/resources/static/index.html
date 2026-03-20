@@ -5019,7 +5019,13 @@
         return;
       }
 
-      const name = document.getElementById('newNodeName').value || '新节点';
+      // 获取名称，如果没有输入则使用节点类型的名称
+      let name = document.getElementById('newNodeName').value;
+      if (!name) {
+        const selectedCard = document.querySelector('.node-type-card.selected');
+        name = selectedCard ? selectedCard.querySelector('.name').textContent : '节点';
+      }
+
       try {
         await fetch(`${API}/workflows/${state.currentWorkflow.id}/nodes`, {
           method: 'POST',
@@ -5394,6 +5400,10 @@
       document.querySelectorAll('.node-type-card').forEach(c => c.classList.remove('selected'));
       el.classList.add('selected');
       state.selectedNodeType = el.dataset.type;
+
+      // 自动填充节点名称（使用节点类型的中文名称）
+      const typeName = el.querySelector('.name').textContent;
+      document.getElementById('newNodeName').value = typeName;
     }
 
     // 工具函数
@@ -5408,7 +5418,10 @@
         showToast('warn', '请先选择工作流');
         return;
       }
-      document.getElementById('newNodeName').value = '';
+      // 设置默认名称为当前选中节点类型的名称
+      const selectedCard = document.querySelector('.node-type-card.selected');
+      const defaultName = selectedCard ? selectedCard.querySelector('.name').textContent : 'Agent 执行';
+      document.getElementById('newNodeName').value = defaultName;
       document.getElementById('addNodeModal').classList.add('show');
     }
 
