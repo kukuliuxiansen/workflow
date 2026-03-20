@@ -1,4 +1,10 @@
+      .modal-footer {
+      padding: 12px 16px;
+      border-top: 1px solid #3a3a3a;
+      display: flex;
+      justify-content: flex-end;
       gap: 8px;
+      background: #252525;
     }
     .node-type-card {
       padding: 12px;

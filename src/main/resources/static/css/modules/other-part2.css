@@ -1,3 +1,6 @@
+      .folder-drop-zone.drag-over {
+      height: 30px;
+      background: rgba(107,92,231,0.2);
       border: 2px dashed #6b5ce7;
     }
     .new-folder-btn {

@@ -1,3 +1,7 @@
+      .context-menu-submenu > .submenu {
+      display: none;
+      position: absolute;
+      left: 100%;
       top: 0;
       background: #2a2a2a;
       border: 1px solid #4a4a4a;

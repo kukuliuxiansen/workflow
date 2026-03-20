@@ -1,3 +1,8 @@
+      .node-header {
+      padding: 10px 12px;
+      border-bottom: 1px solid #3a3a3a;
+      display: flex;
+      align-items: center;
       gap: 8px;
       border-radius: 8px 8px 0 0;
     }
