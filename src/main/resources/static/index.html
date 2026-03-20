@@ -3234,7 +3234,7 @@
 
     // 渲染单个工作流项
     function renderWorkflowItem(w) {
-      const nodeCount = w.nodeCount ?? w.nodes?.length ?? '-';
+      const nodeCount = w.node_count ?? w.nodeCount ?? w.nodes?.length ?? 0;
       return `
         <div class="workflow-item ${state.currentWorkflow?.id === w.id ? 'active' : ''}"
              data-id="${w.id}"

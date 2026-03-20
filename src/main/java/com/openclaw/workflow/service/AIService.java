@@ -8,12 +8,7 @@ import com.openclaw.workflow.entity.WorkflowNode;
 import com.openclaw.workflow.repository.WorkflowEdgeRepository;
 import com.openclaw.workflow.repository.WorkflowNodeRepository;
 import com.openclaw.workflow.repository.WorkflowRepository;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
+import com.openclaw.workflow.engine.connector.OpenClawGatewayClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,10 +31,20 @@ public class AIService {
     @Value("${ai.model:qwen3-max-2026-01-23}")
     private String model;
 
+    // Gateway API配置（用于AI生成）
+    @Value("${openclaw.gateway-url:http://localhost:18789}")
+    private String gatewayUrl;
+
+    @Value("${openclaw.gateway-token:56b640cc2d91411f63255af68355c19ee33c88ec458878ca}")
+    private String gatewayToken;
+
+    // AI生成使用的Agent ID
+    @Value("${openclaw.ai-agent-id:project-manager}")
+    private String aiAgentId;
+
     private final WorkflowRepository workflowRepository;
     private final WorkflowNodeRepository nodeRepository;
     private final WorkflowEdgeRepository edgeRepository;
-    private final CloseableHttpClient httpClient;
 
     public AIService(WorkflowRepository workflowRepository,
                      WorkflowNodeRepository nodeRepository,
@@ -47,7 +52,6 @@ public class AIService {
         this.workflowRepository = workflowRepository;
         this.nodeRepository = nodeRepository;
         this.edgeRepository = edgeRepository;
-        this.httpClient = HttpClients.createDefault();
     }
 
     public WorkflowDto generateWorkflow(String description, String name) {
@@ -55,7 +59,17 @@ public class AIService {
             String systemPrompt = buildSystemPrompt();
             String userPrompt = buildUserPrompt(description, name);
 
-            String response = callAI(systemPrompt, userPrompt);
+            // 优先使用Gateway API
+            String response;
+            if (gatewayUrl != null && !gatewayUrl.isEmpty()) {
+                response = callViaGateway(systemPrompt, userPrompt);
+            } else if (apiKey != null && !apiKey.isEmpty()) {
+                response = callViaDirectApi(systemPrompt, userPrompt);
+            } else {
+                logger.warn("未配置AI API Key或Gateway URL，使用默认模板");
+                return createFallbackWorkflow(description, name);
+            }
+
             return parseWorkflowResponse(response, name, description);
 
         } catch (Exception e) {
@@ -68,7 +82,7 @@ public class AIService {
         try {
             String systemPrompt = "你是一个工作流节点提示词设计专家。生成简洁明了的中间提示词草案。";
             String userPrompt = "需求：" + requirement + "\n\n请生成中间提示词草案：";
-            return callAI(systemPrompt, userPrompt);
+            return callAIInternal(systemPrompt, userPrompt);
         } catch (Exception e) {
             return "任务目标: " + requirement;
         }
@@ -78,9 +92,117 @@ public class AIService {
         try {
             String systemPrompt = "你是一个工作流节点执行提示词专家。生成完整、详细的可执行提示词。";
             String userPrompt = "中间提示词:\n" + intermediatePrompt + "\n\n请生成最终执行提示词：";
-            return callAI(systemPrompt, userPrompt);
+            return callAIInternal(systemPrompt, userPrompt);
         } catch (Exception e) {
             return intermediatePrompt;
+        }
+    }
+
+    /**
+     * 内部调用AI方法
+     */
+    private String callAIInternal(String systemPrompt, String userPrompt) throws Exception {
+        if (gatewayUrl != null && !gatewayUrl.isEmpty()) {
+            return callViaGateway(systemPrompt, userPrompt);
+        } else if (apiKey != null && !apiKey.isEmpty()) {
+            return callViaDirectApi(systemPrompt, userPrompt);
+        } else {
+            throw new RuntimeException("未配置AI API Key或Gateway URL");
+        }
+    }
+
+    /**
+     * 通过Gateway API调用AI
+     */
+    private String callViaGateway(String systemPrompt, String userPrompt) throws Exception {
+        logger.info("通过Gateway API调用AI: {}", gatewayUrl);
+
+        OpenClawGatewayClient client = new OpenClawGatewayClient(gatewayUrl, gatewayToken);
+
+        OpenClawGatewayClient.AgentRequest request = OpenClawGatewayClient.AgentRequest.builder()
+                .agentId(aiAgentId)
+                .systemPrompt(systemPrompt)
+                .message(userPrompt)
+                .context("workflow_gen")
+                .build();
+
+        OpenClawGatewayClient.AgentResponse response = client.executeAgent(request);
+
+        if (!response.isSuccess()) {
+            throw new RuntimeException("Gateway API调用失败: " + response.getErrorMessage());
+        }
+
+        logger.info("Gateway API调用成功，返回内容长度: {}", response.getContent().length());
+        return response.getContent();
+    }
+
+    /**
+     * 通过直接API调用AI（阿里云DashScope）
+     */
+    private String callViaDirectApi(String systemPrompt, String userPrompt) throws Exception {
+        logger.info("通过直接API调用AI: {}", baseUrl);
+
+        java.net.HttpURLConnection connection = null;
+        try {
+            Map<String, Object> requestBody = new LinkedHashMap<>();
+            requestBody.put("model", model);
+            requestBody.put("messages", Arrays.asList(
+                    Map.of("role", "system", "content", systemPrompt),
+                    Map.of("role", "user", "content", userPrompt)
+            ));
+            requestBody.put("temperature", 0.7);
+            requestBody.put("max_tokens", 4096);
+
+            String jsonBody = objectMapper.writeValueAsString(requestBody);
+
+            java.net.URL url = new java.net.URL(baseUrl + "/chat/completions");
+            connection = (java.net.HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setRequestProperty("Content-Type", "application/json");
+            connection.setRequestProperty("Authorization", "Bearer " + apiKey);
+            connection.setDoOutput(true);
+            connection.setConnectTimeout(30000);
+            connection.setReadTimeout(120000);
+
+            try (java.io.OutputStream os = connection.getOutputStream()) {
+                os.write(jsonBody.getBytes("UTF-8"));
+                os.flush();
+            }
+
+            int statusCode = connection.getResponseCode();
+            if (statusCode != 200) {
+                try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                        new java.io.InputStreamReader(connection.getErrorStream(), "UTF-8"))) {
+                    StringBuilder error = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        error.append(line);
+                    }
+                    throw new RuntimeException("AI API调用失败: " + statusCode + " - " + error);
+                }
+            }
+
+            try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(connection.getInputStream(), "UTF-8"))) {
+                StringBuilder responseBody = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    responseBody.append(line);
+                }
+
+                Map<String, Object> responseMap = objectMapper.readValue(responseBody.toString(), Map.class);
+                List<Map<String, Object>> choices = (List<Map<String, Object>>) responseMap.get("choices");
+                if (choices != null && !choices.isEmpty()) {
+                    Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
+                    return (String) message.get("content");
+                }
+
+                throw new RuntimeException("AI返回内容为空");
+            }
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
         }
     }
 
@@ -105,45 +227,6 @@ public class AIService {
         }
         prompt.append("请生成 JSON 格式的工作流定义：");
         return prompt.toString();
-    }
-
-    private String callAI(String systemPrompt, String userPrompt) throws Exception {
-        if (apiKey == null || apiKey.isEmpty()) {
-            throw new RuntimeException("AI API Key 未配置");
-        }
-
-        Map<String, Object> requestBody = new LinkedHashMap<>();
-        requestBody.put("model", model);
-        requestBody.put("messages", Arrays.asList(
-                Map.of("role", "system", "content", systemPrompt),
-                Map.of("role", "user", "content", userPrompt)
-        ));
-        requestBody.put("temperature", 0.7);
-        requestBody.put("max_tokens", 4096);
-
-        String jsonBody = objectMapper.writeValueAsString(requestBody);
-
-        HttpPost request = new HttpPost(baseUrl + "/chat/completions");
-        request.setHeader("Content-Type", "application/json");
-        request.setHeader("Authorization", "Bearer " + apiKey);
-        request.setEntity(new StringEntity(jsonBody, "UTF-8"));
-
-        try (CloseableHttpResponse response = httpClient.execute(request)) {
-            int statusCode = response.getStatusLine().getStatusCode();
-            if (statusCode != 200) {
-                throw new RuntimeException("AI API 调用失败: " + statusCode);
-            }
-
-            String responseBody = EntityUtils.toString(response.getEntity(), "UTF-8");
-            Map<String, Object> responseMap = objectMapper.readValue(responseBody, Map.class);
-            List<Map<String, Object>> choices = (List<Map<String, Object>>) responseMap.get("choices");
-            if (choices != null && !choices.isEmpty()) {
-                Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
-                return (String) message.get("content");
-            }
-
-            throw new RuntimeException("AI 返回内容为空");
-        }
     }
 
     @SuppressWarnings("unchecked")
