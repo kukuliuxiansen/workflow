@@ -2765,7 +2765,7 @@
       const container = document.getElementById('apiLogContent');
       if (!container) return;
 
-      if (state.logs.api.length === 0) {
+      if (!state.logs || !state.logs.api || state.logs.api.length === 0) {
         container.innerHTML = '<div style="text-align:center;padding:20px;color:#888;">暂无API日志</div>';
         return;
       }
@@ -6198,9 +6198,9 @@
       const agentLogCount = document.getElementById('agentLogCount');
       const apiLogCount = document.getElementById('apiLogCount');
       const opLogCount = document.getElementById('opLogCount');
-      if (execLogCount) execLogCount.textContent = state.logs.execution.length;
-      if (agentLogCount) agentLogCount.textContent = state.logs.agent.length;
-      if (apiLogCount) apiLogCount.textContent = state.logs.api.length;
+      if (execLogCount && state.logs.execution) execLogCount.textContent = state.logs.execution.length;
+      if (agentLogCount && state.logs.agent) agentLogCount.textContent = state.logs.agent.length;
+      if (apiLogCount && state.logs.api) apiLogCount.textContent = state.logs.api.length;
       if (opLogCount) opLogCount.textContent = state.operationLogs.length;
     }
 
