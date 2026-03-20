@@ -663,6 +663,13 @@
       cursor: pointer;
     }
     .log-action-btn:hover { background: #3a3a3a; color: #aaa; }
+    /* 操作日志样式 */
+    .op-log-item { transition: background 0.2s; }
+    .op-log-item:hover { background: #2a2a2a; }
+    .op-log-fail { background: rgba(244, 67, 54, 0.1); }
+    .op-log-item pre { margin: 0; font-size: 11px; }
+    .op-log-item details summary { font-size: 11px; }
+    .op-log-filters { display: flex; align-items: center; }
     .log-content-wrapper {
       flex: 1;
       overflow: hidden;
@@ -6097,10 +6104,20 @@
     // 清空当前tab的日志
     function clearCurrentLogs() {
       const tab = state.currentLogTab;
-      state.logs[tab] = [];
-      const contentId = tab === 'agent' ? 'agentLogContent' : 'execLogContent';
-      document.getElementById(contentId).innerHTML = '';
-      updateLogCounts();
+      if (tab === 'operation') {
+        // 清空操作日志需要调用API
+        fetch(`${API}/logs/recent`, { method: 'DELETE' })
+          .then(() => {
+            state.operationLogs = [];
+            renderOperationLogs([]);
+            updateLogCounts();
+          });
+      } else {
+        state.logs[tab] = [];
+        const contentId = tab === 'agent' ? 'agentLogContent' : 'execLogContent';
+        document.getElementById(contentId).innerHTML = '';
+        updateLogCounts();
+      }
     }
 
     // 导出当前tab的日志
