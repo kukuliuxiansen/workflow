@@ -3671,13 +3671,16 @@
       // 使用 edges 数组渲染连线
       if (workflow.edges && Array.isArray(workflow.edges)) {
         workflow.edges.forEach((edge) => {
-          const srcNode = nodeMap[edge.source_node_id];
-          const tgtNode = nodeMap[edge.target_node_id];
+          // 支持两种命名方式：camelCase（后端返回）和 snake_case（兼容旧数据）
+          const sourceNodeId = edge.sourceNodeId || edge.source_node_id;
+          const targetNodeId = edge.targetNodeId || edge.target_node_id;
+          const srcNode = nodeMap[sourceNodeId];
+          const tgtNode = nodeMap[targetNodeId];
           if (!srcNode || !tgtNode) return;
 
           // 获取实际节点元素
-          const srcEl = document.getElementById(`node-${edge.source_node_id}`);
-          const tgtEl = document.getElementById(`node-${edge.target_node_id}`);
+          const srcEl = document.getElementById(`node-${sourceNodeId}`);
+          const tgtEl = document.getElementById(`node-${targetNodeId}`);
 
           if (srcEl) {
             srcNode.width = srcEl.offsetWidth;
@@ -3688,7 +3691,7 @@
             tgtNode.height = tgtEl.offsetHeight;
           }
 
-          const edgeType = edge.edge_type || 'success';
+          const edgeType = edge.edgeType || edge.edge_type || 'success';
 
           // 端口大小为10px，在节点边缘外
           const portRadius = 5;
@@ -3716,10 +3719,10 @@
                            pathType === 'default' ? 'default' : 'success';
 
           // 是否显示动画（执行中时）
-          const animateClass = state.nodeStatus.get(edge.source_node_id) === 'running' ? 'animated' : '';
+          const animateClass = state.nodeStatus.get(sourceNodeId) === 'running' ? 'animated' : '';
 
           // 生成唯一edgeId
-          const edgeIdStr = edge.id || `${edge.source_node_id}-${edge.target_node_id}`;
+          const edgeIdStr = edge.id || `${sourceNodeId}-${targetNodeId}`;
 
           paths += `<path class="edge-path ${typeClass} ${animateClass}"
                          d="M${x1},${y1} C${x1 + controlOffset},${y1} ${x2 - controlOffset},${y2} ${x2},${y2}"
@@ -3978,20 +3981,21 @@
             <div class="config-section-title" style="margin-bottom:8px;">🔀 分支连线配置</div>
             <p style="font-size:11px;color:#888;margin-bottom:12px;">为每条出边配置条件说明，Agent会根据这些描述判断走哪条路径</p>
             ${getDownstreamEdges(node.id).length > 0 ? getDownstreamEdges(node.id).map((edge, idx) => {
-              const targetNode = state.currentWorkflow.nodes.find(n => n.id === edge.target_node_id);
-              const branchConfig = (node.branches || []).find(b => b.targetNodeId === edge.target_node_id) || {};
+              const targetId = edge.targetNodeId || edge.target_node_id;
+              const targetNode = state.currentWorkflow.nodes.find(n => n.id === targetId);
+              const branchConfig = (node.branches || []).find(b => b.targetNodeId === targetId) || {};
               return `
                 <div style="background:#252525;border:1px solid #3a3a3a;border-radius:6px;padding:10px;margin-bottom:8px;">
                   <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
                     <span style="font-size:12px;color:#89b4fa;">→</span>
-                    <span style="font-size:13px;font-weight:500;">${targetNode?.name || edge.target_node_id}</span>
-                    <span style="font-size:10px;color:#888;background:#1a1a1a;padding:2px 6px;border-radius:3px;">${edge.type || 'success'}</span>
+                    <span style="font-size:13px;font-weight:500;">${targetNode?.name || targetId}</span>
+                    <span style="font-size:10px;color:#888;background:#1a1a1a;padding:2px 6px;border-radius:3px;">${edge.type || edge.edgeType || 'success'}</span>
                   </div>
                   <div style="background:#1a1a1a;border-radius:4px;padding:8px;">
                     <label style="font-size:10px;color:#6b5ce7;display:block;margin-bottom:4px;">✨ 条件说明（什么情况下走这个分支）</label>
                     <textarea class="form-input form-textarea" style="min-height:50px;font-size:12px;"
                       placeholder="例如：当测试全部通过时走这个分支"
-                      onchange="updateBranchConfig('${edge.target_node_id}', 'conditionDesc', this.value)">${branchConfig.conditionDesc || ''}</textarea>
+                      onchange="updateBranchConfig('${targetId}', 'conditionDesc', this.value)">${branchConfig.conditionDesc || ''}</textarea>
                   </div>
                 </div>
               `;
@@ -4002,8 +4006,9 @@
             <select class="form-select" onchange="updateNodeAndSave('defaultBranch',this.value)">
               <option value="">自动选择第一个</option>
               ${getDownstreamEdges(node.id).map(edge => {
-                const targetNode = state.currentWorkflow.nodes.find(n => n.id === edge.target_node_id);
-                return `<option value="${edge.target_node_id}" ${node.defaultBranch===edge.target_node_id?'selected':''}>${targetNode?.name || edge.target_node_id}</option>`;
+                const targetId = edge.targetNodeId || edge.target_node_id;
+                const targetNode = state.currentWorkflow.nodes.find(n => n.id === targetId);
+                return `<option value="${targetId}" ${node.defaultBranch===targetId?'selected':''}>${targetNode?.name || targetId}</option>`;
               }).join('')}
             </select>
           </div>
@@ -4094,11 +4099,12 @@
             ${getDownstreamEdges(node.id).length > 0 ? `
               <div style="background:#252525;border-radius:4px;padding:8px;">
                 ${getDownstreamEdges(node.id).map((edge, idx) => {
-                  const targetNode = state.currentWorkflow.nodes.find(n => n.id === edge.target_node_id);
+                  const targetId = edge.targetNodeId || edge.target_node_id;
+                  const targetNode = state.currentWorkflow.nodes.find(n => n.id === targetId);
                   return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;${idx > 0 ? 'border-top:1px solid #3a3a3a;' : ''}">
                     <span style="font-size:12px;color:#89b4fa;">→</span>
-                    <span style="font-size:12px;">${targetNode?.name || edge.target_node_id}</span>
-                    <span style="font-size:10px;color:#888;background:#1a1a1a;padding:2px 6px;border-radius:3px;">${edge.type || 'success'}</span>
+                    <span style="font-size:12px;">${targetNode?.name || targetId}</span>
+                    <span style="font-size:10px;color:#888;background:#1a1a1a;padding:2px 6px;border-radius:3px;">${edge.type || edge.edgeType || 'success'}</span>
                   </div>`;
                 }).join('')}
               </div>
@@ -4153,7 +4159,7 @@
     // 获取下游边（从当前节点出发的边）
     function getDownstreamEdges(nodeId) {
       if (!state.currentWorkflow || !state.currentWorkflow.edges) return [];
-      return state.currentWorkflow.edges.filter(e => e.source_node_id === nodeId);
+      return state.currentWorkflow.edges.filter(e => (e.sourceNodeId || e.source_node_id) === nodeId);
     }
 
     // 更新分支配置（基于目标节点ID）
