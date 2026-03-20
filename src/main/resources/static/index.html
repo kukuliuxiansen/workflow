@@ -2639,17 +2639,30 @@
     const apiLogs = [];
     const MAX_API_LOGS = 500;
 
-    // 封装fetch，自动记录API调用日志
-    async function apiFetch(url, options = {}) {
+    // 保存原始fetch
+    const originalFetch = window.fetch;
+
+    // 重写fetch以自动记录API调用日志
+    window.fetch = async function(url, options = {}) {
       const startTime = Date.now();
       const method = options.method || 'GET';
-      const requestBody = options.body ? (typeof options.body === 'string' ? JSON.parse(options.body) : options.body) : null;
+
+      // 解析请求体
+      let requestBody = null;
+      if (options.body) {
+        try {
+          requestBody = typeof options.body === 'string' ? JSON.parse(options.body) : options.body;
+        } catch (e) {
+          requestBody = options.body;
+        }
+      }
 
       let response, data, error = null;
 
       try {
-        response = await fetch(url, options);
-        const text = await response.text();
+        response = await originalFetch(url, options);
+        const clonedResponse = response.clone();
+        const text = await clonedResponse.text();
         try {
           data = JSON.parse(text);
         } catch (e) {
@@ -2662,33 +2675,36 @@
       const endTime = Date.now();
       const duration = endTime - startTime;
 
-      // 记录API日志
-      const logEntry = {
-        timestamp: new Date().toLocaleTimeString(),
-        method,
-        url: url.replace(API, ''),  // 简化URL显示
-        fullUrl: url,
-        request: requestBody,
-        response: data,
-        status: response?.status || (error ? 'ERROR' : 'N/A'),
-        duration: duration + 'ms',
-        error
-      };
+      // 只记录API调用（排除静态资源等）
+      if (typeof url === 'string' && url.startsWith(API)) {
+        const logEntry = {
+          timestamp: new Date().toLocaleTimeString(),
+          method,
+          url: url.replace(API, ''),
+          fullUrl: url,
+          request: requestBody,
+          response: data,
+          status: response?.status || (error ? 'ERROR' : 'N/A'),
+          duration: duration + 'ms',
+          error
+        };
 
-      apiLogs.unshift(logEntry);
-      if (apiLogs.length > MAX_API_LOGS) {
-        apiLogs.pop();
+        apiLogs.unshift(logEntry);
+        if (apiLogs.length > MAX_API_LOGS) {
+          apiLogs.pop();
+        }
+
+        // 更新API日志显示
+        renderApiLogs();
+        updateLogCounts();
       }
-
-      // 更新API日志显示
-      renderApiLogs();
 
       if (error) {
         throw new Error(error);
       }
 
-      return { ok: response?.ok, status: response?.status, data, json: () => Promise.resolve(data) };
-    }
+      return response;
+    };
 
     // 渲染API日志
     function renderApiLogs() {
@@ -2720,7 +2736,7 @@
             ${log.request ? `
               <details style="margin-top:6px;">
                 <summary style="cursor:pointer;color:#4CAF50;font-weight:500;">📤 请求参数</summary>
-                <pre style="background:#1a1a1a;padding:8px;margin:6px 0;border-radius:4px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;font-size:11px;color:#a6e3a1;">${escapeHtml(JSON.stringify(log.request, null, 2))}</pre>
+                <pre style="background:#1a1a1a;padding:8px;margin:6px 0;border-radius:4px;overflow-x:auto;white-space:pre-wrap;word-break:break-all;font-size:11px;color:#a6e3a1;max-height:200px;">${escapeHtml(JSON.stringify(log.request, null, 2))}</pre>
               </details>
             ` : ''}
             ${log.response ? `
