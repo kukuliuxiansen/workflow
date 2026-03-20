@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openclaw.workflow.engine.connector.OpenClawGatewayClient;
 import com.openclaw.workflow.engine.model.NodeExecutionContext;
 import com.openclaw.workflow.engine.model.NodeResult;
+import com.openclaw.workflow.engine.service.BranchInfo;
 import com.openclaw.workflow.engine.service.NodePromptService;
 import com.openclaw.workflow.engine.util.AgentDecisionParser;
 import com.openclaw.workflow.engine.util.NodePromptBuilder;
@@ -110,9 +111,9 @@ public class ConditionNodeHandler extends BaseNodeHandler {
 
     private String buildPrompt(WorkflowNode node, ConditionConfig config, NodeExecutionContext context) {
         if (promptService != null) {
-            List<NodePromptService.BranchInfo> branchInfos = new ArrayList<>();
+            List<BranchInfo> branchInfos = new ArrayList<>();
             for (Branch branch : config.branches) {
-                branchInfos.add(new NodePromptService.BranchInfo(
+                branchInfos.add(new BranchInfo(
                         branch.id, branch.name, branch.description, branch.conditionDesc));
             }
             return promptService.buildConditionPrompt(

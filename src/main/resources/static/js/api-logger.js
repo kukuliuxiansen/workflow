@@ -1,82 +1,82 @@
-const originalFetch = window.fetch;
-window.fetch = async function(url, options = {}) {
-  const startTime = Date.now();
-  const method = options.method || 'GET';
-  const requestTime = new Date().toLocaleTimeString();
-  const traceId = 'TRC-' + Date.now() + '-' + Math.random().toString(16).substr(2, 4).toUpperCase();
+    const originalFetch = window.fetch;
+    window.fetch = async function(url, options = {}) {
+      const startTime = Date.now();
+      const method = options.method || 'GET';
+      const requestTime = new Date().toLocaleTimeString();
+      const traceId = 'TRC-' + Date.now() + '-' + Math.random().toString(16).substr(2, 4).toUpperCase();
 
-  // 记录请求
-  let requestPreview = '';
-  if (options.body) {
-    try {
-      const bodyStr = typeof options.body === 'string' ? options.body : JSON.stringify(options.body);
-      requestPreview = bodyStr.length > 500 ? bodyStr.substring(0, 500) + '...(truncated)' : bodyStr;
-    } catch (e) {
-      requestPreview = '[无法序列化]';
-    }
-  }
-
-  try {
-    const response = await originalFetch.call(this, url, options);
-    const duration = Date.now() - startTime;
-
-    // 克隆response以便读取内容
-    const clonedResponse = response.clone();
-
-    // 记录响应
-    let responsePreview = '';
-    try {
-      const responseText = await clonedResponse.text();
-      responsePreview = responseText.length > 500 ? responseText.substring(0, 500) + '...(truncated)' : responseText;
-    } catch (e) {
-      responsePreview = '[无法读取响应]';
-    }
-
-    // 只记录API调用
-    if (typeof url === 'string' && url.startsWith(API)) {
-      const logEntry = {
-        traceId,
-        time: requestTime,
-        method,
-        url: url.replace(API, ''),
-        status: response.status,
-        duration: duration + 'ms',
-        request: requestPreview,
-        response: responsePreview,
-        success: response.ok
-      };
-
-      state.logs.api.unshift(logEntry);
-      // 限制API日志数量
-      if (state.logs.api.length > 200) {
-        state.logs.api = state.logs.api.slice(0, 200);
+      // 记录请求
+      let requestPreview = '';
+      if (options.body) {
+        try {
+          const bodyStr = typeof options.body === 'string' ? options.body : JSON.stringify(options.body);
+          requestPreview = bodyStr.length > 500 ? bodyStr.substring(0, 500) + '...(truncated)' : bodyStr;
+        } catch (e) {
+          requestPreview = '[无法序列化]';
+        }
       }
-      updateApiLogCount();
-    }
 
-    return response;
-  } catch (error) {
-    const duration = Date.now() - startTime;
+      try {
+        const response = await originalFetch.call(this, url, options);
+        const duration = Date.now() - startTime;
 
-    // 记录错误
-    if (typeof url === 'string' && url.startsWith(API)) {
-      const logEntry = {
-        traceId,
-        time: requestTime,
-        method,
-        url: url.replace(API, ''),
-        status: 'ERROR',
-        duration: duration + 'ms',
-        request: requestPreview,
-        response: error.message,
-        success: false
-      };
+        // 克隆response以便读取内容
+        const clonedResponse = response.clone();
 
-      state.logs.api.unshift(logEntry);
-      updateApiLogCount();
-    }
+        // 记录响应
+        let responsePreview = '';
+        try {
+          const responseText = await clonedResponse.text();
+          responsePreview = responseText.length > 500 ? responseText.substring(0, 500) + '...(truncated)' : responseText;
+        } catch (e) {
+          responsePreview = '[无法读取响应]';
+        }
 
-    throw error;
-  }
-};
+        // 只记录API调用
+        if (typeof url === 'string' && url.startsWith(API)) {
+          const logEntry = {
+            traceId,
+            time: requestTime,
+            method,
+            url: url.replace(API, ''),
+            status: response.status,
+            duration: duration + 'ms',
+            request: requestPreview,
+            response: responsePreview,
+            success: response.ok
+          };
+
+          state.logs.api.unshift(logEntry);
+          // 限制API日志数量
+          if (state.logs.api.length > 200) {
+            state.logs.api = state.logs.api.slice(0, 200);
+          }
+          updateApiLogCount();
+        }
+
+        return response;
+      } catch (error) {
+        const duration = Date.now() - startTime;
+
+        // 记录错误
+        if (typeof url === 'string' && url.startsWith(API)) {
+          const logEntry = {
+            traceId,
+            time: requestTime,
+            method,
+            url: url.replace(API, ''),
+            status: 'ERROR',
+            duration: duration + 'ms',
+            request: requestPreview,
+            response: error.message,
+            success: false
+          };
+
+          state.logs.api.unshift(logEntry);
+          updateApiLogCount();
+        }
+
+        throw error;
+      }
+    };
 

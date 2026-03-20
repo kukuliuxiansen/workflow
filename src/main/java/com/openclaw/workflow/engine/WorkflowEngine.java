@@ -1,14 +1,10 @@
 package com.openclaw.workflow.engine;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.openclaw.workflow.engine.handler.BaseNodeHandler;
 import com.openclaw.workflow.engine.model.*;
 import com.openclaw.workflow.entity.*;
 import com.openclaw.workflow.repository.*;
-import com.openclaw.workflow.service.OperationLogService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -21,7 +17,6 @@ import java.util.*;
 public class WorkflowEngine {
 
     private static final Logger logger = LoggerFactory.getLogger(WorkflowEngine.class);
-    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     private final ContextManager contextManager;
     private final NodeHandlerFactory handlerFactory;
@@ -29,8 +24,7 @@ public class WorkflowEngine {
     private final WorkflowNodeRepository nodeRepository;
     private final WorkflowEdgeRepository edgeRepository;
     private final ExecutionRepository executionRepository;
-    private OperationLogService logService;
-
+    private final NodeExecutionHelper executionHelper;
     private final RetryManager retryManager = new RetryManager();
 
     private String executionId;
@@ -57,11 +51,11 @@ public class WorkflowEngine {
         this.nodeRepository = nodeRepository;
         this.edgeRepository = edgeRepository;
         this.executionRepository = executionRepository;
+        this.executionHelper = new NodeExecutionHelper(handlerFactory, contextManager);
     }
 
-    @Autowired
-    public void setLogService(OperationLogService logService) {
-        this.logService = logService;
+    public void setLogService(com.openclaw.workflow.service.OperationLogService logService) {
+        this.executionHelper.setLogService(logService);
     }
 
     private void resetEngineState() {
@@ -93,15 +87,13 @@ public class WorkflowEngine {
                     .orElseThrow(() -> new RuntimeException("工作流不存在: " + workflowId));
 
             Execution execution = initExecution(workflow);
-            contextManager.setExecutionId(executionId);
-            contextManager.setInput(input);
+            contextManager.init(input, null);
 
             String nodeId = startNodeId != null ? startNodeId : findStartNode(workflow);
             this.currentNodeId = nodeId;
 
             while (nodeId != null && !isStopped) {
                 checkWait();
-
                 if (isStopped) break;
 
                 WorkflowNode node = nodeRepository.findById(nodeId)
@@ -111,29 +103,19 @@ public class WorkflowEngine {
                 this.currentNodeId = nodeId;
                 retryManager.incrementLoopCount();
 
-                if (retryManager.getGlobalLoopCount() > options.getMaxLoopIterations()) {
+                if (retryManager.getGlobalLoopCount() > options.getMaxGlobalLoop()) {
                     logger.warn("循环次数超限: {}", retryManager.getGlobalLoopCount());
                     break;
                 }
 
-                NodeResult result = executeNode(node);
+                NodeResult result = executionHelper.execute(node, workflowId, executionId);
                 updateExecutionStatus(execution, status.name().toLowerCase());
 
-                if (result.getNextNodeId() != null) {
-                    nodeId = result.getNextNodeId();
-                } else {
-                    nodeId = getNextNode(node, result.getStatus());
-                }
+                nodeId = determineNextNode(node, result, execution);
 
                 if (nodeId == null || "finish".equals(result.getStatus())) {
                     this.status = ExecutionStatus.COMPLETED;
                     updateExecutionStatus(execution, "completed");
-                    break;
-                }
-
-                if ("failed".equals(result.getStatus()) && nodeId == null) {
-                    this.status = ExecutionStatus.FAILED;
-                    updateExecutionStatus(execution, "failed");
                     break;
                 }
             }
@@ -142,7 +124,11 @@ public class WorkflowEngine {
                 updateExecutionStatus(execution, "stopped");
             }
 
-            return ExecutionResult.success(executionId, contextManager.getAllOutputs());
+            Map<String, Object> allOutputs = new HashMap<>();
+            for (Map.Entry<String, NodeResult> entry : contextManager.getAllOutputs().entrySet()) {
+                allOutputs.put(entry.getKey(), entry.getValue().getOutput());
+            }
+            return ExecutionResult.success(executionId, allOutputs);
 
         } catch (Exception e) {
             logger.error("工作流执行异常: {}", e.getMessage(), e);
@@ -151,119 +137,52 @@ public class WorkflowEngine {
         }
     }
 
-    private NodeResult executeNode(WorkflowNode node) {
-        logger.info("执行节点: {} ({})", node.getName(), node.getType());
-
-        long startTime = System.currentTimeMillis();
-        Object nodeInput = null;
-
-        try {
-            NodeExecutionContext context = new NodeExecutionContext();
-            context.setNode(node);
-            context.setWorkflowId(workflowId);
-            context.setExecutionId(executionId);
-            context.setInput(contextManager.getInput());
-            context.setPreviousOutputs(contextManager.getAllOutputs());
-            context.setTaskDescription(contextManager.getTaskDescription());
-            context.setProjectPath(contextManager.getProjectPath());
-            context.setGlobalPrompt(contextManager.getGlobalPrompt());
-
-            nodeInput = Map.of(
-                "nodeId", node.getId(),
-                "nodeName", node.getName(),
-                "nodeType", node.getType().toString(),
-                "input", truncateForLog(context.getInput(), 500),
-                "previousOutputs", truncateForLog(context.getPreviousOutputs(), 500)
-            );
-
-            BaseNodeHandler handler = handlerFactory.getHandler(node.getType());
-            NodeResult result = handler.execute(context);
-
-            long duration = System.currentTimeMillis() - startTime;
-            logger.info("节点 {} 执行完成, 状态: {}, 耗时: {}ms", node.getName(), result.getStatus(), duration);
-
-            if (logService != null) {
-                Object nodeOutput = Map.of(
-                    "status", result.getStatus(),
-                    "output", truncateForLog(result.getOutput(), 1000),
-                    "error", result.getError() != null ? result.getError() : "",
-                    "duration", duration + "ms"
-                );
-                logService.logNodeOperation(executionId, node.getId(), node.getType().toString(),
-                    "EXECUTE", nodeInput, nodeOutput);
-            }
-
-            contextManager.saveNodeOutput(node.getId(), result);
-
-            if ("retry".equals(result.getStatus())) {
-                retryManager.incrementNodeRetry(node.getId());
-                retryManager.incrementGlobalRetry();
-
-                if (!retryManager.checkAllLimits(node.getId())) {
-                    status = ExecutionStatus.WAITING_RETRY;
-                    isWaitingRetry = true;
-                    return NodeResult.retry();
-                }
-            }
-
-            return result;
-
-        } catch (Exception e) {
-            long duration = System.currentTimeMillis() - startTime;
-            logger.error("节点 {} 执行异常: {}", node.getName(), e.getMessage(), e);
-
-            if (logService != null) {
-                logService.logNodeOperation(executionId, node.getId(), node.getType().toString(),
-                    "ERROR", nodeInput, Map.of("error", e.getMessage(), "duration", duration + "ms"));
-            }
-
-            return NodeResult.failed(e.getMessage());
+    private String determineNextNode(WorkflowNode node, NodeResult result, Execution execution) {
+        if (result.hasNextNode()) {
+            return result.getFirstNextNodeId();
         }
-    }
 
-    private Object truncateForLog(Object obj, int maxLen) {
-        if (obj == null) return null;
-        try {
-            String json = objectMapper.writeValueAsString(obj);
-            if (json.length() > maxLen) {
-                return json.substring(0, maxLen) + "...(truncated)";
-            }
-            return obj;
-        } catch (Exception e) {
-            return obj.toString();
-        }
-    }
-
-    private String getNextNode(WorkflowNode node, String resultStatus) {
-        logger.debug("getNextNode: status={}, current={}", resultStatus, node.getId());
+        String resultStatus = result.getStatus();
 
         if ("success".equals(resultStatus) || "completed".equals(resultStatus)) {
             retryManager.incrementNodeRetry(node.getId());
             retryManager.incrementGlobalRetry();
-
-            Optional<WorkflowEdge> edge = edgeRepository.findByWorkflowIdAndSourceNodeId(workflowId, node.getId())
-                    .stream()
-                    .filter(e -> e.getEdgeType() == WorkflowEdge.EdgeType.SUCCESS)
-                    .findFirst();
-
-            return edge.map(WorkflowEdge::getTargetNodeId).orElse(null);
+            return findNextEdge(node, WorkflowEdge.EdgeType.SUCCESS);
 
         } else if ("failed".equals(resultStatus) || "fail".equals(resultStatus)) {
             if (!retryManager.checkAllLimits(node.getId())) {
                 return null;
             }
-
-            Optional<WorkflowEdge> edge = edgeRepository.findByWorkflowIdAndSourceNodeId(workflowId, node.getId())
-                    .stream()
-                    .filter(e -> e.getEdgeType() == WorkflowEdge.EdgeType.FAIL)
-                    .findFirst();
-
-            return edge.map(WorkflowEdge::getTargetNodeId).orElse(node.getId());
+            return findNextEdge(node, WorkflowEdge.EdgeType.FAIL);
 
         } else if ("retry".equals(resultStatus)) {
-            return isWaitingRetry ? null : node.getId();
+            return handleRetry(node, execution);
+
+        } else if ("finish".equals(resultStatus)) {
+            return null;
         }
 
+        return node.getId();
+    }
+
+    private String findNextEdge(WorkflowNode node, WorkflowEdge.EdgeType edgeType) {
+        return edgeRepository.findByWorkflowIdAndSourceNodeId(workflowId, node.getId())
+                .stream()
+                .filter(e -> e.getEdgeType() == edgeType)
+                .findFirst()
+                .map(WorkflowEdge::getTargetNodeId)
+                .orElse(null);
+    }
+
+    private String handleRetry(WorkflowNode node, Execution execution) {
+        retryManager.incrementNodeRetry(node.getId());
+        retryManager.incrementGlobalRetry();
+
+        if (!retryManager.checkAllLimits(node.getId())) {
+            status = ExecutionStatus.WAITING_RETRY;
+            isWaitingRetry = true;
+            return null;
+        }
         return node.getId();
     }
 

@@ -1,6 +1,8 @@
 package com.openclaw.workflow.service.ai;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.openclaw.workflow.engine.connector.AgentRequest;
+import com.openclaw.workflow.engine.connector.AgentResponse;
 import com.openclaw.workflow.engine.connector.OpenClawGatewayClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,14 +61,14 @@ public class AIClient {
 
         OpenClawGatewayClient client = new OpenClawGatewayClient(gatewayUrl, gatewayToken);
 
-        OpenClawGatewayClient.AgentRequest request = OpenClawGatewayClient.AgentRequest.builder()
+        AgentRequest request = AgentRequest.builder()
                 .agentId(aiAgentId)
                 .systemPrompt(systemPrompt)
                 .message(userPrompt)
                 .context("workflow_gen")
                 .build();
 
-        OpenClawGatewayClient.AgentResponse response = client.executeAgent(request);
+        AgentResponse response = client.executeAgent(request);
 
         if (!response.isSuccess()) {
             throw new RuntimeException("Gateway API调用失败: " + response.getErrorMessage());

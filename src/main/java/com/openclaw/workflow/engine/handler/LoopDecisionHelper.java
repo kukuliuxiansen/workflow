@@ -1,5 +1,7 @@
 package com.openclaw.workflow.engine.handler;
 
+import com.openclaw.workflow.engine.connector.AgentRequest;
+import com.openclaw.workflow.engine.connector.AgentResponse;
 import com.openclaw.workflow.engine.connector.OpenClawGatewayClient;
 import com.openclaw.workflow.engine.model.NodeExecutionContext;
 import com.openclaw.workflow.engine.model.NodeResult;
@@ -45,7 +47,7 @@ public class LoopDecisionHelper {
                 context.getWorkflowId(), context.getExecutionId(), node.getId(),
                 loopContext.getCurrentIteration());
 
-        OpenClawGatewayClient.AgentRequest request = OpenClawGatewayClient.AgentRequest.builder()
+        AgentRequest request = AgentRequest.builder()
                 .agentId(decisionAgentId)
                 .message(prompt)
                 .context(sessionContext)
@@ -54,7 +56,7 @@ public class LoopDecisionHelper {
         logger.info("循环决策Agent调用: {} (迭代{}) - 提示词长度: {}",
                 node.getName(), loopContext.getCurrentIteration() + 1, prompt.length());
 
-        OpenClawGatewayClient.AgentResponse response = client.executeAgent(request);
+        AgentResponse response = client.executeAgent(request);
         return parseAgentDecision(response);
     }
 
@@ -76,7 +78,7 @@ public class LoopDecisionHelper {
         );
     }
 
-    private String parseAgentDecision(OpenClawGatewayClient.AgentResponse response) {
+    private String parseAgentDecision(AgentResponse response) {
         if (!response.isSuccess()) {
             logger.error("循环决策Agent执行失败: {}", response.getErrorMessage());
             return "exit";

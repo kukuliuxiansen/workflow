@@ -4,6 +4,7 @@ import com.openclaw.workflow.engine.connector.AgentRequest;
 import com.openclaw.workflow.engine.connector.AgentResponse;
 import com.openclaw.workflow.engine.connector.OpenClawGatewayClient;
 import com.openclaw.workflow.engine.model.NodeExecutionContext;
+import com.openclaw.workflow.engine.service.BranchInfo;
 import com.openclaw.workflow.engine.service.NodePromptService;
 import com.openclaw.workflow.engine.util.AgentDecisionParser;
 import com.openclaw.workflow.engine.util.NodePromptBuilder;
@@ -42,7 +43,7 @@ public class ParallelBranchSelector {
         List<Branch> branches = config.getBranches();
 
         if (promptService != null) {
-            List<NodePromptService.BranchInfo> branchInfos = convertToPromptServiceBranches(branches);
+            List<BranchInfo> branchInfos = convertToPromptServiceBranches(branches);
             return promptService.buildParallelPrompt(
                     context.getWorkflowId(),
                     context.getExecutionId(),
@@ -70,10 +71,10 @@ public class ParallelBranchSelector {
         );
     }
 
-    private List<NodePromptService.BranchInfo> convertToPromptServiceBranches(List<Branch> branches) {
-        List<NodePromptService.BranchInfo> result = new ArrayList<>();
+    private List<BranchInfo> convertToPromptServiceBranches(List<Branch> branches) {
+        List<BranchInfo> result = new ArrayList<>();
         for (Branch branch : branches) {
-            result.add(new NodePromptService.BranchInfo(
+            result.add(new BranchInfo(
                     branch.getId(),
                     branch.getName(),
                     branch.getDescription(),

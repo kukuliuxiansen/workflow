@@ -10,6 +10,7 @@ public class DecomposeContext {
     // ============ 任务管理 ============
     private Stack<TaskState> taskStack;         // 任务栈（待处理）
     private List<TaskState> completedTasks;     // 已完成任务列表
+    private List<TaskState> failedTasks;        // 失败任务列表
     private TaskState currentTask;              // 当前正在执行的任务
     private Map<String, TaskState> taskMap;     // 任务ID -> 任务映射
 
@@ -49,6 +50,7 @@ public class DecomposeContext {
     public DecomposeContext() {
         this.taskStack = new Stack<>();
         this.completedTasks = new ArrayList<>();
+        this.failedTasks = new ArrayList<>();
         this.taskMap = new HashMap<>();
         this.decisionHistory = new ArrayList<>();
         this.contextCache = new HashMap<>();
@@ -70,12 +72,15 @@ public class DecomposeContext {
 
     // Getters and Setters
     public Stack<TaskState> getTaskStack() { return taskStack; }
+    public void setTaskStack(Stack<TaskState> taskStack) { this.taskStack = taskStack; }
     public List<TaskState> getCompletedTasks() { return completedTasks; }
+    public List<TaskState> getFailedTasks() { return failedTasks; }
     public TaskState getCurrentTask() { return currentTask; }
     public void setCurrentTask(TaskState currentTask) { this.currentTask = currentTask; }
     public Map<String, TaskState> getTaskMap() { return taskMap; }
 
     public int getIterationCount() { return iterationCount; }
+    public void setIterationCount(int iterationCount) { this.iterationCount = iterationCount; }
     public int getMaxIterations() { return maxIterations; }
     public void setMaxIterations(int maxIterations) { this.maxIterations = maxIterations; }
     public int getMaxDepth() { return maxDepth; }

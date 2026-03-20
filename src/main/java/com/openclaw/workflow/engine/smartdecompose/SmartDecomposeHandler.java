@@ -1,11 +1,12 @@
 package com.openclaw.workflow.engine.smartdecompose;
 
+import com.openclaw.workflow.engine.connector.AgentRequest;
+import com.openclaw.workflow.engine.connector.AgentResponse;
 import com.openclaw.workflow.engine.connector.OpenClawGatewayClient;
 import com.openclaw.workflow.engine.handler.BaseNodeHandler;
 import com.openclaw.workflow.engine.model.NodeExecutionContext;
 import com.openclaw.workflow.engine.model.NodeResult;
 import com.openclaw.workflow.entity.DecisionHistory;
-import com.openclaw.workflow.entity.DecisionHistoryId;
 import com.openclaw.workflow.entity.WorkflowNode;
 import com.openclaw.workflow.repository.DecisionHistoryRepository;
 import com.openclaw.workflow.repository.SmartDecomposeStateRepository;
@@ -160,14 +161,14 @@ public class SmartDecomposeHandler extends BaseNodeHandler {
     private String executeAgent(NodeExecutionContext ctx, String prompt, int iteration) throws Exception {
         OpenClawGatewayClient client = new OpenClawGatewayClient(gatewayUrl, gatewayToken);
 
-        OpenClawGatewayClient.AgentRequest request = OpenClawGatewayClient.AgentRequest.builder()
+        AgentRequest request = AgentRequest.builder()
             .agentId(agentId)
             .systemPrompt(DecomposePromptBuilder.buildSystemPrompt())
             .message(prompt)
             .context("decompose_" + ctx.getExecutionId() + "_" + iteration)
             .build();
 
-        OpenClawGatewayClient.AgentResponse response = client.executeAgent(request);
+        AgentResponse response = client.executeAgent(request);
 
         if (!response.isSuccess()) {
             throw new RuntimeException("Agent执行失败: " + response.getErrorMessage());
@@ -198,11 +199,12 @@ public class SmartDecomposeHandler extends BaseNodeHandler {
         if (decisionHistoryRepository != null) {
             try {
                 DecisionHistory history = new DecisionHistory();
-                history.setId(new DecisionHistoryId(context.getExecutionId(), context.getIterationCount()));
+                history.setId(context.getExecutionId());
+                history.setIteration(context.getIterationCount());
                 history.setTaskId(task.getTaskId());
                 history.setAction(action.getTool().getName());
-                history.setSuccess(result.isSuccess());
-                history.setMessage(result.getMessage());
+                history.setResultStatus(result.isSuccess() ? "success" : "failed");
+                history.setResultMessage(result.getMessage());
                 decisionHistoryRepository.save(history);
             } catch (Exception e) {
                 logger.warn("保存决策历史失败: {}", e.getMessage());
