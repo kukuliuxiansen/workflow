@@ -3566,6 +3566,30 @@
           }
         } catch (e) {}
 
+        // 根据节点类型决定端口显示
+        const isStart = type === 'start';
+        const isFinish = type === 'finish';
+
+        // 输入端口：开始节点不显示
+        const inputPortHtml = isStart ? '' : '<div class="port input" title="输入"></div>';
+
+        // 输出端口：结束节点不显示
+        const outputPortsHtml = isFinish ? '' : `
+          <div style="display:flex;gap:4px;">
+            <div class="port fail" title="失败→拖拽连线" onmousedown="startDragConnect(event,'${node.id}','fail')"></div>
+            <div class="port success" title="成功→拖拽连线" onmousedown="startDragConnect(event,'${node.id}','success')"></div>
+          </div>
+        `;
+
+        // 开始和结束节点不显示工具栏（不能复制删除）
+        const toolbarHtml = (isStart || isFinish) ? '' : `
+          <div class="node-toolbar">
+            <button class="node-toolbar-btn" onclick="event.stopPropagation();selectNode('${node.id}')" title="编辑">✏️</button>
+            <button class="node-toolbar-btn" onclick="event.stopPropagation();duplicateNodeById('${node.id}')" title="复制">📋</button>
+            <button class="node-toolbar-btn" onclick="event.stopPropagation();deleteNodeById('${node.id}')" title="删除">🗑️</button>
+          </div>
+        `;
+
         html += `
           <div class="node ${selectionClass} ${status}"
                id="node-${node.id}"
@@ -3573,12 +3597,8 @@
                data-color="${nodeColor}"
                onclick="selectNode('${node.id}')"
                onmousedown="startDrag(event,'${node.id}')"
-               oncontextmenu="showNodeContextMenu(event,'${node.id}')">
-            <div class="node-toolbar">
-              <button class="node-toolbar-btn" onclick="event.stopPropagation();selectNode('${node.id}')" title="编辑">✏️</button>
-              <button class="node-toolbar-btn" onclick="event.stopPropagation();duplicateNodeById('${node.id}')" title="复制">📋</button>
-              <button class="node-toolbar-btn" onclick="event.stopPropagation();deleteNodeById('${node.id}')" title="删除">🗑️</button>
-            </div>
+               oncontextmenu="${isStart || isFinish ? '' : `showNodeContextMenu(event,'${node.id}')`}">
+            ${toolbarHtml}
             <div class="node-header">
               <div class="node-icon ${type.split('_')[0]}">${getIcon(type)}</div>
               <div class="node-info">
@@ -3589,11 +3609,8 @@
             </div>
             <div class="node-body">${getNodeDesc(node)}</div>
             <div class="node-ports">
-              <div class="port input" title="输入"></div>
-              <div style="display:flex;gap:4px;">
-                <div class="port fail" title="失败→拖拽连线" onmousedown="startDragConnect(event,'${node.id}','fail')"></div>
-                <div class="port success" title="成功→拖拽连线" onmousedown="startDragConnect(event,'${node.id}','success')"></div>
-              </div>
+              ${inputPortHtml}
+              ${outputPortsHtml}
             </div>
           </div>
         `;
@@ -3879,14 +3896,17 @@
         return;
       }
 
+      const isStartOrFinish = node.type === 'start' || node.type === 'finish';
+
       panelContent.innerHTML = `
         <div class="form-group">
           <label class="form-label">节点名称</label>
-          <input type="text" class="form-input" value="${node.name || ''}" onchange="updateNode('name',this.value)">
+          <input type="text" class="form-input" value="${node.name || ''}" disabled style="background:#1a1a1a;color:#888;cursor:not-allowed;">
+          <p style="font-size:11px;color:#666;margin-top:4px;">节点名称创建后不可修改</p>
         </div>
         <div class="form-group">
           <label class="form-label">节点类型</label>
-          <select class="form-select" onchange="updateNode('type',this.value)">
+          <select class="form-select" disabled style="background:#1a1a1a;color:#888;cursor:not-allowed;">
             <option value="agent_execution" ${node.type==='agent_execution'?'selected':''}>Agent 执行</option>
             <option value="api_call" ${node.type==='api_call'?'selected':''}>API 调用</option>
             <option value="start" ${node.type==='start'?'selected':''}>开始</option>
@@ -3896,6 +3916,7 @@
             <option value="parallel" ${node.type==='parallel'?'selected':''}>并行执行</option>
             <option value="loop" ${node.type==='loop'?'selected':''}>循环执行</option>
           </select>
+          <p style="font-size:11px;color:#666;margin-top:4px;">节点类型创建后不可修改</p>
         </div>
         ${node.type === 'agent_execution' ? `
           <div class="form-group">
@@ -4804,6 +4825,14 @@
     function startDragConnect(e, nodeId, type) {
       e.stopPropagation();
       e.preventDefault();
+
+      // 检查源节点是否是结束节点（结束节点不能有输出）
+      const sourceNode = state.currentWorkflow?.nodes?.find(n => n.id === nodeId);
+      if (sourceNode && sourceNode.type === 'finish') {
+        showToast('warn', '结束节点不能有输出连线');
+        return;
+      }
+
       connectingFrom = { nodeId, type };
       isDraggingConnect = true;
 
@@ -6260,12 +6289,23 @@
         });
       }
 
-      if (nodesToCopy.length > 0) {
+      // 过滤掉开始和结束节点（不能复制）
+      const filteredNodes = nodesToCopy.filter(node => {
+        if (node.type === 'start' || node.type === 'finish') {
+          showToast('warn', `开始和结束节点不能复制: ${node.name}`);
+          return false;
+        }
+        return true;
+      });
+
+      if (filteredNodes.length > 0) {
         state.clipboard = {
-          nodes: JSON.parse(JSON.stringify(nodesToCopy)),
+          nodes: JSON.parse(JSON.stringify(filteredNodes)),
           edges: [] // TODO: 也要复制连线
         };
-        showToast('success', `已复制 ${nodesToCopy.length} 个节点`);
+        showToast('success', `已复制 ${filteredNodes.length} 个节点`);
+      } else if (nodesToCopy.length > 0) {
+        showToast('warn', '选中的节点无法复制');
       }
     }
 
@@ -6340,8 +6380,23 @@
 
       if (nodeIdsToDelete.length === 0) return;
 
+      // 过滤掉开始和结束节点（不能删除）
+      const filteredNodeIds = nodeIdsToDelete.filter(nodeId => {
+        const node = state.currentWorkflow.nodes.find(n => n.id === nodeId);
+        if (node && (node.type === 'start' || node.type === 'finish')) {
+          showToast('warn', `开始和结束节点不能删除: ${node.name}`);
+          return false;
+        }
+        return true;
+      });
+
+      if (filteredNodeIds.length === 0) {
+        showToast('warn', '选中的节点无法删除');
+        return;
+      }
+
       let successCount = 0;
-      for (const nodeId of nodeIdsToDelete) {
+      for (const nodeId of filteredNodeIds) {
         try {
           await fetch(`${API}/workflows/${state.currentWorkflow.id}/nodes/${nodeId}`, {
             method: 'DELETE'

@@ -258,18 +258,22 @@ public class AIService {
             // 解析节点
             List<Map<String, Object>> nodesData = (List<Map<String, Object>>) data.get("nodes");
             List<WorkflowNode> nodes = new ArrayList<>();
+            List<WorkflowEdge> edgesFromNodes = new ArrayList<>();  // 从节点中提取的边
+
             if (nodesData != null) {
                 int xPos = 100;
                 for (Map<String, Object> nodeData : nodesData) {
                     logger.info("解析节点数据: {}", nodeData);
 
                     WorkflowNode node = new WorkflowNode();
-                    node.setId((String) nodeData.getOrDefault("id", "node_" + UUID.randomUUID().toString().substring(0, 8)));
+                    String nodeId = (String) nodeData.getOrDefault("id", "node_" + UUID.randomUUID().toString().substring(0, 8));
+                    node.setId(nodeId);
+
                     // 尝试多个可能的名称字段
                     String nodeName = (String) nodeData.get("name");
                     if (nodeName == null) nodeName = (String) nodeData.get("nodeName");
                     if (nodeName == null) nodeName = (String) nodeData.get("label");
-                    if (nodeName == null) nodeName = node.getId();
+                    if (nodeName == null) nodeName = nodeId;
                     node.setName(nodeName);
 
                     node.setType(parseNodeType((String) nodeData.get("type")));
@@ -282,10 +286,45 @@ public class AIService {
 
                     nodes.add(node);
                     xPos += 250;
+
+                    // 从节点配置中提取边信息
+                    // 支持 trueNext/true_next 格式（条件节点）
+                    String trueNext = (String) nodeData.get("trueNext");
+                    if (trueNext == null) trueNext = (String) nodeData.get("true_next");
+                    if (trueNext != null) {
+                        WorkflowEdge trueEdge = new WorkflowEdge();
+                        trueEdge.setId("edge_" + UUID.randomUUID().toString().substring(0, 8));
+                        trueEdge.setSourceNodeId(nodeId);
+                        trueEdge.setTargetNodeId(trueNext);
+                        trueEdge.setEdgeType(WorkflowEdge.EdgeType.SUCCESS);
+                        edgesFromNodes.add(trueEdge);
+                    }
+
+                    String falseNext = (String) nodeData.get("falseNext");
+                    if (falseNext == null) falseNext = (String) nodeData.get("false_next");
+                    if (falseNext != null) {
+                        WorkflowEdge falseEdge = new WorkflowEdge();
+                        falseEdge.setId("edge_" + UUID.randomUUID().toString().substring(0, 8));
+                        falseEdge.setSourceNodeId(nodeId);
+                        falseEdge.setTargetNodeId(falseNext);
+                        falseEdge.setEdgeType(WorkflowEdge.EdgeType.FAIL);
+                        edgesFromNodes.add(falseEdge);
+                    }
+
+                    // 支持 next 格式（普通节点）
+                    String next = (String) nodeData.get("next");
+                    if (next != null && trueNext == null && falseNext == null) {
+                        WorkflowEdge nextEdge = new WorkflowEdge();
+                        nextEdge.setId("edge_" + UUID.randomUUID().toString().substring(0, 8));
+                        nextEdge.setSourceNodeId(nodeId);
+                        nextEdge.setTargetNodeId(next);
+                        nextEdge.setEdgeType(WorkflowEdge.EdgeType.SUCCESS);
+                        edgesFromNodes.add(nextEdge);
+                    }
                 }
             }
 
-            // 确保有开始和结束节点
+            // 确保有开始节点（只有ID为start的才算开始节点）
             if (nodes.stream().noneMatch(n -> "start".equals(n.getId()))) {
                 WorkflowNode startNode = new WorkflowNode();
                 startNode.setId("start");
@@ -295,7 +334,12 @@ public class AIService {
                 startNode.setPositionY(150);
                 nodes.add(0, startNode);
             }
-            if (nodes.stream().noneMatch(n -> "finish".equals(n.getId()))) {
+
+            // 只有当没有任何finish类型的节点时才添加默认结束节点
+            boolean hasFinishNode = nodes.stream().anyMatch(n ->
+                    n.getType() == WorkflowNode.NodeType.FINISH ||
+                    "finish".equalsIgnoreCase(n.getId()));
+            if (!hasFinishNode) {
                 WorkflowNode finishNode = new WorkflowNode();
                 finishNode.setId("finish");
                 finishNode.setType(WorkflowNode.NodeType.FINISH);
@@ -308,19 +352,43 @@ public class AIService {
             workflow.setNodes(nodes);
 
             // 解析边
-            List<Map<String, Object>> edgesData = (List<Map<String, Object>>) data.get("edges");
             List<WorkflowEdge> edges = new ArrayList<>();
+
+            // 首先添加从节点中提取的边
+            edges.addAll(edgesFromNodes);
+
+            // 然后解析独立的edges数组
+            List<Map<String, Object>> edgesData = (List<Map<String, Object>>) data.get("edges");
             if (edgesData != null) {
+                logger.info("解析边数据: {}", edgesData);
                 for (Map<String, Object> edgeData : edgesData) {
                     WorkflowEdge edge = new WorkflowEdge();
                     edge.setId("edge_" + UUID.randomUUID().toString().substring(0, 8));
-                    edge.setSourceNodeId((String) edgeData.get("source"));
-                    edge.setTargetNodeId((String) edgeData.get("target"));
-                    edge.setEdgeType("fail".equals(edgeData.get("type")) ?
+
+                    // 兼容多种字段名
+                    String source = (String) edgeData.get("source");
+                    if (source == null) source = (String) edgeData.get("sourceNodeId");
+                    if (source == null) source = (String) edgeData.get("from");
+
+                    String target = (String) edgeData.get("target");
+                    if (target == null) target = (String) edgeData.get("targetNodeId");
+                    if (target == null) target = (String) edgeData.get("to");
+
+                    if (source == null || target == null) {
+                        logger.warn("边缺少source或target: {}", edgeData);
+                        continue;
+                    }
+
+                    edge.setSourceNodeId(source);
+                    edge.setTargetNodeId(target);
+
+                    String edgeType = (String) edgeData.get("type");
+                    edge.setEdgeType("fail".equalsIgnoreCase(edgeType) ?
                             WorkflowEdge.EdgeType.FAIL : WorkflowEdge.EdgeType.SUCCESS);
                     edges.add(edge);
                 }
             }
+            logger.info("解析完成，节点数: {}, 边数: {}", nodes.size(), edges.size());
             workflow.setEdges(edges);
 
             return workflow;
