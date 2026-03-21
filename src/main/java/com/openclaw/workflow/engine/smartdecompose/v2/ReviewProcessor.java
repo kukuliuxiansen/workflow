@@ -1,5 +1,7 @@
 package com.openclaw.workflow.engine.smartdecompose.v2;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openclaw.workflow.engine.smartdecompose.v2.client.OpenClawClient;
 import com.openclaw.workflow.engine.smartdecompose.v2.client.ResponseParser;
 import com.openclaw.workflow.engine.smartdecompose.v2.model.DecomposeContext;
@@ -8,6 +10,8 @@ import com.openclaw.workflow.engine.smartdecompose.v2.model.SubTask;
 import com.openclaw.workflow.engine.smartdecompose.v2.model.enums.DecomposeStatus;
 import com.openclaw.workflow.engine.smartdecompose.v2.model.enums.ReviewStatus;
 import com.openclaw.workflow.engine.smartdecompose.v2.prompt.PromptBuilder;
+import com.openclaw.workflow.entity.ManualReviewRecord;
+import com.openclaw.workflow.repository.ManualReviewRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,13 +40,13 @@ public class ReviewProcessor {
     @Autowired
     private ResponseParser responseParser;
 
+    @Autowired
+    private ManualReviewRepository manualReviewRepository;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     /**
      * 审核与重试
-     *
-     * @param context         执行上下文
-     * @param task            当前任务
-     * @param executionResult 执行结果
-     * @return true 表示审核通过，false 表示失败
      */
     public boolean reviewAndRetry(DecomposeContext context, SubTask task, String executionResult) {
         int retryCount = 0;
@@ -90,6 +94,24 @@ public class ReviewProcessor {
 
         logger.warn("触发人工审核: manualReviewId={}, taskId={}", reviewId, task.getId());
 
+        // 创建人工审核记录
+        ManualReviewRecord record = new ManualReviewRecord();
+        record.setId(reviewId);
+        record.setExecutionId(context.getExecutionId());
+        record.setNodeId(context.getNodeId());
+        record.setTaskId(task.getId());
+        record.setTaskDescription(task.getDescription());
+        record.setExecutionResult(executionResult);
+
+        try {
+            record.setReviewIssues(objectMapper.writeValueAsString(review.getIssues()));
+        } catch (JsonProcessingException e) {
+            record.setReviewIssues("[]");
+        }
+
+        manualReviewRepository.save(record);
+
+        // 更新上下文状态
         context.setStatus(DecomposeStatus.WAITING_MANUAL_REVIEW);
         context.setManualReviewId(reviewId);
 
