@@ -7,7 +7,9 @@ import com.openclaw.workflow.engine.smartdecompose.v2.config.SmartDecomposeConfi
 import com.openclaw.workflow.engine.smartdecompose.v2.model.DecomposeContext;
 import com.openclaw.workflow.engine.smartdecompose.v2.model.SubTask;
 import com.openclaw.workflow.engine.smartdecompose.v2.model.enums.DecomposeStatus;
+import com.openclaw.workflow.entity.PromptTemplate;
 import com.openclaw.workflow.entity.WorkflowNode;
+import com.openclaw.workflow.repository.PromptTemplateRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,6 +33,9 @@ public class SmartDecomposeHandler extends BaseNodeHandler {
 
     @Autowired
     private DecomposeOrchestrator orchestrator;
+
+    @Autowired
+    private PromptTemplateRepository promptTemplateRepository;
 
     public String getNodeType() {
         return NODE_TYPE;
@@ -88,8 +93,33 @@ public class SmartDecomposeHandler extends BaseNodeHandler {
     }
 
     private void loadTemplates(DecomposeContext context) {
-        // TODO: 实现从数据库加载模板
-        logger.debug("模板加载完成");
+        // 加载决策模板
+        PromptTemplate decisionTemplate = loadTemplateById(context.getDecisionTemplateId(), "decision");
+        context.setDecisionTemplateContent(decisionTemplate.getContent());
+
+        // 加载审核模板
+        PromptTemplate reviewTemplate = loadTemplateById(context.getReviewTemplateId(), "review");
+        context.setReviewTemplateContent(reviewTemplate.getContent());
+
+        // 加载重试模板
+        PromptTemplate retryTemplate = promptTemplateRepository.findByTypeAndIsDefaultTrue("retry")
+            .orElseThrow(() -> new IllegalStateException("未找到重试提示词模板"));
+        context.setRetryTemplateContent(retryTemplate.getContent());
+
+        logger.debug("模板加载完成: decision={}, review={}, retry={}",
+            decisionTemplate.getId(), reviewTemplate.getId(), retryTemplate.getId());
+    }
+
+    /**
+     * 加载模板：优先使用指定ID，否则使用默认模板
+     */
+    private PromptTemplate loadTemplateById(String templateId, String type) {
+        if (templateId != null && !templateId.isEmpty()) {
+            return promptTemplateRepository.findById(templateId)
+                .orElseThrow(() -> new IllegalStateException("模板不存在: " + templateId));
+        }
+        return promptTemplateRepository.findByTypeAndIsDefaultTrue(type)
+            .orElseThrow(() -> new IllegalStateException("未找到" + type + "提示词模板"));
     }
 
     private NodeResult buildResult(DecomposeContext context) {

@@ -85,6 +85,9 @@ public class DecomposeContext {
     /** 审核模板内容（运行时加载） */
     private String reviewTemplateContent;
 
+    /** 重试模板内容（运行时加载） */
+    private String retryTemplateContent;
+
     // ==================== OpenClaw 会话 ====================
 
     /** OpenClaw 会话ID */
@@ -226,6 +229,9 @@ public class DecomposeContext {
 
     public String getReviewTemplateContent() { return reviewTemplateContent; }
     public void setReviewTemplateContent(String reviewTemplateContent) { this.reviewTemplateContent = reviewTemplateContent; }
+
+    public String getRetryTemplateContent() { return retryTemplateContent; }
+    public void setRetryTemplateContent(String retryTemplateContent) { this.retryTemplateContent = retryTemplateContent; }
 
     public String getOpenClawSessionId() { return openClawSessionId; }
     public void setOpenClawSessionId(String openClawSessionId) { this.openClawSessionId = openClawSessionId; }

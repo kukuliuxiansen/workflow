@@ -14,17 +14,13 @@ import java.util.regex.Pattern;
  * 提示词构建器
  *
  * 从模板构建最终提示词，注入动态参数。
- * 模板使用 {{key}} 占位符，支持条件块 {{#if key}}...{{/if}}。
+ * 模板使用 {{key}} 占位符，支持条件块 {{#if key}}...{{/if}} 和循环 {{#each list}}...{{/each}}。
  */
 @Component
 public class PromptBuilder {
 
     /**
      * 构建决策提示词
-     *
-     * @param context 执行上下文
-     * @param task    当前任务
-     * @return 完整的决策提示词
      */
     public String buildDecisionPrompt(DecomposeContext context, SubTask task) {
         String template = context.getDecisionTemplateContent();
@@ -32,7 +28,7 @@ public class PromptBuilder {
             throw new IllegalStateException("决策模板内容为空");
         }
 
-        Map<String, String> params = new HashMap<>();
+        Map<String, Object> params = new HashMap<>();
         params.put("projectPath", nvl(context.getProjectPath(), ""));
         params.put("techStack", nvl(context.getTechStack(), ""));
         params.put("taskDescription", nvl(task.getDescription(), ""));
@@ -43,12 +39,6 @@ public class PromptBuilder {
 
     /**
      * 构建审核提示词
-     *
-     * @param context         执行上下文
-     * @param task            当前任务
-     * @param executionResult 执行结果
-     * @param previousIssues  之前发现的问题列表
-     * @return 完整的审核提示词
      */
     public String buildReviewPrompt(DecomposeContext context, SubTask task,
                                     String executionResult, List<String> previousIssues) {
@@ -57,25 +47,39 @@ public class PromptBuilder {
             throw new IllegalStateException("审核模板内容为空");
         }
 
-        Map<String, String> params = new HashMap<>();
+        Map<String, Object> params = new HashMap<>();
         params.put("taskDescription", nvl(task.getDescription(), ""));
         params.put("criteria", nvl(task.getCriteria(), "无特殊要求"));
         params.put("executionResult", nvl(executionResult, ""));
         params.put("projectPath", nvl(context.getProjectPath(), ""));
-        params.put("previousIssues", formatIssues(previousIssues));
+        params.put("previousIssues", previousIssues);
 
         return render(template, params);
     }
 
     /**
      * 构建重试提示词
-     *
-     * @param context 执行上下文
-     * @param task    当前任务
-     * @param issues  审核发现的问题列表
-     * @return 完整的重试提示词
      */
     public String buildRetryPrompt(DecomposeContext context, SubTask task, List<String> issues) {
+        String template = context.getRetryTemplateContent();
+        if (template == null || template.isEmpty()) {
+            // 回退：使用决策模板 + 问题追加
+            return buildFallbackRetryPrompt(context, task, issues);
+        }
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("taskDescription", nvl(task.getDescription(), ""));
+        params.put("criteria", nvl(task.getCriteria(), "无特殊要求"));
+        params.put("projectPath", nvl(context.getProjectPath(), ""));
+        params.put("previousIssues", issues);
+
+        return render(template, params);
+    }
+
+    /**
+     * 回退方案：使用决策模板 + 问题追加
+     */
+    private String buildFallbackRetryPrompt(DecomposeContext context, SubTask task, List<String> issues) {
         String basePrompt = buildDecisionPrompt(context, task);
 
         StringBuilder retryPrompt = new StringBuilder(basePrompt);
@@ -91,17 +95,66 @@ public class PromptBuilder {
 
     /**
      * 渲染模板
-     *
-     * 替换 {{key}} 占位符，处理条件块
      */
-    private String render(String template, Map<String, String> params) {
+    private String render(String template, Map<String, Object> params) {
         String result = template;
-        for (Map.Entry<String, String> entry : params.entrySet()) {
+
+        // 1. 替换简单占位符 {{key}}
+        for (Map.Entry<String, Object> entry : params.entrySet()) {
             String placeholder = "{{" + entry.getKey() + "}}";
-            String value = entry.getValue() != null ? entry.getValue() : "";
+            String value = entry.getValue() != null ? String.valueOf(entry.getValue()) : "";
             result = result.replace(placeholder, value);
         }
-        return processConditionals(result, params);
+
+        // 2. 处理循环块 {{#each list}}...{{/each}}
+        result = processLoops(result, params);
+
+        // 3. 处理条件块 {{#if key}}...{{/if}}
+        result = processConditionals(result, params);
+
+        return result;
+    }
+
+    /**
+     * 处理循环块
+     *
+     * 支持 {{#each list}}...{{this}}...{{@index}}...{{/each}} 语法
+     */
+    @SuppressWarnings("unchecked")
+    private String processLoops(String template, Map<String, Object> params) {
+        Pattern pattern = Pattern.compile(
+            "\\{\\{#each (\\w+)\\}\\}(.*?)\\{\\{/each\\}\\}",
+            Pattern.DOTALL
+        );
+
+        Matcher matcher = pattern.matcher(template);
+        StringBuffer sb = new StringBuffer();
+
+        while (matcher.find()) {
+            String varName = matcher.group(1);
+            String loopContent = matcher.group(2);
+
+            Object value = params.get(varName);
+            String replacement = "";
+
+            if (value instanceof List) {
+                List<String> list = (List<String>) value;
+                StringBuilder loopResult = new StringBuilder();
+                for (int i = 0; i < list.size(); i++) {
+                    String item = list.get(i) != null ? list.get(i) : "";
+                    String itemContent = loopContent
+                        .replace("{{this}}", item)
+                        .replace("{{@index}}", String.valueOf(i + 1));
+                    loopResult.append(itemContent);
+                }
+                replacement = loopResult.toString();
+            }
+
+            matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement));
+        }
+        matcher.appendTail(sb);
+
+        return sb.toString();
     }
 
     /**
@@ -109,7 +162,7 @@ public class PromptBuilder {
      *
      * 支持 {{#if key}}...{{else}}...{{/if}} 语法
      */
-    private String processConditionals(String template, Map<String, String> params) {
+    private String processConditionals(String template, Map<String, Object> params) {
         Pattern pattern = Pattern.compile(
             "\\{\\{#if (\\w+)\\}\\}(.*?)(?:\\{\\{else\\}\\}(.*?))?\\{\\{/if\\}\\}",
             Pattern.DOTALL
@@ -123,8 +176,10 @@ public class PromptBuilder {
             String ifContent = matcher.group(2);
             String elseContent = matcher.group(3) != null ? matcher.group(3) : "";
 
-            String value = params.get(varName);
-            String replacement = (value != null && !value.isEmpty()) ? ifContent : elseContent;
+            Object value = params.get(varName);
+            boolean isTruthy = isTruthy(value);
+            String replacement = isTruthy ? ifContent : elseContent;
+
             matcher.appendReplacement(sb, Matcher.quoteReplacement(replacement));
         }
         matcher.appendTail(sb);
@@ -133,18 +188,22 @@ public class PromptBuilder {
     }
 
     /**
-     * 格式化问题列表
+     * 判断值是否为真
      */
-    private String formatIssues(List<String> issues) {
-        if (issues == null || issues.isEmpty()) {
-            return "";
+    private boolean isTruthy(Object value) {
+        if (value == null) {
+            return false;
         }
-
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < issues.size(); i++) {
-            sb.append(i + 1).append(". ").append(issues.get(i)).append("\n");
+        if (value instanceof Boolean) {
+            return (Boolean) value;
         }
-        return sb.toString();
+        if (value instanceof String) {
+            return !((String) value).isEmpty();
+        }
+        if (value instanceof List) {
+            return !((List<?>) value).isEmpty();
+        }
+        return true;
     }
 
     /**
