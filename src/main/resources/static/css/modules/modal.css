@@ -126,18 +126,17 @@
     }
     #toggleSidebarBtn {
       left: 280px;
-      top: 50%;
-      margin-top: -22px;
+      top: 10%;
     }
 
     #toggleRightPanelBtn {
       right: 300px;
-      top: 50%;
-      margin-top: -22px;
+      top: 10%;
     }
 
     #toggleLogPanelBtn {
-      right: 10px;
+      left: 50%;
+      transform: translateX(-50%);
       bottom: 180px;
       width: 44px;
       height: 24px;

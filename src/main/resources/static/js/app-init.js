@@ -76,7 +76,7 @@
                 <button class="folder-action-btn danger" onclick="event.stopPropagation(); deleteFolder('${folder.id}')" title="删除">🗑️</button>
               </div>
             </div>
-            <div class="folder-content ${isExpanded ? '' : 'collapsed'}">
+            <div class="folder-content ${isExpanded ? 'expanded' : ''}">
               ${folderWorkflows.map(w => renderWorkflowItem(w)).join('')}
             </div>
           </div>`;

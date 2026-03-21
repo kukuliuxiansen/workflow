@@ -40,6 +40,20 @@
         return;
       }
 
+      // 验证开始和结束节点
+      const nodes = state.currentWorkflow.nodes || [];
+      const startNodes = nodes.filter(n => n.type === 'start');
+      const finishNodes = nodes.filter(n => n.type === 'finish');
+
+      if (startNodes.length !== 1) {
+        showToast('warn', '工作流必须有且只有一个开始节点');
+        return;
+      }
+      if (finishNodes.length === 0) {
+        showToast('warn', '工作流必须至少有一个结束节点');
+        return;
+      }
+
       // 检查任务配置
       if (!taskConfig.projectPath || !taskConfig.name) {
         showToast('warn', '请先配置任务（点击"任务配置"按钮）');

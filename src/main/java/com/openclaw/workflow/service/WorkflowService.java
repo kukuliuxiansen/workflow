@@ -228,7 +228,7 @@ public class WorkflowService {
         Workflow workflow = findById(id);
         workflow.setFolderId(targetFolderId);
         workflow.setUpdatedAt(LocalDateTime.now());
-        workflowRepository.save(workflow);
+        workflowRepository.saveAndFlush(workflow);
     }
 
     public String exportYaml(String id) {

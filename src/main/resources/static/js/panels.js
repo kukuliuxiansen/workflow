@@ -28,9 +28,17 @@
 
       if (!sidebar || !rightPanel || !logPanel) return;
 
+      // 更新log-panel位置
+      const sidebarCollapsed = sidebar.classList.contains('collapsed');
+      const rightPanelCollapsed = rightPanel.classList.contains('collapsed');
+      logPanel.classList.toggle('sidebar-collapsed', sidebarCollapsed);
+      logPanel.classList.toggle('right-panel-collapsed', rightPanelCollapsed);
+      logPanel.style.left = sidebarCollapsed ? '0' : sidebar.offsetWidth + 'px';
+      logPanel.style.right = rightPanelCollapsed ? '0' : rightPanel.offsetWidth + 'px';
+
       // 更新侧边栏按钮位置
       if (sidebarBtn) {
-        if (sidebar.classList.contains('collapsed')) {
+        if (sidebarCollapsed) {
           sidebarBtn.style.left = '10px';
           sidebarBtn.textContent = '▶';
         } else {
@@ -41,7 +49,7 @@
 
       // 更新右侧面板按钮位置
       if (rightBtn) {
-        if (rightPanel.classList.contains('collapsed')) {
+        if (rightPanelCollapsed) {
           rightBtn.style.right = '10px';
           rightBtn.textContent = '◀';
         } else {

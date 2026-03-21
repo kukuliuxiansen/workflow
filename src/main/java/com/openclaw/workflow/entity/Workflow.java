@@ -27,6 +27,7 @@ public class Workflow {
     @Enumerated(EnumType.STRING)
     private WorkflowStatus status = WorkflowStatus.DRAFT;
 
+    @Column(name = "folder_id")
     private String folderId;
 
     private Integer sortOrder = 0;

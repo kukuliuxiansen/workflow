@@ -123,6 +123,9 @@
             }
 
             try {
+              // 保存撤销点
+              pushUndo();
+
               addLog('info', `创建连线: ${connectingFrom.nodeId} -> ${targetId}`);
 
               const res = await fetch(`${API}/workflows/${state.currentWorkflow.id}/edges`, {
@@ -140,6 +143,8 @@
               const data = await res.json();
               if (data.success) {
                 await selectWorkflow(state.currentWorkflow.id);
+                markDirty();
+                updateUndoRedoButtons();
                 showToast('success', '连线创建成功');
               } else {
                 showToast('error', data.message || '创建连线失败');

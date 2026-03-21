@@ -5,6 +5,9 @@
       if (e.button !== 0 || e.altKey) return;
       e.stopPropagation();
 
+      // 保存撤销点
+      pushUndo();
+
       // 如果拖动的节点不在选中集合中，则只选中该节点
       if (!state.selectedNodes.has(id)) {
         state.selectedNodes.clear();
@@ -61,6 +64,8 @@
 
     async function stopDrag() {
       if (dragging && state.selectedNodes.size > 0) {
+        markDirty();
+        updateUndoRedoButtons();
         // 批量保存所有移动节点的位置
         const promises = [];
         state.currentWorkflow?.nodes?.forEach(node => {

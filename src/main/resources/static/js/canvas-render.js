@@ -42,18 +42,16 @@
         const isFinish = type === 'finish';
 
         const inputPortHtml = isStart ? '' : '<div class="port input" title="输入"></div>';
-        const outputPortsHtml = isFinish ? '' : `
+        let outputPortsHtml = '';
+        if (isStart) {
+          outputPortsHtml = `<div></div><div class="port success" title="成功→拖拽连线" onmousedown="startDragConnect(event,'${node.id}','success')"></div>`;
+        } else if (!isFinish) {
+          outputPortsHtml = `
           <div style="display:flex;gap:4px;">
             <div class="port fail" title="失败→拖拽连线" onmousedown="startDragConnect(event,'${node.id}','fail')"></div>
             <div class="port success" title="成功→拖拽连线" onmousedown="startDragConnect(event,'${node.id}','success')"></div>
           </div>`;
-
-        const toolbarHtml = (isStart || isFinish) ? '' : `
-          <div class="node-toolbar">
-            <button class="node-toolbar-btn" onclick="event.stopPropagation();selectNode('${node.id}')" title="编辑">✏️</button>
-            <button class="node-toolbar-btn" onclick="event.stopPropagation();duplicateNodeById('${node.id}')" title="复制">📋</button>
-            <button class="node-toolbar-btn" onclick="event.stopPropagation();deleteNodeById('${node.id}')" title="删除">🗑️</button>
-          </div>`;
+        }
 
         html += `
           <div class="node ${selectionClass} ${status}"
@@ -63,7 +61,6 @@
                onclick="selectNode('${node.id}')"
                onmousedown="startDrag(event,'${node.id}')"
                oncontextmenu="${isStart || isFinish ? '' : `showNodeContextMenu(event,'${node.id}')`}">
-            ${toolbarHtml}
             <div class="node-header">
               <div class="node-icon ${type.split('_')[0]}">${getIcon(type)}</div>
               <div class="node-info">
@@ -146,7 +143,7 @@
           paths += `<path class="edge-path ${typeClass} ${animateClass}"
                          d="M${x1},${y1} C${x1 + controlOffset},${y1} ${x2 - controlOffset},${y2} ${x2},${y2}"
                          id="edge-${edgeIdStr}"
-                         oncontextmenu="event.preventDefault();showEdgeContextMenu(event,'${edgeIdStr}')"/>`;
+                         data-edge-id="${edgeIdStr}"/>`;
 
           if (edge.label) {
             const midX = (x1 + x2) / 2;
@@ -162,12 +159,18 @@
     // 通过edge id删除连线
     async function deleteEdgeById(edgeId) {
       if (!await confirmAsync('删除此连线？')) return;
+
+      // 保存撤销点
+      pushUndo();
+
       try {
         await fetch(`${API}/workflows/${state.currentWorkflow.id}/edges/${edgeId}`, {
           method: 'DELETE'
         });
         await selectWorkflow(state.currentWorkflow.id);
         showToast('success', '连线已删除');
+        markDirty();
+        updateUndoRedoButtons();
       } catch (e) {
         showToast('error', '删除失败');
       }

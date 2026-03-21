@@ -7,7 +7,13 @@
         return;
       }
 
-      const name = document.getElementById('newNodeName').value || '新节点';
+      const type = state.selectedNodeType || 'agent_execution';
+      const defaultName = getTypeName(type);
+      const name = document.getElementById('newNodeName').value || defaultName;
+
+      // 保存撤销点
+      pushUndo();
+
       try {
         await fetch(`${API}/workflows/${state.currentWorkflow.id}/nodes`, {
           method: 'POST',
@@ -21,6 +27,8 @@
         });
         closeModal('addNodeModal');
         await selectWorkflow(state.currentWorkflow.id);
+        markDirty();
+        updateUndoRedoButtons();
         showToast('success', '节点已添加');
       } catch (e) {
         showToast('error', '添加失败');

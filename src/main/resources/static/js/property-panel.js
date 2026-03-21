@@ -18,15 +18,17 @@
 
     // 基础字段（名称、类型）
     function renderBasicFields(node) {
+      const isStartOrFinish = node.type === 'start' || node.type === 'finish';
+      const nameDisabled = isStartOrFinish ? 'disabled style="background:#222;color:#888;cursor:not-allowed;"' : 'onchange="updateNodeName(this.value)"';
       return `
+        <div class="form-section-title">基础信息</div>
         <div class="form-group">
           <label class="form-label">节点名称</label>
-          <input type="text" class="form-input" value="${node.name || ''}" disabled style="background:#1a1a1a;color:#888;cursor:not-allowed;">
-          <p style="font-size:11px;color:#666;margin-top:4px;">节点名称创建后不可修改</p>
+          <input type="text" class="form-input" value="${node.name || ''}" ${nameDisabled}>
         </div>
         <div class="form-group">
           <label class="form-label">节点类型</label>
-          <select class="form-select" disabled style="background:#1a1a1a;color:#888;cursor:not-allowed;">
+          <select class="form-select" disabled style="background:#222;color:#888;cursor:not-allowed;">
             <option value="agent_execution" ${node.type==='agent_execution'?'selected':''}>Agent 执行</option>
             <option value="api_call" ${node.type==='api_call'?'selected':''}>API 调用</option>
             <option value="start" ${node.type==='start'?'selected':''}>开始</option>
@@ -36,7 +38,6 @@
             <option value="parallel" ${node.type==='parallel'?'selected':''}>并行执行</option>
             <option value="loop" ${node.type==='loop'?'selected':''}>循环执行</option>
           </select>
-          <p style="font-size:11px;color:#666;margin-top:4px;">节点类型创建后不可修改</p>
         </div>`;
     }
 
@@ -55,6 +56,8 @@
     // Agent执行节点字段
     function renderAgentFields(node) {
       return `
+        <div class="form-divider"></div>
+        <div class="form-section-title">Agent 配置</div>
         <div class="form-group">
           <label class="form-label">Agent ID</label>
           <select class="form-select" id="agentIdSelect" onchange="handleAgentSelect(this)">
@@ -64,13 +67,15 @@
         </div>
         <div class="form-group">
           <label class="form-label">提示词</label>
-          <textarea class="form-input form-textarea" id="promptTextarea" onchange="updateNode('prompt',this.value)">${node.prompt || ''}</textarea>
+          <textarea class="form-input form-textarea" id="promptTextarea" onchange="updateNode('prompt',this.value)" placeholder="输入执行提示词...">${node.prompt || ''}</textarea>
         </div>`;
     }
 
     // API调用节点字段
     function renderApiFields(node) {
       return `
+        <div class="form-divider"></div>
+        <div class="form-section-title">API 配置</div>
         <div class="form-group">
           <label class="form-label">URL</label>
           <input type="text" class="form-input" value="${node.url || ''}" onchange="updateNode('url',this.value)" placeholder="https://api.example.com">

@@ -21,27 +21,27 @@
           e.preventDefault();
           redo();
         }
-        // Ctrl/Cmd + C: 复制节点
-        if (isCtrlOrCmd && e.key === 'c') {
+        // Ctrl/Cmd + C: 复制节点（输入框中不拦截）
+        if (isCtrlOrCmd && e.key === 'c' && !isInputFocused) {
           if (state.selectedNode || state.selectedNodes.size > 0) {
             e.preventDefault();
             copyNodes();
           }
         }
-        // Ctrl/Cmd + V: 粘贴节点
-        if (isCtrlOrCmd && e.key === 'v') {
+        // Ctrl/Cmd + V: 粘贴节点（输入框中不拦截，允许文本粘贴）
+        if (isCtrlOrCmd && e.key === 'v' && !isInputFocused) {
           e.preventDefault();
           pasteNodes();
         }
-        // Ctrl/Cmd + X: 剪切节点
-        if (isCtrlOrCmd && e.key === 'x') {
+        // Ctrl/Cmd + X: 剪切节点（输入框中不拦截）
+        if (isCtrlOrCmd && e.key === 'x' && !isInputFocused) {
           if (state.selectedNode || state.selectedNodes.size > 0) {
             e.preventDefault();
             cutNodes();
           }
         }
         // Ctrl/Cmd + D: 复制为副本
-        if (isCtrlOrCmd && e.key === 'd') {
+        if (isCtrlOrCmd && e.key === 'd' && !isInputFocused) {
           e.preventDefault();
           duplicateNodes();
         }
@@ -132,6 +132,7 @@
           state.undoStack.shift();
         }
         state.redoStack = [];  // 新操作清空重做栈
+        updateUndoRedoButtons();
       }
     }
 
@@ -141,7 +142,9 @@
         state.currentWorkflow = JSON.parse(state.undoStack.pop());
         renderCanvas();
         renderPropertyPanel();
-        showToast('info', '已撤销');
+        markDirty();
+        updateUndoRedoButtons();
+        showToast('info', '已撤销，请手动保存');
       }
     }
 
@@ -151,6 +154,29 @@
         state.currentWorkflow = JSON.parse(state.redoStack.pop());
         renderCanvas();
         renderPropertyPanel();
-        showToast('info', '已重做');
+        markDirty();
+        updateUndoRedoButtons();
+        showToast('info', '已重做，请手动保存');
+      }
+    }
+
+    function updateUndoRedoButtons() {
+      const undoBtn = document.getElementById('undoBtn');
+      const redoBtn = document.getElementById('redoBtn');
+      const undoCount = document.getElementById('undoCount');
+
+      if (undoBtn) {
+        undoBtn.disabled = state.undoStack.length === 0;
+      }
+      if (redoBtn) {
+        redoBtn.disabled = state.redoStack.length === 0;
+      }
+      if (undoCount) {
+        if (state.undoStack.length > 0) {
+          undoCount.textContent = state.undoStack.length;
+          undoCount.style.display = 'inline';
+        } else {
+          undoCount.style.display = 'none';
+        }
       }
     }

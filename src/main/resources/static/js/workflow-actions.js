@@ -107,13 +107,21 @@
         const res = await fetch(`${API}/templates`);
         const data = await res.json();
         if (data.success && data.data.length > 0) {
-          list.innerHTML = data.data.map(t => `
+          list.innerHTML = data.data.map(t => {
+            let nodeCount = t.nodeCount || 0;
+            if (!nodeCount && t.nodes) {
+              try {
+                const nodes = JSON.parse(t.nodes);
+                nodeCount = Array.isArray(nodes) ? nodes.length : 0;
+              } catch (e) {}
+            }
+            return `
             <div class="template-card" onclick="createFromTemplate('${t.id}')">
               <div class="name">${t.name}</div>
-              <div class="desc">${t.description}</div>
-              <div class="meta">${t.nodeCount} 个节点</div>
+              <div class="desc">${t.description || ''}</div>
+              <div class="meta">${nodeCount} 个节点</div>
             </div>
-          `).join('');
+          `}).join('');
         } else {
           list.innerHTML = '<div class="empty-state"><div class="title">暂无模板</div></div>';
         }

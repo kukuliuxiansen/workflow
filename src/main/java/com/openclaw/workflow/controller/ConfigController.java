@@ -67,26 +67,60 @@ public class ConfigController {
     }
 
     @Operation(summary = "加载Agent列表")
-    @GetMapping("/load-agents")
-    public ApiResponse<List<Map<String, Object>>> loadAgents() {
-        // TODO: 调用OpenClaw CLI获取agent列表
-        // openclaw agent list --json
+    @PostMapping("/load-agents")
+    public ApiResponse<List<Map<String, Object>>> loadAgents(@RequestBody Map<String, String> request) {
+        String path = request.get("path");
         List<Map<String, Object>> agents = new ArrayList<>();
 
-        // 模拟数据
-        Map<String, Object> agent1 = new HashMap<>();
-        agent1.put("id", "agent-001");
-        agent1.put("name", "Code Assistant");
-        agent1.put("description", "代码编写助手");
-        agent1.put("status", "active");
-        agents.add(agent1);
+        if (path == null || path.isEmpty()) {
+            return ApiResponse.success(agents);
+        }
 
-        Map<String, Object> agent2 = new HashMap<>();
-        agent2.put("id", "agent-002");
-        agent2.put("name", "Code Reviewer");
-        agent2.put("description", "代码审查助手");
-        agent2.put("status", "active");
-        agents.add(agent2);
+        try {
+            java.io.File file = new java.io.File(path);
+            if (!file.exists()) {
+                Map<String, Object> error = new HashMap<>();
+                error.put("id", "error");
+                error.put("name", "文件不存在: " + path);
+                agents.add(error);
+                return ApiResponse.success(agents);
+            }
+
+            String content = new String(java.nio.file.Files.readAllBytes(file.toPath()));
+            com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            Map<String, Object> json = mapper.readValue(content, Map.class);
+
+            // 解析 openclaw.json 格式: { "agents": { "list": [...] } }
+            if (json.containsKey("agents")) {
+                Object agentsObj = json.get("agents");
+                if (agentsObj instanceof Map) {
+                    Map<String, Object> agentsMap = (Map<String, Object>) agentsObj;
+                    if (agentsMap.containsKey("list")) {
+                        List<Map<String, Object>> list = (List<Map<String, Object>>) agentsMap.get("list");
+                        for (Map<String, Object> agent : list) {
+                            Map<String, Object> item = new HashMap<>();
+                            item.put("id", agent.get("id"));
+                            item.put("name", agent.get("name"));
+                            agents.add(item);
+                        }
+                    }
+                }
+            } else if (json.containsKey("list")) {
+                // 兼容格式: { "list": [...] }
+                List<Map<String, Object>> list = (List<Map<String, Object>>) json.get("list");
+                for (Map<String, Object> agent : list) {
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("id", agent.get("id"));
+                    item.put("name", agent.get("name"));
+                    agents.add(item);
+                }
+            }
+        } catch (Exception e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("id", "error");
+            error.put("name", "解析失败: " + e.getMessage());
+            agents.add(error);
+        }
 
         return ApiResponse.success(agents);
     }

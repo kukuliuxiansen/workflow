@@ -23,7 +23,7 @@
         }
 
         // 左键在空白处: 框选
-        if (e.button === 0 && !e.target.closest('.node') && !e.target.closest('.edge')) {
+        if (e.button === 0 && !e.target.closest('.node') && !e.target.closest('.edge-path')) {
           isBoxSelecting = true;
           const rect = canvas.getBoundingClientRect();
           boxSelectStartX = e.clientX - rect.left;
@@ -80,12 +80,33 @@
 
       // 画布右键菜单
       canvas.addEventListener('contextmenu', (e) => {
-        if (!e.target.closest('.node') && !e.target.closest('.edge')) {
+        if (!e.target.closest('.node')) {
           e.preventDefault();
           const menu = document.getElementById('canvasContextMenu');
           menu.style.left = e.clientX + 'px';
           menu.style.top = e.clientY + 'px';
           menu.classList.add('show');
+        }
+      });
+
+      // 点击连线删除
+      canvas.addEventListener('click', (e) => {
+        const edgePath = e.target.closest('.edge-path');
+        if (edgePath) {
+          const edgeId = edgePath.getAttribute('data-edge-id');
+          if (edgeId && typeof deleteEdgeById === 'function') {
+            deleteEdgeById(edgeId);
+          }
+          return;
+        }
+        if (!e.target.closest('.node')) {
+          if (state.selectedNode) {
+            state.selectedNode = null;
+            state.selectedNodes.clear();
+            renderCanvas();
+            renderPropertyPanel();
+          }
+          collapseRightPanel();
         }
       });
 
@@ -100,19 +121,6 @@
         const x = (e.clientX - rect.left - state.panX) / state.zoom;
         const y = (e.clientY - rect.top - state.panY) / state.zoom;
         addNodeAtPosition(x, y);
-      });
-
-      // 点击画布空白处
-      canvas.addEventListener('click', (e) => {
-        if (!e.target.closest('.node') && !e.target.closest('.edge')) {
-          if (state.selectedNode) {
-            state.selectedNode = null;
-            state.selectedNodes.clear();
-            renderCanvas();
-            renderPropertyPanel();
-          }
-          collapseRightPanel();
-        }
       });
     }
 
@@ -161,19 +169,26 @@
 
     // 在指定位置添加节点
     async function addNodeAtPosition(x, y) {
-      const name = '节点_' + (state.currentWorkflow.nodes?.length || 0);
+      const type = state.selectedNodeType || 'agent_execution';
+      const name = getTypeName(type);
+
+      // 保存撤销点
+      pushUndo();
+
       try {
         await fetch(`${API}/workflows/${state.currentWorkflow.id}/nodes`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            type: 'agent_execution',
+            type,
             name,
             position_x: Math.max(0, x),
             position_y: Math.max(0, y)
           })
         });
         await selectWorkflow(state.currentWorkflow.id);
+        markDirty();
+        updateUndoRedoButtons();
         showToast('success', '节点已添加');
       } catch (e) {
         showToast('error', '添加失败');
@@ -184,4 +199,5 @@
     function clearNodeSelection() {
       state.selectedNodes.clear();
       state.selectedNode = null;
+      updateSelectedCount();
     }

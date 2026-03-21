@@ -33,39 +33,62 @@
     .history-detail-content strong {
       color: #e0e0e0;
     }
-    .form-group { margin-bottom: 12px; }
+    .form-group {
+      margin-bottom: 16px;
+    }
     .form-label {
       display: block;
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 500;
-      color: #888;
-      margin-bottom: 4px;
+      color: #aaa;
+      margin-bottom: 6px;
     }
     .form-input {
       width: 100%;
-      padding: 8px 10px;
+      padding: 8px 12px;
       border: 1px solid #3a3a3a;
-      border-radius: 4px;
-      font-size: 12px;
+      border-radius: 6px;
+      font-size: 13px;
       background: #1a1a1a;
       color: #e0e0e0;
       outline: none;
+      transition: border-color 0.15s;
     }
     .form-input:focus { border-color: #6b5ce7; }
     .form-select {
       width: 100%;
-      padding: 8px 10px;
+      padding: 8px 12px;
       border: 1px solid #3a3a3a;
-      border-radius: 4px;
-      font-size: 12px;
+      border-radius: 6px;
+      font-size: 13px;
       background: #1a1a1a;
       color: #e0e0e0;
       cursor: pointer;
     }
     .form-textarea {
-      min-height: 80px;
+      min-height: 100px;
       resize: vertical;
-      font-family: inherit;
+      font-family: Monaco, monospace;
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .form-hint {
+      font-size: 11px;
+      color: #666;
+      margin-top: 4px;
+    }
+    .form-divider {
+      height: 1px;
+      background: #3a3a3a;
+      margin: 16px 0;
+    }
+    .form-section-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #6b5ce7;
+      margin-bottom: 12px;
+      padding-left: 8px;
+      border-left: 2px solid #6b5ce7;
     }
 
     /* 空状态 */
@@ -84,8 +107,8 @@
     /* 底部日志面板 - 浮动在画布上方 */
     .log-panel {
       position: absolute;
-      left: 0;
-      right: 0;
+      left: 280px;
+      right: 300px;
       bottom: 0;
       height: 180px;
       background: rgba(26, 26, 26, 0.95);

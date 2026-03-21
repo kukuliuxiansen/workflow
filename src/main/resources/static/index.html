@@ -5,18 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OpenClaw 工作流编排</title>
   <!-- CSS 模块 -->
-  <link rel="stylesheet" href="css/modules/base.css">
-  <link rel="stylesheet" href="css/modules/toolbar.css">
-  <link rel="stylesheet" href="css/modules/node.css">
-  <link rel="stylesheet" href="css/modules/panel.css">
-  <link rel="stylesheet" href="css/modules/panel-part2.css">
-  <link rel="stylesheet" href="css/modules/modal.css">
-  <link rel="stylesheet" href="css/modules/modal-part2.css">
-  <link rel="stylesheet" href="css/modules/form.css">
-  <link rel="stylesheet" href="css/modules/form-part2.css">
-  <link rel="stylesheet" href="css/modules/other.css">
-  <link rel="stylesheet" href="css/modules/other-part2.css">
-  <link rel="stylesheet" href="css/modules/other-part3.css">
+  <link rel="stylesheet" href="css/modules/base.css?v=20260321z">
+  <link rel="stylesheet" href="css/modules/toolbar.css?v=20260321b">
+  <link rel="stylesheet" href="css/modules/node.css?v=20260321z">
+  <link rel="stylesheet" href="css/modules/panel.css?v=20260321z">
+  <link rel="stylesheet" href="css/modules/panel-part2.css?v=20260321z">
+  <link rel="stylesheet" href="css/modules/modal.css?v=20260321z">
+  <link rel="stylesheet" href="css/modules/modal-part2.css?v=20260321z">
+  <link rel="stylesheet" href="css/modules/form.css?v=20260321z">
+  <link rel="stylesheet" href="css/modules/form-part2.css?v=20260321z">
+  <link rel="stylesheet" href="css/modules/other.css?v=20260321z">
+  <link rel="stylesheet" href="css/modules/other-part2.css?v=20260321z">
+  <link rel="stylesheet" href="css/modules/other-part3.css?v=20260321z">
 </head>
 <body>
   <div class="app">
@@ -53,6 +53,11 @@
       </div>
       <div class="toolbar-divider"></div>
       <div class="toolbar-group">
+        <button class="toolbar-btn" id="undoBtn" onclick="undo()" title="撤销 (Ctrl+Z)" disabled>↶</button>
+        <button class="toolbar-btn" id="redoBtn" onclick="redo()" title="重做 (Ctrl+Y)" disabled>↷</button>
+        <span id="undoCount" class="undo-count" style="display:none;"></span>
+      </div>
+      <div class="toolbar-group">
         <button class="toolbar-btn" onclick="showGlobalConfigModal()">⚙️ 全局配置</button>
         <button class="toolbar-btn" onclick="showTaskConfigModal()">📋 任务配置</button>
         <button class="toolbar-btn" onclick="openHistoryPanel()">历史</button>
@@ -84,17 +89,6 @@
         <span class="zoom-level" id="zoomLevel">100%</span>
         <button class="zoom-btn" onclick="zoomIn()">+</button>
         <button class="zoom-btn" onclick="zoomReset()">⟲</button>
-      </div>
-      <!-- 小地图 -->
-      <div class="minimap" id="minimap">
-        <canvas id="minimapCanvas" width="180" height="120"></canvas>
-        <div class="minimap-viewport" id="minimapViewport"></div>
-      </div>
-      <!-- 画布信息统计 -->
-      <div class="canvas-info" id="canvasInfo">
-        <div class="canvas-info-item">节点: <span class="canvas-info-value" id="nodeCount">0</span></div>
-        <div class="canvas-info-item">连线: <span class="canvas-info-value" id="edgeCount">0</span></div>
-        <div class="canvas-info-item">选中: <span class="canvas-info-value" id="selectedCount">0</span></div>
       </div>
       <!-- 搜索面板 -->
       <div class="search-panel" id="searchPanel">
@@ -155,7 +149,7 @@
 
       <!-- 节点属性面板 -->
       <div class="panel-body active" id="propertyPanel">
-        <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid #3a3a3a;">
+        <div class="panel-header" style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid #3a3a3a;">
           <span style="font-size:14px;font-weight:500;">📝 节点属性</span>
           <button class="btn-icon" onclick="collapseRightPanel()" title="收起">✕</button>
         </div>
@@ -170,7 +164,6 @@
 
     <!-- 浮动切换按钮 -->
     <button class="floating-toggle" id="toggleSidebarBtn" onclick="togglePanel('sidebar')" title="收起侧边栏">◀</button>
-    <button class="floating-toggle" id="toggleRightPanelBtn" onclick="togglePanel('rightPanel')" title="收起属性面板">▶</button>
     <button class="floating-toggle" id="toggleLogPanelBtn" onclick="togglePanel('logPanel')" title="收起日志面板">▼</button>
   </div>
 
@@ -486,6 +479,14 @@
               <div class="icon">🔄</div>
               <div class="name">循环执行</div>
             </div>
+            <div class="node-type-card" data-type="start" onclick="selectNodeType(this)">
+              <div class="icon">▶️</div>
+              <div class="name">开始</div>
+            </div>
+            <div class="node-type-card" data-type="finish" onclick="selectNodeType(this)">
+              <div class="icon">⏹️</div>
+              <div class="name">结束</div>
+            </div>
           </div>
         </div>
       </div>
@@ -579,44 +580,44 @@
   </div>
 
 <!-- JS 模块 -->
-<script src="js/state.js?v=20260321e"></script>
-<script src="js/utils.js?v=20260321e"></script>
-<script src="js/ui-helpers.js?v=20260321e"></script>
-<script src="js/api-logger.js?v=20260321e"></script>
-<script src="js/panels.js?v=20260321e"></script>
-<script src="js/path-selector.js?v=20260321e"></script>
-<script src="js/workflow-save.js?v=20260321e"></script>
-<script src="js/workflow-loader.js?v=20260321e"></script>
-<script src="js/canvas-render.js?v=20260321e"></script>
-<script src="js/node-select.js?v=20260321e"></script>
-<script src="js/edges.js?v=20260321e"></script>
-<script src="js/drag-connect.js?v=20260321e"></script>
-<script src="js/connect-click.js?v=20260321e"></script>
-<script src="js/node-drag.js?v=20260321e"></script>
-<script src="js/node-clipboard.js?v=20260321e"></script>
-<script src="js/node-align.js?v=20260321e"></script>
-<script src="js/canvas-interact.js?v=20260321e"></script>
-<script src="js/canvas-zoom.js?v=20260321e"></script>
-<script src="js/zoom-minimap.js?v=20260321e"></script>
-<script src="js/canvas-search.js?v=20260321e"></script>
-<script src="js/context-menu.js?v=20260321e"></script>
-<script src="js/export-utils.js?v=20260321e"></script>
-<script src="js/keyboard-autosave.js?v=20260321e"></script>
-<script src="js/ux-features.js?v=20260321e"></script>
-<script src="js/execution.js?v=20260321e"></script>
-<script src="js/execution-history.js?v=20260321e"></script>
-<script src="js/task-config.js?v=20260321e"></script>
-<script src="js/global-config.js?v=20260321e"></script>
-<script src="js/config-loaders.js?v=20260321e"></script>
-<script src="js/prompt-templates.js?v=20260321e"></script>
-<script src="js/property-panel.js?v=20260321e"></script>
-<script src="js/property-panel-part2.js?v=20260321e"></script>
+<script src="js/state.js?v=20260321z"></script>
+<script src="js/utils.js?v=20260321z"></script>
+<script src="js/ui-helpers.js?v=20260321z"></script>
+<script src="js/api-logger.js?v=20260321z"></script>
+<script src="js/panels.js?v=20260321z"></script>
+<script src="js/path-selector.js?v=20260321z"></script>
+<script src="js/workflow-save.js?v=20260321a"></script>
+<script src="js/workflow-loader.js?v=20260321z"></script>
+<script src="js/context-menu.js?v=20260321z"></script>
+<script src="js/canvas-render.js?v=20260321b"></script>
+<script src="js/node-select.js?v=20260321a"></script>
+<script src="js/edges.js?v=20260321z"></script>
+<script src="js/drag-connect.js?v=20260321b"></script>
+<script src="js/connect-click.js?v=20260321z"></script>
+<script src="js/node-drag.js?v=20260321b"></script>
+<script src="js/node-clipboard.js?v=20260321b"></script>
+<script src="js/node-align.js?v=20260321z"></script>
+<script src="js/canvas-interact.js?v=20260321b"></script>
+<script src="js/canvas-zoom.js?v=20260321z"></script>
+<script src="js/zoom-minimap.js?v=20260321z"></script>
+<script src="js/canvas-search.js?v=20260321z"></script>
+<script src="js/export-utils.js?v=20260321z"></script>
+<script src="js/keyboard-autosave.js?v=20260321c"></script>
+<script src="js/ux-features.js?v=20260321z"></script>
+<script src="js/execution.js?v=20260321z"></script>
+<script src="js/execution-history.js?v=20260321z"></script>
+<script src="js/task-config.js?v=20260321z"></script>
+<script src="js/global-config.js?v=20260321z"></script>
+<script src="js/config-loaders.js?v=20260321c"></script>
+<script src="js/prompt-templates.js?v=20260321z"></script>
+<script src="js/property-panel.js?v=20260321a"></script>
+<script src="js/property-panel-part2.js?v=20260321z"></script>
 <!-- 丢失函数恢复 -->
-<script src="js/log-functions.js?v=20260321e"></script>
-<script src="js/log-render.js?v=20260321e"></script>
-<script src="js/workflow-actions.js?v=20260321e"></script>
-<script src="js/folder-actions.js?v=20260321e"></script>
-<script src="js/node-exec-actions.js?v=20260321e"></script>
-<script src="js/ui-utils.js?v=20260321e"></script>
-<script src="js/app-init.js?v=20260321e"></script>
+<script src="js/log-functions.js?v=20260321z"></script>
+<script src="js/log-render.js?v=20260321z"></script>
+<script src="js/workflow-actions.js?v=20260321a"></script>
+<script src="js/folder-actions.js?v=20260321a"></script>
+<script src="js/node-exec-actions.js?v=20260321b"></script>
+<script src="js/ui-utils.js?v=20260321z"></script>
+<script src="js/app-init.js?v=20260321a"></script>
 </html>

@@ -23,13 +23,29 @@
       const startWidth = panel.offsetWidth;
       const startHeight = panel.offsetHeight;
 
+      const logPanel = document.getElementById('logPanel');
+      const sidebar = document.getElementById('sidebar');
+      const rightPanel = document.getElementById('rightPanel');
+      const sidebarBtn = document.getElementById('toggleSidebarBtn');
+      const rightBtn = document.getElementById('toggleRightPanelBtn');
+      const logBtn = document.getElementById('toggleLogPanelBtn');
+
+      // 禁用transition避免延迟
+      if (logPanel) logPanel.style.transition = 'none';
+      if (sidebarBtn) sidebarBtn.style.transition = 'none';
+      if (rightBtn) rightBtn.style.transition = 'none';
+      if (logBtn) logBtn.style.transition = 'none';
+
       function onMouseMove(e) {
         if (panelId === 'sidebar') {
           panel.style.width = Math.max(150, startWidth + e.clientX - startX) + 'px';
+          updateButtonPositions();
         } else if (panelId === 'rightPanel') {
           panel.style.width = Math.max(200, startWidth - e.clientX + startX) + 'px';
+          updateButtonPositions();
         } else if (panelId === 'logPanel') {
           panel.style.height = Math.max(100, startHeight - e.clientY + startY) + 'px';
+          updateButtonPositions();
         }
       }
 
@@ -42,6 +58,14 @@
         if (panelId === 'rightPanel') prefs.rightPanelWidth = panel.offsetWidth;
         if (panelId === 'logPanel') prefs.logPanelHeight = panel.offsetHeight;
         savePrefs(prefs);
+
+        // 恢复transition
+        if (logPanel) logPanel.style.transition = '';
+        if (sidebarBtn) sidebarBtn.style.transition = '';
+        if (rightBtn) rightBtn.style.transition = '';
+        if (logBtn) logBtn.style.transition = '';
+
+        updateButtonPositions();
       }
 
       document.addEventListener('mousemove', onMouseMove);

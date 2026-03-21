@@ -89,6 +89,16 @@ public class NodeResult {
         return result;
     }
 
+    public static NodeResult waiting(String message, Map<String, Object> data) {
+        NodeResult result = new NodeResult();
+        result.setStatus("waiting");
+        result.setOutput(message);
+        if (data != null) {
+            result.setMetadata(data);
+        }
+        return result;
+    }
+
     // 添加下一个节点ID
     public void addNextNodeId(String nodeId) {
         if (this.nextNodeIds == null) {

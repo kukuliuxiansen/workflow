@@ -1,9 +1,4 @@
-// 节点选择管理
-    function clearNodeSelection() {
-      state.selectedNode = null;
-      state.selectedNodes.clear();
-      updateSelectedCount();
-    }
+// 节点选择管理 (clearNodeSelection 在 canvas-interact.js 中定义)
 
     function selectAllNodes() {
       if (state.currentWorkflow && state.currentWorkflow.nodes) {
@@ -79,6 +74,9 @@
         return;
       }
 
+      // 保存撤销点
+      pushUndo();
+
       clearNodeSelection();
 
       const offset = 30;
@@ -140,23 +138,11 @@
 
       if (nodeIdsToDelete.length === 0) return;
 
-      // 过滤掉开始和结束节点（不能删除）
-      const filteredNodeIds = nodeIdsToDelete.filter(nodeId => {
-        const node = state.currentWorkflow.nodes.find(n => n.id === nodeId);
-        if (node && (node.type === 'start' || node.type === 'finish')) {
-          showToast('warn', `开始和结束节点不能删除: ${node.name}`);
-          return false;
-        }
-        return true;
-      });
-
-      if (filteredNodeIds.length === 0) {
-        showToast('warn', '选中的节点无法删除');
-        return;
-      }
+      // 保存撤销点
+      pushUndo();
 
       let successCount = 0;
-      for (const nodeId of filteredNodeIds) {
+      for (const nodeId of nodeIdsToDelete) {
         try {
           await fetch(`${API}/workflows/${state.currentWorkflow.id}/nodes/${nodeId}`, {
             method: 'DELETE'

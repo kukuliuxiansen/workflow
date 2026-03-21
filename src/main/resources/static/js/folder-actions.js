@@ -109,7 +109,7 @@
         const res = await fetch(`${API}/workflows/${workflowId}/move`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ folderId: targetFolderId })
+          body: JSON.stringify({ targetFolderId })
         });
         const data = await res.json();
         if (data.success) {

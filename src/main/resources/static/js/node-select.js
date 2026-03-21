@@ -22,15 +22,8 @@
 
     // 更新切换按钮位置
     function updateToggleButtonPosition() {
-      const panel = document.getElementById('rightPanel');
-      const btn = document.getElementById('toggleRightPanelBtn');
-      if (panel.classList.contains('collapsed')) {
-        btn.style.right = '10px';
-        btn.textContent = '◀';
-      } else {
-        btn.style.right = panel.offsetWidth + 'px';
-        btn.textContent = '▶';
-      }
+      // rightBtn已移除，只需更新logPanel位置
+      updateButtonPositions();
     }
 
     // 更新节点
@@ -41,6 +34,26 @@
       markDirty();  // 标记为已修改
       renderCanvas();
       addLog('info', `更新: ${key} = ${value}`);
+    }
+
+    // 更新节点名称
+    async function updateNodeName(name) {
+      if (!state.selectedNode || !state.currentWorkflow) return;
+      const node = state.selectedNode;
+      if (node.type === 'start' || node.type === 'finish') return;
+
+      try {
+        await fetch(`${API}/workflows/${state.currentWorkflow.id}/nodes/${node.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name })
+        });
+        node.name = name;
+        renderCanvas();
+        showToast('success', '名称已更新');
+      } catch (e) {
+        showToast('error', '更新失败');
+      }
     }
 
     // 获取下游边（从当前节点出发的边）

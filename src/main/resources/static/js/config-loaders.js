@@ -44,12 +44,12 @@
         });
         const data = await res.json();
         if (data.success) {
-          globalConfig.availableAgents = data.agents || [];
+          globalConfig.availableAgents = data.data || [];
           globalConfig.openclawJsonPath = path;
           renderAvailableAgents();
           showToast('success', `已加载 ${globalConfig.availableAgents.length} 个 Agent`);
         } else {
-          showToast('error', data.error || '加载失败');
+          showToast('error', data.error || data.message || '加载失败');
         }
       } catch (e) {
         showToast('error', '加载失败: ' + e.message);
