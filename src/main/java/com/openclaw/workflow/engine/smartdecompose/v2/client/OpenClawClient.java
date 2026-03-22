@@ -3,6 +3,8 @@ package com.openclaw.workflow.engine.smartdecompose.v2.client;
 import com.openclaw.workflow.engine.connector.AgentRequest;
 import com.openclaw.workflow.engine.connector.AgentResponse;
 import com.openclaw.workflow.engine.connector.OpenClawGatewayClient;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -14,6 +16,8 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class OpenClawClient {
+
+    private static final Logger logger = LoggerFactory.getLogger(OpenClawClient.class);
 
     @Value("${openclaw.gateway.url:http://localhost:18789}")
     private String gatewayUrl;
@@ -65,11 +69,20 @@ public class OpenClawClient {
     /**
      * 调用 OpenClaw Agent
      *
+     * 入参: String prompt
+     * 出参: String (OpenClaw 的原始文本响应)
+     *
      * @param prompt 提示词
      * @return OpenClaw 的原始文本响应
      * @throws OpenClawException 调用失败时抛出
      */
     private String callAgent(String prompt) {
+        logger.info("[OPENCLAW] ===== 调用 OpenClaw =====");
+        logger.info("[OPENCLAW] 入参 - agentId: {}", agentId);
+        logger.info("[OPENCLAW] 入参 - currentSessionId: {}", currentSessionId);
+        logger.info("[OPENCLAW] 入参 - prompt长度: {} 字符", prompt != null ? prompt.length() : 0);
+        logger.info("[OPENCLAW] 入参 - prompt内容:\n{}", truncate(prompt, 500));
+
         try {
             AgentRequest.Builder builder = AgentRequest.builder()
                 .agentId(agentId)
@@ -77,11 +90,23 @@ public class OpenClawClient {
 
             if (currentSessionId != null && !currentSessionId.isEmpty()) {
                 builder.sessionKey(currentSessionId);
+                logger.info("[OPENCLAW] 使用已有会话: {}", currentSessionId);
+            } else {
+                logger.info("[OPENCLAW] 创建新会话");
             }
 
-            AgentResponse response = getGatewayClient().executeAgent(builder.build());
+            AgentRequest request = builder.build();
+            logger.info("[OPENCLAW] 发送请求到 Gateway: {}", gatewayUrl);
+
+            long startTime = System.currentTimeMillis();
+            AgentResponse response = getGatewayClient().executeAgent(request);
+            long elapsed = System.currentTimeMillis() - startTime;
+
+            logger.info("[OPENCLAW] Gateway 响应耗时: {}ms", elapsed);
+            logger.info("[OPENCLAW] Gateway 响应状态: {}", response.isSuccess() ? "成功" : "失败");
 
             if (!response.isSuccess()) {
+                logger.error("[OPENCLAW] 执行失败: {}", response.getErrorMessage());
                 throw new OpenClawException(
                     OpenClawException.ErrorCode.SERVER_ERROR,
                     response.getErrorMessage()
@@ -89,13 +114,22 @@ public class OpenClawClient {
             }
 
             // 保存会话ID以便后续复用
-            currentSessionId = response.getSessionKey();
+            String newSessionId = response.getSessionKey();
+            logger.info("[OPENCLAW] 返回的 sessionId: {}", newSessionId);
+            currentSessionId = newSessionId;
 
-            return response.getContent();
+            String content = response.getContent();
+            logger.info("[OPENCLAW] 返回内容长度: {} 字符", content != null ? content.length() : 0);
+            logger.info("[OPENCLAW] 返回内容:\n{}", truncate(content, 1000));
+            logger.info("[OPENCLAW] ===== OpenClaw 调用完成 =====");
+
+            return content;
 
         } catch (OpenClawException e) {
+            logger.error("[OPENCLAW] OpenClaw 异常: {}", e.getMessage());
             throw e;
         } catch (Exception e) {
+            logger.error("[OPENCLAW] 连接异常: {}", e.getMessage(), e);
             throw new OpenClawException(
                 OpenClawException.ErrorCode.CONNECTION_FAILED,
                 "调用 OpenClaw Gateway 失败: " + e.getMessage(),
@@ -110,7 +144,7 @@ public class OpenClawClient {
      * 清除当前会话ID，下次调用将创建新会话
      */
     public void startSession() {
-        // 实现思路：将 currentSessionId 设为 null
+        logger.info("[OPENCLAW] 开始新会话 (清除旧 sessionId: {})", currentSessionId);
         this.currentSessionId = null;
     }
 
@@ -120,11 +154,14 @@ public class OpenClawClient {
      * 清除会话ID，关闭会话（如果 Gateway 支持）
      */
     public void endSession() {
-        // 实现思路：
-        // 1. 如果 currentSessionId 不为空，调用 Gateway 关闭会话
-        // 2. 将 currentSessionId 设为 null
-
+        logger.info("[OPENCLAW] 结束会话 (当前 sessionId: {})", currentSessionId);
         this.currentSessionId = null;
+    }
+
+    private String truncate(String str, int maxLen) {
+        if (str == null) return "null";
+        if (str.length() <= maxLen) return str;
+        return str.substring(0, maxLen) + "...";
     }
 
     /**

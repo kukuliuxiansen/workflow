@@ -52,20 +52,47 @@ public class ReviewProcessor {
 
     /**
      * 审核与重试
+     *
+     * 入参: DecomposeContext context, SubTask task, String executionResult
+     * 出参: boolean (true=审核通过, false=审核失败)
      */
     public boolean reviewAndRetry(DecomposeContext context, SubTask task, String executionResult) {
+        logger.info("========================================");
+        logger.info("[REVIEW] ===== 审核阶段开始 =====");
+        logger.info("[REVIEW] 入参 - taskId: {}", task.getId());
+        logger.info("[REVIEW] 入参 - taskDescription: {}", truncate(task.getDescription(), 100));
+        logger.info("[REVIEW] 入参 - executionResult: {}", truncate(executionResult, 200));
+        logger.info("[REVIEW] 入参 - maxRetries: {}", context.getMaxRetries());
+        logger.info("[REVIEW] 入参 - requireManualReview: {}", context.isRequireManualReview());
+
         int retryCount = 0;
         List<String> previousIssues = new ArrayList<>();
         ReviewStrategy strategy = extensionRegistry.getReviewStrategy();
+        logger.info("[REVIEW] ReviewStrategy: {}", strategy != null ? strategy.getName() : "null");
 
         while (retryCount <= context.getMaxRetries()) {
+            logger.info("[REVIEW] ----- 第 {} 次审核 -----", retryCount + 1);
+
             String reviewPrompt = promptBuilder.buildReviewPrompt(context, task, executionResult, previousIssues);
+            logger.info("[REVIEW] 审核提示词长度: {} 字符", reviewPrompt.length());
+            logger.debug("[REVIEW] 审核提示词:\n{}", truncate(reviewPrompt, 500));
+
+            logger.info("[REVIEW] 调用 OpenClaw 进行审核...");
+            long startTime = System.currentTimeMillis();
             String rawReview = openClawClient.execute(reviewPrompt);
+            long elapsed = System.currentTimeMillis() - startTime;
+            logger.info("[REVIEW] OpenClaw 审核响应 (耗时 {}ms):", elapsed);
+            logger.info("[REVIEW] 原始响应:\n{}", rawReview);
+
             ReviewResponse review = responseParser.parseReview(rawReview);
+            logger.info("[REVIEW] 解析结果: status={}, thought={}",
+                review.getStatus(), truncate(review.getThought(), 100));
 
             if (review.isApproved()) {
-                logger.info("审核通过: {}", review.getSummary());
+                logger.info("[REVIEW] 审核通过: {}", review.getSummary());
                 task.setReviewStatus(ReviewStatus.APPROVED);
+                logger.info("[REVIEW] ===== 审核阶段结束(通过) =====");
+                logger.info("========================================");
                 return true;
             }
 
@@ -75,18 +102,25 @@ public class ReviewProcessor {
             retryCount++;
             task.setRetryCount(retryCount);
 
-            logger.warn("审核拒绝 (第{}次): {}", retryCount, previousIssues);
+            logger.warn("[REVIEW] 审核拒绝 (第{}次): {}", retryCount, previousIssues);
 
             if (retryCount > context.getMaxRetries()) {
                 // 使用 ReviewStrategy 判断是否需要人工审核
                 boolean needManualReview = context.isRequireManualReview();
                 if (strategy != null) {
                     needManualReview = strategy.requireManualReview(task, retryCount);
+                    logger.info("[REVIEW] ReviewStrategy 判断需要人工审核: {}", needManualReview);
                 }
 
                 if (needManualReview) {
-                    return triggerManualReview(context, task, executionResult, review);
+                    logger.warn("[REVIEW] 触发人工审核...");
+                    boolean result = triggerManualReview(context, task, executionResult, review);
+                    logger.info("[REVIEW] ===== 审核阶段结束(人工审核) =====");
+                    logger.info("========================================");
+                    return result;
                 }
+                logger.info("[REVIEW] ===== 审核阶段结束(失败) =====");
+                logger.info("========================================");
                 return false;
             }
 
@@ -94,12 +128,20 @@ public class ReviewProcessor {
             String retryPrompt;
             if (strategy != null) {
                 retryPrompt = strategy.buildRetryPrompt(task, previousIssues);
+                logger.info("[REVIEW] 使用 ReviewStrategy 构建重试提示词");
             } else {
                 retryPrompt = promptBuilder.buildRetryPrompt(context, task, previousIssues);
+                logger.info("[REVIEW] 使用 PromptBuilder 构建重试提示词");
             }
+            logger.info("[REVIEW] 重试提示词长度: {} 字符", retryPrompt.length());
+
+            logger.info("[REVIEW] 调用 OpenClaw 重新执行...");
             executionResult = openClawClient.execute(retryPrompt);
+            logger.info("[REVIEW] 重试执行结果:\n{}", truncate(executionResult, 200));
         }
 
+        logger.info("[REVIEW] ===== 审核阶段结束(失败) =====");
+        logger.info("========================================");
         return false;
     }
 
@@ -110,7 +152,11 @@ public class ReviewProcessor {
                                          String executionResult, ReviewResponse review) {
         String reviewId = UUID.randomUUID().toString();
 
-        logger.warn("触发人工审核: manualReviewId={}, taskId={}", reviewId, task.getId());
+        logger.info("[MANUAL_REVIEW] ===== 触发人工审核 =====");
+        logger.info("[MANUAL_REVIEW] reviewId: {}", reviewId);
+        logger.info("[MANUAL_REVIEW] taskId: {}", task.getId());
+        logger.info("[MANUAL_REVIEW] executionId: {}", context.getExecutionId());
+        logger.info("[MANUAL_REVIEW] issues: {}", review.getIssues());
 
         // 创建人工审核记录
         ManualReviewRecord record = new ManualReviewRecord();
@@ -128,11 +174,19 @@ public class ReviewProcessor {
         }
 
         manualReviewRepository.save(record);
+        logger.info("[MANUAL_REVIEW] 人工审核记录已保存");
 
         // 更新上下文状态
         context.setStatus(DecomposeStatus.WAITING_MANUAL_REVIEW);
         context.setManualReviewId(reviewId);
 
+        logger.info("[MANUAL_REVIEW] ===== 人工审核已触发 =====");
         return false;
+    }
+
+    private String truncate(String str, int maxLen) {
+        if (str == null) return "null";
+        if (str.length() <= maxLen) return str;
+        return str.substring(0, maxLen) + "...";
     }
 }

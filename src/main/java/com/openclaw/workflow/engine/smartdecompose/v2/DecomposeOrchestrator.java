@@ -55,29 +55,49 @@ public class DecomposeOrchestrator {
 
     /**
      * 执行主循环
+     *
+     * 入参: DecomposeContext context
+     * 出参: void（结果保存在 context 中）
      */
     public void run(DecomposeContext context) {
-        logger.info("开始执行: executionId={}", context.getExecutionId());
+        logger.info("========================================");
+        logger.info("[ORCHESTRATOR] ===== 开始执行 =====");
+        logger.info("[ORCHESTRATOR] 入参 - executionId: {}", context.getExecutionId());
+        logger.info("[ORCHESTRATOR] 入参 - workflowId: {}", context.getWorkflowId());
+        logger.info("[ORCHESTRATOR] 入参 - nodeId: {}", context.getNodeId());
+        logger.info("[ORCHESTRATOR] 入参 - projectPath: {}", context.getProjectPath());
+        logger.info("[ORCHESTRATOR] 入参 - techStack: {}", context.getTechStack());
+        logger.info("[ORCHESTRATOR] 入参 - maxRetries: {}", context.getMaxRetries());
+        logger.info("[ORCHESTRATOR] 入参 - maxIterations: {}", context.getMaxIterations());
+        logger.info("[ORCHESTRATOR] 入参 - requireManualReview: {}", context.isRequireManualReview());
+        logger.info("[ORCHESTRATOR] 入参 - taskQueue初始大小: {}", context.getTaskQueue().size());
+        logger.info("========================================");
 
         try {
+            logger.info("[ORCHESTRATOR] 启动 OpenClaw 会话...");
             openClawClient.startSession();
 
             // 恢复会话时设置已有的 sessionId
             if (context.getOpenClawSessionId() != null) {
                 openClawClient.setSessionId(context.getOpenClawSessionId());
-                logger.debug("恢复 OpenClaw 会话: {}", context.getOpenClawSessionId());
+                logger.info("[ORCHESTRATOR] 恢复 OpenClaw 会话: {}", context.getOpenClawSessionId());
             }
 
             while (!context.getTaskQueue().isEmpty()) {
+                logger.info("----------------------------------------");
+                logger.info("[ORCHESTRATOR] 迭代 #{}, 队列剩余: {}",
+                    context.getIterationCount() + 1, context.getTaskQueue().size());
+
                 if (context.getIterationCount() >= context.getMaxIterations()) {
                     context.setStatus(DecomposeStatus.ITERATION_EXCEEDED);
                     context.setErrorMessage("超过最大迭代次数: " + context.getMaxIterations());
-                    logger.warn("迭代超限: {}", context.getMaxIterations());
+                    logger.warn("[ORCHESTRATOR] 迭代超限: {}", context.getMaxIterations());
                     break;
                 }
 
                 SubTask currentTask = context.getTaskQueue().poll();
                 if (currentTask == null) {
+                    logger.warn("[ORCHESTRATOR] 队列为空，退出循环");
                     break;
                 }
 
@@ -85,7 +105,9 @@ public class DecomposeOrchestrator {
                 context.incrementIteration();
                 currentTask.setStatus(SubTaskStatus.RUNNING);
 
-                logger.info("处理任务: id={}, description={}", currentTask.getId(), currentTask.getDescription());
+                logger.info("[ORCHESTRATOR] 取出任务: id={}, depth={}, description={}",
+                    currentTask.getId(), currentTask.getDepth(),
+                    truncate(currentTask.getDescription(), 100));
 
                 try {
                     DecisionResponse decision = makeDecision(context, currentTask);
@@ -96,28 +118,40 @@ public class DecomposeOrchestrator {
                         handleExecute(context, currentTask, decision);
                     }
 
+                    logger.info("[ORCHESTRATOR] 保存执行状态...");
                     statePersister.save(context);
 
                 } catch (Exception e) {
-                    logger.error("任务执行异常: {}", e.getMessage(), e);
+                    logger.error("[ORCHESTRATOR] 任务执行异常: {}", e.getMessage(), e);
                     currentTask.setStatus(SubTaskStatus.FAILED);
                     context.addFailedTask(currentTask);
                     context.setErrorMessage(e.getMessage());
                 }
+                logger.info("----------------------------------------");
             }
 
             if (context.getStatus() == DecomposeStatus.RUNNING) {
                 context.setStatus(DecomposeStatus.COMPLETED);
-                logger.info("执行完成: completedTasks={}, failedTasks={}",
-                    context.getCompletedTasks().size(), context.getFailedTasks().size());
+                logger.info("[ORCHESTRATOR] 所有任务处理完成");
             }
 
             // 保存会话ID以便恢复
             context.setOpenClawSessionId(openClawClient.getSessionId());
+            logger.info("[ORCHESTRATOR] OpenClaw 会话ID: {}", context.getOpenClawSessionId());
 
         } finally {
+            logger.info("[ORCHESTRATOR] 结束 OpenClaw 会话");
             openClawClient.endSession();
         }
+
+        logger.info("========================================");
+        logger.info("[ORCHESTRATOR] ===== 执行结束 =====");
+        logger.info("[ORCHESTRATOR] 出参 - status: {}", context.getStatus());
+        logger.info("[ORCHESTRATOR] 出参 - iterationCount: {}", context.getIterationCount());
+        logger.info("[ORCHESTRATOR] 出参 - completedTasks: {}", context.getCompletedTasks().size());
+        logger.info("[ORCHESTRATOR] 出参 - failedTasks: {}", context.getFailedTasks().size());
+        logger.info("[ORCHESTRATOR] 出参 - errorMessage: {}", context.getErrorMessage());
+        logger.info("========================================");
     }
 
     /**
@@ -133,27 +167,53 @@ public class DecomposeOrchestrator {
      * 决策阶段
      */
     private DecisionResponse makeDecision(DecomposeContext context, SubTask task) {
-        logger.debug("决策阶段: taskId={}", task.getId());
+        logger.info("[DECISION] ===== 决策阶段开始 =====");
+        logger.info("[DECISION] taskId: {}", task.getId());
+        logger.info("[DECISION] taskDescription: {}", truncate(task.getDescription(), 200));
 
         String prompt = promptBuilder.buildDecisionPrompt(context, task);
-        String rawResponse = openClawClient.execute(prompt);
-        DecisionResponse response = responseParser.parseDecision(rawResponse);
+        logger.info("[DECISION] 提示词长度: {} 字符", prompt.length());
+        logger.debug("[DECISION] 提示词内容:\n{}", truncate(prompt, 1000));
 
-        logger.info("决策结果: decision={}, thought={}",
+        logger.info("[DECISION] 调用 OpenClaw...");
+        long startTime = System.currentTimeMillis();
+        String rawResponse = openClawClient.execute(prompt);
+        long elapsed = System.currentTimeMillis() - startTime;
+        logger.info("[DECISION] OpenClaw 响应耗时: {}ms", elapsed);
+        logger.info("[DECISION] OpenClaw 原始响应长度: {} 字符", rawResponse != null ? rawResponse.length() : 0);
+        logger.info("[DECISION] OpenClaw 原始响应:\n{}", rawResponse);
+
+        DecisionResponse response = responseParser.parseDecision(rawResponse);
+        logger.info("[DECISION] 解析结果: decision={}, thought={}",
             response.getDecision(),
-            response.getThought() != null ? response.getThought().substring(0, Math.min(50, response.getThought().length())) : "");
+            truncate(response.getThought(), 100));
+
+        if (response.isSplit()) {
+            logger.info("[DECISION] 拆分任务数: {}", response.getTasks() != null ? response.getTasks().size() : 0);
+            if (response.getTasks() != null) {
+                for (int i = 0; i < response.getTasks().size(); i++) {
+                    DecisionResponse.SubTaskDef subTask = response.getTasks().get(i);
+                    logger.info("[DECISION]   子任务[{}]: id={}, desc={}",
+                        i, subTask.getId(), truncate(subTask.getDescription(), 100));
+                }
+            }
+        } else {
+            logger.info("[DECISION] 执行结果: {}", truncate(response.getResult(), 200));
+        }
 
         decisionRecorder.record(context, task, response);
 
         // 调用自定义决策处理器
         List<DecisionHandler> handlers = extensionRegistry.getDecisionHandlers();
+        logger.info("[DECISION] 注册的决策处理器数: {}", handlers.size());
         for (DecisionHandler handler : handlers) {
             if (handler.handle(context, task, response)) {
-                logger.debug("决策处理器 {} 已处理", handler.getName());
+                logger.info("[DECISION] 决策处理器 {} 已处理", handler.getName());
                 break;
             }
         }
 
+        logger.info("[DECISION] ===== 决策阶段结束 =====");
         return response;
     }
 
@@ -161,7 +221,9 @@ public class DecomposeOrchestrator {
      * 处理拆分决策
      */
     private void handleSplit(DecomposeContext context, SubTask task, DecisionResponse decision) {
-        logger.info("任务拆分为 {} 个子任务", decision.getTasks().size());
+        logger.info("[SPLIT] ===== 拆分阶段开始 =====");
+        logger.info("[SPLIT] 父任务: id={}, depth={}", task.getId(), task.getDepth());
+        logger.info("[SPLIT] 子任务数: {}", decision.getTasks().size());
 
         List<SubTask> subTasks = new ArrayList<>();
         for (DecisionResponse.SubTaskDef def : decision.getTasks()) {
@@ -169,46 +231,65 @@ public class DecomposeOrchestrator {
             subTask.setParentTaskId(task.getId());
             subTask.setDepth(task.getDepth() + 1);
             subTasks.add(subTask);
+            logger.info("[SPLIT] 创建子任务: id={}, depth={}, desc={}",
+                subTask.getId(), subTask.getDepth(), truncate(subTask.getDescription(), 100));
         }
 
         // 调用拆分前拦截器
         List<TaskSplitInterceptor> interceptors = extensionRegistry.getSplitInterceptors();
+        logger.info("[SPLIT] 拦截器数: {}", interceptors.size());
         for (TaskSplitInterceptor interceptor : interceptors) {
+            logger.info("[SPLIT] 调用拦截器 beforeSplit: {}", interceptor.getName());
             if (!interceptor.beforeSplit(task, subTasks)) {
-                logger.warn("拦截器 {} 阻止了拆分", interceptor.getName());
+                logger.warn("[SPLIT] 拦截器 {} 阻止了拆分", interceptor.getName());
                 return;
             }
         }
 
         // 深度优先：将子任务逆序入队，保证顺序执行
+        logger.info("[SPLIT] 子任务入队（深度优先，逆序）...");
         for (int i = subTasks.size() - 1; i >= 0; i--) {
             context.getTaskQueue().addFirst(subTasks.get(i));
         }
 
         // 调用拆分后拦截器
         for (TaskSplitInterceptor interceptor : interceptors) {
+            logger.info("[SPLIT] 调用拦截器 afterSplit: {}", interceptor.getName());
             interceptor.afterSplit(task, subTasks);
         }
 
-        logger.debug("子任务入队完成，当前队列长度: {}", context.getTaskQueue().size());
+        logger.info("[SPLIT] 当前队列长度: {}", context.getTaskQueue().size());
+        logger.info("[SPLIT] ===== 拆分阶段结束 =====");
     }
 
     /**
      * 处理执行决策
      */
     private void handleExecute(DecomposeContext context, SubTask task, DecisionResponse decision) {
+        logger.info("[EXECUTE] ===== 执行阶段开始 =====");
+        logger.info("[EXECUTE] taskId: {}", task.getId());
+        logger.info("[EXECUTE] 执行结果(来自决策): {}", truncate(decision.getResult(), 200));
+
         String executionResult = decision.getResult();
+        logger.info("[EXECUTE] 调用审核处理器...");
         boolean approved = reviewProcessor.reviewAndRetry(context, task, executionResult);
 
         if (approved) {
             task.setStatus(SubTaskStatus.COMPLETED);
             task.setExecutionResult(executionResult);
             context.addCompletedTask(task);
-            logger.info("任务完成: {}", task.getId());
+            logger.info("[EXECUTE] 任务完成: taskId={}", task.getId());
         } else {
             task.setStatus(SubTaskStatus.FAILED);
             context.addFailedTask(task);
-            logger.warn("任务失败: {}", task.getId());
+            logger.warn("[EXECUTE] 任务失败: taskId={}", task.getId());
         }
+        logger.info("[EXECUTE] ===== 执行阶段结束 =====");
+    }
+
+    private String truncate(String str, int maxLen) {
+        if (str == null) return "null";
+        if (str.length() <= maxLen) return str;
+        return str.substring(0, maxLen) + "...";
     }
 }

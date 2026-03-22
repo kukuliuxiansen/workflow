@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openclaw.workflow.engine.smartdecompose.v2.model.DecisionResponse;
 import com.openclaw.workflow.engine.smartdecompose.v2.model.ReviewResponse;
 import com.openclaw.workflow.engine.smartdecompose.v2.prompt.PromptOutputFormat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -19,6 +21,7 @@ import java.util.regex.Pattern;
 @Component
 public class ResponseParser {
 
+    private static final Logger logger = LoggerFactory.getLogger(ResponseParser.class);
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     // ==================== 公开方法 ====================
@@ -26,17 +29,32 @@ public class ResponseParser {
     /**
      * 解析决策响应
      *
+     * 入参: String rawResponse
+     * 出参: DecisionResponse
+     *
      * @param rawResponse OpenClaw 返回的原始响应
      * @return 决策响应对象
      * @throws ResponseParseException 解析失败时抛出
      */
     public DecisionResponse parseDecision(String rawResponse) {
+        logger.info("[PARSER] ===== 解析决策响应 =====");
+        logger.info("[PARSER] 入参 - rawResponse长度: {}", rawResponse != null ? rawResponse.length() : 0);
+
         String json = extractJson(rawResponse);
+        logger.info("[PARSER] 提取的JSON:\n{}", truncate(json, 500));
+
         try {
             DecisionResponse response = objectMapper.readValue(json, DecisionResponse.class);
             validateDecision(response);
+            logger.info("[PARSER] 解析成功: decision={}, thought={}",
+                response.getDecision(), truncate(response.getThought(), 100));
+            if (response.isSplit()) {
+                logger.info("[PARSER] 子任务数: {}", response.getTasks() != null ? response.getTasks().size() : 0);
+            }
+            logger.info("[PARSER] ===== 决策响应解析完成 =====");
             return response;
         } catch (Exception e) {
+            logger.error("[PARSER] 解析失败: {}", e.getMessage());
             throw new ResponseParseException("解析决策响应失败: " + e.getMessage(), e);
         }
     }
@@ -44,17 +62,32 @@ public class ResponseParser {
     /**
      * 解析审核响应
      *
+     * 入参: String rawResponse
+     * 出参: ReviewResponse
+     *
      * @param rawResponse OpenClaw 返回的原始响应
      * @return 审核响应对象
      * @throws ResponseParseException 解析失败时抛出
      */
     public ReviewResponse parseReview(String rawResponse) {
+        logger.info("[PARSER] ===== 解析审核响应 =====");
+        logger.info("[PARSER] 入参 - rawResponse长度: {}", rawResponse != null ? rawResponse.length() : 0);
+
         String json = extractJson(rawResponse);
+        logger.info("[PARSER] 提取的JSON:\n{}", truncate(json, 500));
+
         try {
             ReviewResponse response = objectMapper.readValue(json, ReviewResponse.class);
             validateReview(response);
+            logger.info("[PARSER] 解析成功: status={}, thought={}",
+                response.getStatus(), truncate(response.getThought(), 100));
+            if (response.isRejected()) {
+                logger.info("[PARSER] 问题列表: {}", response.getIssues());
+            }
+            logger.info("[PARSER] ===== 审核响应解析完成 =====");
             return response;
         } catch (Exception e) {
+            logger.error("[PARSER] 解析失败: {}", e.getMessage());
             throw new ResponseParseException("解析审核响应失败: " + e.getMessage(), e);
         }
     }
@@ -200,5 +233,11 @@ public class ResponseParser {
                 throw new ResponseParseException("REJECTED 审核必须包含非空的 issues 列表");
             }
         }
+    }
+
+    private String truncate(String str, int maxLen) {
+        if (str == null) return "null";
+        if (str.length() <= maxLen) return str;
+        return str.substring(0, maxLen) + "...";
     }
 }
