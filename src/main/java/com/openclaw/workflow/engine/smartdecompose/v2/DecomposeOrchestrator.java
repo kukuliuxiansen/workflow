@@ -7,6 +7,9 @@ import com.openclaw.workflow.engine.smartdecompose.v2.model.DecisionResponse;
 import com.openclaw.workflow.engine.smartdecompose.v2.model.SubTask;
 import com.openclaw.workflow.engine.smartdecompose.v2.model.enums.DecomposeStatus;
 import com.openclaw.workflow.engine.smartdecompose.v2.model.enums.SubTaskStatus;
+import com.openclaw.workflow.engine.smartdecompose.v2.extension.DecisionHandler;
+import com.openclaw.workflow.engine.smartdecompose.v2.extension.ExtensionRegistry;
+import com.openclaw.workflow.engine.smartdecompose.v2.extension.TaskSplitInterceptor;
 import com.openclaw.workflow.engine.smartdecompose.v2.persistence.DecisionRecorder;
 import com.openclaw.workflow.engine.smartdecompose.v2.persistence.StatePersister;
 import com.openclaw.workflow.engine.smartdecompose.v2.prompt.PromptBuilder;
@@ -47,6 +50,9 @@ public class DecomposeOrchestrator {
     @Autowired
     private ReviewProcessor reviewProcessor;
 
+    @Autowired
+    private ExtensionRegistry extensionRegistry;
+
     /**
      * 执行主循环
      */
@@ -55,6 +61,12 @@ public class DecomposeOrchestrator {
 
         try {
             openClawClient.startSession();
+
+            // 恢复会话时设置已有的 sessionId
+            if (context.getOpenClawSessionId() != null) {
+                openClawClient.setSessionId(context.getOpenClawSessionId());
+                logger.debug("恢复 OpenClaw 会话: {}", context.getOpenClawSessionId());
+            }
 
             while (!context.getTaskQueue().isEmpty()) {
                 if (context.getIterationCount() >= context.getMaxIterations()) {
@@ -100,9 +112,21 @@ public class DecomposeOrchestrator {
                     context.getCompletedTasks().size(), context.getFailedTasks().size());
             }
 
+            // 保存会话ID以便恢复
+            context.setOpenClawSessionId(openClawClient.getSessionId());
+
         } finally {
             openClawClient.endSession();
         }
+    }
+
+    /**
+     * 设置 OpenClaw 会话ID（用于恢复执行）
+     *
+     * @param sessionId 会话ID
+     */
+    public void setOpenClawSessionId(String sessionId) {
+        openClawClient.setSessionId(sessionId);
     }
 
     /**
@@ -121,6 +145,15 @@ public class DecomposeOrchestrator {
 
         decisionRecorder.record(context, task, response);
 
+        // 调用自定义决策处理器
+        List<DecisionHandler> handlers = extensionRegistry.getDecisionHandlers();
+        for (DecisionHandler handler : handlers) {
+            if (handler.handle(context, task, response)) {
+                logger.debug("决策处理器 {} 已处理", handler.getName());
+                break;
+            }
+        }
+
         return response;
     }
 
@@ -138,8 +171,23 @@ public class DecomposeOrchestrator {
             subTasks.add(subTask);
         }
 
+        // 调用拆分前拦截器
+        List<TaskSplitInterceptor> interceptors = extensionRegistry.getSplitInterceptors();
+        for (TaskSplitInterceptor interceptor : interceptors) {
+            if (!interceptor.beforeSplit(task, subTasks)) {
+                logger.warn("拦截器 {} 阻止了拆分", interceptor.getName());
+                return;
+            }
+        }
+
+        // 深度优先：将子任务逆序入队，保证顺序执行
         for (int i = subTasks.size() - 1; i >= 0; i--) {
             context.getTaskQueue().addFirst(subTasks.get(i));
+        }
+
+        // 调用拆分后拦截器
+        for (TaskSplitInterceptor interceptor : interceptors) {
+            interceptor.afterSplit(task, subTasks);
         }
 
         logger.debug("子任务入队完成，当前队列长度: {}", context.getTaskQueue().size());

@@ -49,7 +49,14 @@ public class StatePersister {
         state.setMaxIterations(context.getMaxIterations());
         state.setTaskStack(serializeDeque(context.getTaskQueue()));
         state.setCompletedTasks(serializeList(context.getCompletedTasks()));
+        state.setFailedTasks(serializeList(context.getFailedTasks()));
         state.setCurrentTaskId(context.getCurrentTask() != null ? context.getCurrentTask().getId() : null);
+
+        // 新增字段
+        state.setOpenClawSessionId(context.getOpenClawSessionId());
+        state.setMaxRetries(context.getMaxRetries());
+        state.setRequireManualReview(context.isRequireManualReview());
+        state.setManualReviewId(context.getManualReviewId());
 
         if (state.getId() == null) {
             state.setId(context.getExecutionId() + "_" + context.getNodeId());
@@ -84,6 +91,17 @@ public class StatePersister {
         context.setMaxIterations(state.getMaxIterations());
         context.setTaskQueue(deserializeDeque(state.getTaskStack()));
         context.setCompletedTasks(deserializeList(state.getCompletedTasks()));
+        context.setFailedTasks(deserializeList(state.getFailedTasks()));
+
+        // 恢复新增字段
+        context.setOpenClawSessionId(state.getOpenClawSessionId());
+        if (state.getMaxRetries() != null) {
+            context.setMaxRetries(state.getMaxRetries());
+        }
+        if (state.getRequireManualReview() != null) {
+            context.setRequireManualReview(state.getRequireManualReview());
+        }
+        context.setManualReviewId(state.getManualReviewId());
 
         return context;
     }

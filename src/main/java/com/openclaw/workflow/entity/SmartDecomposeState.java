@@ -72,6 +72,26 @@ public class SmartDecomposeState {
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
+    // 失败任务（JSON序列化）
+    @Column(name = "failed_tasks", columnDefinition = "TEXT")
+    private String failedTasks;
+
+    // OpenClaw 会话ID
+    @Column(name = "openclaw_session_id")
+    private String openClawSessionId;
+
+    // 配置：最大重试次数
+    @Column(name = "max_retries")
+    private Integer maxRetries = 5;
+
+    // 配置：是否需要人工审核
+    @Column(name = "require_manual_review")
+    private Boolean requireManualReview = true;
+
+    // 当前人工审核ID
+    @Column(name = "manual_review_id")
+    private String manualReviewId;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -129,6 +149,21 @@ public class SmartDecomposeState {
 
     public String getErrorMessage() { return errorMessage; }
     public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+
+    public String getFailedTasks() { return failedTasks; }
+    public void setFailedTasks(String failedTasks) { this.failedTasks = failedTasks; }
+
+    public String getOpenClawSessionId() { return openClawSessionId; }
+    public void setOpenClawSessionId(String openClawSessionId) { this.openClawSessionId = openClawSessionId; }
+
+    public Integer getMaxRetries() { return maxRetries; }
+    public void setMaxRetries(Integer maxRetries) { this.maxRetries = maxRetries; }
+
+    public Boolean getRequireManualReview() { return requireManualReview; }
+    public void setRequireManualReview(Boolean requireManualReview) { this.requireManualReview = requireManualReview; }
+
+    public String getManualReviewId() { return manualReviewId; }
+    public void setManualReviewId(String manualReviewId) { this.manualReviewId = manualReviewId; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

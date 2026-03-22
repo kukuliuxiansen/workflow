@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openclaw.workflow.engine.smartdecompose.v2.client.OpenClawClient;
 import com.openclaw.workflow.engine.smartdecompose.v2.client.ResponseParser;
+import com.openclaw.workflow.engine.smartdecompose.v2.extension.ExtensionRegistry;
+import com.openclaw.workflow.engine.smartdecompose.v2.extension.ReviewStrategy;
 import com.openclaw.workflow.engine.smartdecompose.v2.model.DecomposeContext;
 import com.openclaw.workflow.engine.smartdecompose.v2.model.ReviewResponse;
 import com.openclaw.workflow.engine.smartdecompose.v2.model.SubTask;
@@ -43,6 +45,9 @@ public class ReviewProcessor {
     @Autowired
     private ManualReviewRepository manualReviewRepository;
 
+    @Autowired
+    private ExtensionRegistry extensionRegistry;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -72,13 +77,28 @@ public class ReviewProcessor {
             logger.warn("审核拒绝 (第{}次): {}", retryCount, previousIssues);
 
             if (retryCount > context.getMaxRetries()) {
-                if (context.isRequireManualReview()) {
+                // 使用 ReviewStrategy 判断是否需要人工审核
+                ReviewStrategy strategy = extensionRegistry.getReviewStrategy();
+                boolean needManualReview = context.isRequireManualReview();
+
+                if (strategy != null) {
+                    needManualReview = strategy.requireManualReview(task, retryCount);
+                }
+
+                if (needManualReview) {
                     return triggerManualReview(context, task, executionResult, review);
                 }
                 return false;
             }
 
-            String retryPrompt = promptBuilder.buildRetryPrompt(context, task, previousIssues);
+            // 构建 retry 提示词（优先使用 ReviewStrategy）
+            String retryPrompt;
+            ReviewStrategy strategy = extensionRegistry.getReviewStrategy();
+            if (strategy != null) {
+                retryPrompt = strategy.buildRetryPrompt(task, previousIssues);
+            } else {
+                retryPrompt = promptBuilder.buildRetryPrompt(context, task, previousIssues);
+            }
             executionResult = openClawClient.execute(retryPrompt);
         }
 

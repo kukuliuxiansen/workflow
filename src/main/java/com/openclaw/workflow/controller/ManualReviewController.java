@@ -131,6 +131,12 @@ public class ManualReviewController {
         // 恢复状态为运行中
         context.setStatus(DecomposeStatus.RUNNING);
 
+        // 恢复 OpenClaw 会话
+        if (context.getOpenClawSessionId() != null) {
+            orchestrator.setOpenClawSessionId(context.getOpenClawSessionId());
+            logger.debug("恢复 OpenClaw 会话: sessionId={}", context.getOpenClawSessionId());
+        }
+
         // 重新执行
         orchestrator.run(context);
     }
