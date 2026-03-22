@@ -108,6 +108,38 @@ public class AIService {
         }
     }
 
+    /**
+     * 根据节点信息生成提示词
+     */
+    public String generateNodePrompt(Map<String, Object> nodeInfo, Map<String, Object> workflowContext) {
+        try {
+            AIClient client = createAIClient();
+            if (!client.isConfigured()) {
+                logger.warn("AI未配置，返回默认提示词");
+                return "请执行任务：" + nodeInfo.get("name");
+            }
+
+            String nodeName = (String) nodeInfo.get("name");
+            String nodeType = (String) nodeInfo.get("type");
+            String workflowName = workflowContext != null ? (String) workflowContext.get("name") : "";
+
+            String systemPrompt = "你是一个工作流节点提示词生成助手。根据节点信息和上下文，生成简洁、明确的执行提示词。" +
+                "直接返回提示词内容，不要包含其他说明。";
+
+            StringBuilder userPrompt = new StringBuilder();
+            userPrompt.append("请为以下节点生成执行提示词：\n\n");
+            userPrompt.append("工作流名称：").append(workflowName != null ? workflowName : "").append("\n");
+            userPrompt.append("节点名称：").append(nodeName != null ? nodeName : "").append("\n");
+            userPrompt.append("节点类型：").append(nodeType != null ? nodeType : "agent_execution").append("\n\n");
+            userPrompt.append("请生成该节点需要执行的提示词：");
+
+            return client.call(systemPrompt, userPrompt.toString());
+        } catch (Exception e) {
+            logger.error("生成节点提示词失败: {}", e.getMessage());
+            return "执行任务：" + nodeInfo.get("name");
+        }
+    }
+
     private AIClient createAIClient() {
         return new AIClient(baseUrl, apiKey, model, gatewayUrl, gatewayToken, aiAgentId);
     }

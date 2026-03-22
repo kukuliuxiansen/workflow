@@ -8,6 +8,9 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @Tag(name = "AI", description = "AI生成接口")
 @RestController
 @RequestMapping("/api/ai")
@@ -38,5 +41,20 @@ public class AIController {
     public ApiResponse<String> generateFinalPrompt(@RequestBody String intermediatePrompt) {
         String prompt = aiService.generateFinalPrompt(intermediatePrompt);
         return ApiResponse.success(prompt);
+    }
+
+    @Operation(summary = "生成节点提示词")
+    @PostMapping("/generate-prompt")
+    public ApiResponse<Map<String, String>> generatePrompt(@RequestBody Map<String, Object> request) {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> nodeInfo = (Map<String, Object>) request.get("nodeInfo");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> workflowContext = (Map<String, Object>) request.get("workflowContext");
+
+        String prompt = aiService.generateNodePrompt(nodeInfo, workflowContext);
+
+        Map<String, String> result = new HashMap<>();
+        result.put("prompt", prompt != null ? prompt : "");
+        return ApiResponse.success(result);
     }
 }
