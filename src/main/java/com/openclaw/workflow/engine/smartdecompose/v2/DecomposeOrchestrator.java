@@ -1,6 +1,7 @@
 package com.openclaw.workflow.engine.smartdecompose.v2;
 
 import com.openclaw.workflow.engine.smartdecompose.v2.client.OpenClawClient;
+import com.openclaw.workflow.engine.smartdecompose.v2.client.ResponseParseException;
 import com.openclaw.workflow.engine.smartdecompose.v2.client.ResponseParser;
 import com.openclaw.workflow.engine.smartdecompose.v2.model.DecomposeContext;
 import com.openclaw.workflow.engine.smartdecompose.v2.model.DecisionResponse;
@@ -131,6 +132,25 @@ public class DecomposeOrchestrator {
 
                     logger.info("[ORCHESTRATOR] 保存执行状态...");
                     statePersister.save(context);
+
+                } catch (ResponseParseException e) {
+                    // JSON 解析失败，重试机制
+                    int retryCount = currentTask.getRetryCount();
+                    int maxDecisionRetries = 3; // 决策阶段最大重试次数
+
+                    logger.error("[ORCHESTRATOR] JSON解析失败(第{}次): {}", retryCount + 1, e.getMessage());
+
+                    if (retryCount < maxDecisionRetries) {
+                        currentTask.setRetryCount(retryCount + 1);
+                        currentTask.setStatus(SubTaskStatus.PENDING);
+                        context.getTaskQueue().addFirst(currentTask); // 放回队列头部
+                        logger.warn("[ORCHESTRATOR] 任务将重试, 当前重试次数: {}/{}", retryCount + 1, maxDecisionRetries);
+                    } else {
+                        logger.error("[ORCHESTRATOR] 任务重试次数耗尽, 标记为失败");
+                        currentTask.setStatus(SubTaskStatus.FAILED);
+                        context.addFailedTask(currentTask);
+                        context.setErrorMessage("JSON解析失败, 已重试" + maxDecisionRetries + "次: " + e.getMessage());
+                    }
 
                 } catch (Exception e) {
                     logger.error("[ORCHESTRATOR] 任务执行异常: {}", e.getMessage(), e);
