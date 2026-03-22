@@ -1,5 +1,7 @@
 package com.openclaw.workflow.engine.smartdecompose.v2.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,6 +11,7 @@ import java.util.List;
  * 解析 OpenClaw 返回的决策 JSON 响应。
  * decision 可能是 "execute"（直接执行）或 "split"（拆分为子任务）。
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class DecisionResponse {
 
     /** 决策结果：execute 或 split */
@@ -52,6 +55,7 @@ public class DecisionResponse {
      *
      * 从 JSON 中的 tasks 数组解析
      */
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class SubTaskDef {
 
         /** 任务ID */

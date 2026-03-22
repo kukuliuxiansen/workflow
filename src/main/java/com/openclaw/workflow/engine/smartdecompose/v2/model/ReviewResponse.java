@@ -1,5 +1,7 @@
 package com.openclaw.workflow.engine.smartdecompose.v2.model;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -9,6 +11,7 @@ import java.util.List;
  * 解析 OpenClaw 返回的审核 JSON 响应。
  * status 可能是 "APPROVED"（通过）或 "REJECTED"（拒绝）。
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ReviewResponse {
 
     /** 审核状态：APPROVED 或 REJECTED */
