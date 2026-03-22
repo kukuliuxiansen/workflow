@@ -1,7 +1,7 @@
 # SmartDecompose V2 代码与文档差异清单
 
 **审查日期**: 2026-03-21
-**更新日期**: 2026-03-21 (已补齐)
+**更新日期**: 2026-03-22 (核心逻辑已补齐)
 
 ---
 
@@ -93,3 +93,24 @@
 - 配置类：1 个（PromptTemplateInitializer）
 - DTO：1 个（ManualReviewRequest）
 - 模板文件：3 个（decision/review/retry-template.md）
+
+---
+
+## 七、核心逻辑集成 ✅ 已补齐 (2026-03-22)
+
+| 问题 | 文档设计 | 代码实现 | 状态 |
+|------|---------|---------|------|
+| ExtensionRegistry 注入 | 编排器注入并调用 | DecomposeOrchestrator.autowired | ✅ 已集成 |
+| TaskSplitInterceptor 调用 | handleSplit() 中调用 | beforeSplit/afterSplit 已调用 | ✅ 已实现 |
+| DecisionHandler 调用 | 决策后调用处理器 | makeDecision() 中调用 | ✅ 已实现 |
+| ReviewStrategy 使用 | ReviewProcessor 使用策略 | reviewAndRetry() 中使用 | ✅ 已实现 |
+| OpenClaw 会话恢复 | 持久化 + 恢复 sessionId | StatePersister/ManualReviewController | ✅ 已实现 |
+| failedTasks 持久化 | 状态表需保存 | SmartDecomposeState 新增字段 | ✅ 已实现 |
+| 配置持久化 | maxRetries/requireManualReview | SmartDecomposeState 新增字段 | ✅ 已实现 |
+
+### 新增数据库字段 (smart_decompose_state 表):
+- `failed_tasks` - 失败任务列表 JSON
+- `openclaw_session_id` - OpenClaw 会话ID
+- `max_retries` - 最大重试次数
+- `require_manual_review` - 是否需要人工审核
+- `manual_review_id` - 当前人工审核ID
