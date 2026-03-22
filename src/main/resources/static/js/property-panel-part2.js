@@ -113,27 +113,13 @@
         </div>`;
     }
 
-    // 通用字段（超时、跳转）
+    // 通用字段（超时）
     function renderCommonFields(node) {
       if (node.type === 'start' || node.type === 'finish') return '';
       return `
         <div class="form-group">
           <label class="form-label">超时(秒)</label>
           <input type="number" class="form-input" value="${node.timeout || 600}" onchange="updateNode('timeout',parseInt(this.value))">
-        </div>
-        <div class="form-group">
-          <label class="form-label">成功跳转</label>
-          <select class="form-select" onchange="updateNode('on_success',this.value)">
-            <option value="">无</option>
-            ${getNodeOptions(node.on_success, node.id)}
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">失败跳转</label>
-          <select class="form-select" onchange="updateNode('on_fail',this.value)">
-            <option value="">无</option>
-            ${getNodeOptions(node.on_fail, node.id)}
-          </select>
         </div>`;
     }
 
