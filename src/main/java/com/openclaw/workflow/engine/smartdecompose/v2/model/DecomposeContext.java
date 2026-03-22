@@ -79,6 +79,9 @@ public class DecomposeContext {
     /** 审核模板ID */
     private String reviewTemplateId;
 
+    /** 重试模板ID */
+    private String retryTemplateId;
+
     /** 决策模板内容（运行时加载） */
     private String decisionTemplateContent;
 
@@ -87,6 +90,20 @@ public class DecomposeContext {
 
     /** 重试模板内容（运行时加载） */
     private String retryTemplateContent;
+
+    // ==================== 场景参数 ====================
+
+    /** 场景ID */
+    private String sceneId;
+
+    /** 决策阈值（分钟），任务预估超过此值则拆分 */
+    private int decisionThresholdMinutes = 8;
+
+    /** execute 输出格式模板 */
+    private String outputFormatExecute;
+
+    /** split 输出格式模板 */
+    private String outputFormatSplit;
 
     // ==================== OpenClaw 会话 ====================
 
@@ -224,6 +241,9 @@ public class DecomposeContext {
     public String getReviewTemplateId() { return reviewTemplateId; }
     public void setReviewTemplateId(String reviewTemplateId) { this.reviewTemplateId = reviewTemplateId; }
 
+    public String getRetryTemplateId() { return retryTemplateId; }
+    public void setRetryTemplateId(String retryTemplateId) { this.retryTemplateId = retryTemplateId; }
+
     public String getDecisionTemplateContent() { return decisionTemplateContent; }
     public void setDecisionTemplateContent(String decisionTemplateContent) { this.decisionTemplateContent = decisionTemplateContent; }
 
@@ -238,4 +258,16 @@ public class DecomposeContext {
 
     public String getManualReviewId() { return manualReviewId; }
     public void setManualReviewId(String manualReviewId) { this.manualReviewId = manualReviewId; }
+
+    public String getSceneId() { return sceneId; }
+    public void setSceneId(String sceneId) { this.sceneId = sceneId; }
+
+    public int getDecisionThresholdMinutes() { return decisionThresholdMinutes; }
+    public void setDecisionThresholdMinutes(int decisionThresholdMinutes) { this.decisionThresholdMinutes = decisionThresholdMinutes; }
+
+    public String getOutputFormatExecute() { return outputFormatExecute; }
+    public void setOutputFormatExecute(String outputFormatExecute) { this.outputFormatExecute = outputFormatExecute; }
+
+    public String getOutputFormatSplit() { return outputFormatSplit; }
+    public void setOutputFormatSplit(String outputFormatSplit) { this.outputFormatSplit = outputFormatSplit; }
 }

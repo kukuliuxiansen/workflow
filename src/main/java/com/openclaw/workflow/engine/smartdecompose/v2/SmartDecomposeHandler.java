@@ -8,8 +8,10 @@ import com.openclaw.workflow.engine.smartdecompose.v2.model.DecomposeContext;
 import com.openclaw.workflow.engine.smartdecompose.v2.model.SubTask;
 import com.openclaw.workflow.engine.smartdecompose.v2.model.enums.DecomposeStatus;
 import com.openclaw.workflow.entity.PromptTemplate;
+import com.openclaw.workflow.entity.SmartDecomposeScene;
 import com.openclaw.workflow.entity.WorkflowNode;
 import com.openclaw.workflow.repository.PromptTemplateRepository;
+import com.openclaw.workflow.repository.SmartDecomposeSceneRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +38,9 @@ public class SmartDecomposeHandler extends BaseNodeHandler {
 
     @Autowired
     private PromptTemplateRepository promptTemplateRepository;
+
+    @Autowired
+    private SmartDecomposeSceneRepository sceneRepository;
 
     public String getNodeType() {
         return NODE_TYPE;
@@ -65,11 +70,24 @@ public class SmartDecomposeHandler extends BaseNodeHandler {
         context.setStatus(DecomposeStatus.RUNNING);
 
         SmartDecomposeConfig config = SmartDecomposeConfig.fromJson(ctx.getNode().getConfig());
+
+        // 加载场景配置（如果指定了sceneId）
+        if (config.getSceneId() != null && !config.getSceneId().isEmpty()) {
+            loadSceneConfig(context, config.getSceneId());
+        }
+
+        // 节点配置覆盖场景默认值
         context.setMaxRetries(config.getMaxRetries());
         context.setMaxIterations(config.getMaxIterations());
         context.setRequireManualReview(config.isRequireManualReview());
-        context.setDecisionTemplateId(config.getDecisionTemplateId());
-        context.setReviewTemplateId(config.getReviewTemplateId());
+
+        // 如果场景未设置模板ID，使用节点配置（向后兼容）
+        if (context.getDecisionTemplateId() == null) {
+            context.setDecisionTemplateId(config.getDecisionTemplateId());
+        }
+        if (context.getReviewTemplateId() == null) {
+            context.setReviewTemplateId(config.getReviewTemplateId());
+        }
 
         String taskDescription = getTaskDescription(ctx);
         SubTask rootTask = SubTask.builder()
@@ -79,9 +97,48 @@ public class SmartDecomposeHandler extends BaseNodeHandler {
             .build();
 
         context.getTaskQueue().add(rootTask);
-        logger.debug("初始化完成: taskDescription={}", taskDescription);
+        logger.debug("初始化完成: taskDescription={}, sceneId={}", taskDescription, config.getSceneId());
 
         return context;
+    }
+
+    /**
+     * 加载场景配置
+     */
+    private void loadSceneConfig(DecomposeContext context, String sceneId) {
+        SmartDecomposeScene scene = sceneRepository.findById(sceneId)
+            .orElse(null);
+
+        if (scene == null) {
+            logger.warn("场景不存在: {}, 使用默认配置", sceneId);
+            return;
+        }
+
+        logger.info("加载场景配置: id={}, name={}", scene.getId(), scene.getName());
+
+        // 模板ID
+        if (scene.getDecisionTemplateId() != null) {
+            context.setDecisionTemplateId(scene.getDecisionTemplateId());
+        }
+        if (scene.getReviewTemplateId() != null) {
+            context.setReviewTemplateId(scene.getReviewTemplateId());
+        }
+        if (scene.getRetryTemplateId() != null) {
+            context.setRetryTemplateId(scene.getRetryTemplateId());
+        }
+
+        // 场景参数
+        if (scene.getDecisionThresholdMinutes() != null) {
+            context.setDecisionThresholdMinutes(scene.getDecisionThresholdMinutes());
+        }
+        if (scene.getOutputFormatExecute() != null) {
+            context.setOutputFormatExecute(scene.getOutputFormatExecute());
+        }
+        if (scene.getOutputFormatSplit() != null) {
+            context.setOutputFormatSplit(scene.getOutputFormatSplit());
+        }
+
+        context.setSceneId(sceneId);
     }
 
     private String getTaskDescription(NodeExecutionContext ctx) {
@@ -101,9 +158,15 @@ public class SmartDecomposeHandler extends BaseNodeHandler {
         PromptTemplate reviewTemplate = loadTemplateById(context.getReviewTemplateId(), "review");
         context.setReviewTemplateContent(reviewTemplate.getContent());
 
-        // 加载重试模板
-        PromptTemplate retryTemplate = promptTemplateRepository.findByTypeAndIsDefaultTrue("retry")
-            .orElseThrow(() -> new IllegalStateException("未找到重试提示词模板"));
+        // 加载重试模板（优先使用场景配置的ID）
+        PromptTemplate retryTemplate;
+        if (context.getRetryTemplateId() != null && !context.getRetryTemplateId().isEmpty()) {
+            retryTemplate = promptTemplateRepository.findById(context.getRetryTemplateId())
+                .orElseThrow(() -> new IllegalStateException("重试模板不存在: " + context.getRetryTemplateId()));
+        } else {
+            retryTemplate = promptTemplateRepository.findByTypeAndIsDefaultTrue("retry")
+                .orElseThrow(() -> new IllegalStateException("未找到重试提示词模板"));
+        }
         context.setRetryTemplateContent(retryTemplate.getContent());
 
         logger.debug("模板加载完成: decision={}, review={}, retry={}",

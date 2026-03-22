@@ -34,7 +34,41 @@ public class PromptBuilder {
         params.put("taskDescription", nvl(task.getDescription(), ""));
         params.put("completedTasks", context.getCompletedTasksInfo());
 
+        // 场景参数
+        params.put("decisionThreshold", context.getDecisionThresholdMinutes());
+        params.put("outputFormatExecute", nvl(context.getOutputFormatExecute(), getDefaultOutputFormatExecute()));
+        params.put("outputFormatSplit", nvl(context.getOutputFormatSplit(), getDefaultOutputFormatSplit()));
+
         return render(template, params);
+    }
+
+    /**
+     * 默认 execute 输出格式
+     */
+    private String getDefaultOutputFormatExecute() {
+        return "{\n" +
+            "  \"decision\": \"execute\",\n" +
+            "  \"thought\": \"你的分析过程\",\n" +
+            "  \"result\": \"执行后的结果描述\"\n" +
+            "}";
+    }
+
+    /**
+     * 默认 split 输出格式
+     */
+    private String getDefaultOutputFormatSplit() {
+        return "{\n" +
+            "  \"decision\": \"split\",\n" +
+            "  \"thought\": \"你的分析过程\",\n" +
+            "  \"tasks\": [\n" +
+            "    {\n" +
+            "      \"id\": \"TASK_001\",\n" +
+            "      \"description\": \"子任务描述\",\n" +
+            "      \"criteria\": \"验收标准\",\n" +
+            "      \"estimatedMinutes\": 3\n" +
+            "    }\n" +
+            "  ]\n" +
+            "}";
     }
 
     /**

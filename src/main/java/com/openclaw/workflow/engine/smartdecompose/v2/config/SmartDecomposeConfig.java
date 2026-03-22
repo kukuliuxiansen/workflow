@@ -9,6 +9,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 public class SmartDecomposeConfig {
 
+    /** 场景ID，选择场景后自动加载对应配置 */
+    private String sceneId;
+
     /** 最大重试次数，默认 5 */
     private int maxRetries = 5;
 
@@ -64,6 +67,9 @@ public class SmartDecomposeConfig {
     }
 
     // ==================== Getters & Setters ====================
+
+    public String getSceneId() { return sceneId; }
+    public void setSceneId(String sceneId) { this.sceneId = sceneId; }
 
     public int getMaxRetries() { return maxRetries; }
     public void setMaxRetries(int maxRetries) { this.maxRetries = maxRetries; }
