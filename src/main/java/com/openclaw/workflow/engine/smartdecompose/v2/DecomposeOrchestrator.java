@@ -136,7 +136,7 @@ public class DecomposeOrchestrator {
                 } catch (ResponseParseException e) {
                     // JSON 解析失败，重试机制
                     int retryCount = currentTask.getRetryCount();
-                    int maxDecisionRetries = 3; // 决策阶段最大重试次数
+                    int maxDecisionRetries = context.getMaxRetries(); // 使用配置的最大重试次数
 
                     logger.error("[ORCHESTRATOR] JSON解析失败(第{}次): {}", retryCount + 1, e.getMessage());
 
