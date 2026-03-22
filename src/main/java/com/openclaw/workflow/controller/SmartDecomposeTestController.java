@@ -348,4 +348,201 @@ public class SmartDecomposeTestController {
         if (str.length() <= maxLen) return str;
         return str.substring(0, maxLen) + "...";
     }
+
+    /**
+     * 场景测试：指定场景ID和任务要求
+     *
+     * GET /api/test/smart-decompose/scene?sceneId=xxx&task=xxx&agentId=xxx&projectPath=xxx
+     *
+     * @param sceneId 场景ID（必填）
+     * @param task 任务要求（必填）
+     * @param agentId Agent ID（可选，默认backend-developer）
+     * @param projectPath 项目路径（可选，默认/tmp/test-project）
+     */
+    @GetMapping("/scene")
+    public ResponseEntity<Map<String, Object>> testScene(
+            @RequestParam String sceneId,
+            @RequestParam String task,
+            @RequestParam(required = false, defaultValue = "backend-developer") String agentId,
+            @RequestParam(required = false, defaultValue = "/tmp/test-project") String projectPath) {
+
+        String executionId = "scene_" + System.currentTimeMillis();
+        logger.info("========================================");
+        logger.info("[SCENE-TEST] ===== 场景测试开始 =====");
+        logger.info("[SCENE-TEST] 入参 - sceneId: {}", sceneId);
+        logger.info("[SCENE-TEST] 入参 - task: {}", task);
+        logger.info("[SCENE-TEST] 入参 - agentId: {}", agentId);
+        logger.info("[SCENE-TEST] 入参 - projectPath: {}", projectPath);
+
+        try {
+            // 设置Agent
+            openClawClient.setAgentId(agentId);
+            openClawClient.startSession();
+
+            // 构建节点配置（只包含sceneId）
+            String nodeConfig = String.format("{\"sceneId\":\"%s\"}", sceneId);
+            logger.info("[SCENE-TEST] 节点配置: {}", nodeConfig);
+
+            // 初始化上下文
+            DecomposeContext context = new DecomposeContext();
+            context.setExecutionId(executionId);
+            context.setWorkflowId("scene-test");
+            context.setNodeId("scene-test-node");
+            context.setProjectPath(projectPath);
+            context.setStatus(DecomposeStatus.RUNNING);
+
+            // 解析配置并加载场景
+            com.openclaw.workflow.engine.smartdecompose.v2.config.SmartDecomposeConfig config =
+                com.openclaw.workflow.engine.smartdecompose.v2.config.SmartDecomposeConfig.fromJson(nodeConfig);
+
+            // 加载场景配置
+            loadSceneConfig(context, config.getSceneId());
+
+            // 加载模板
+            loadTemplatesForScene(context);
+
+            // 创建根任务
+            SubTask rootTask = SubTask.builder()
+                .id("TASK_ROOT")
+                .description(task)
+                .depth(0)
+                .build();
+            context.getTaskQueue().add(rootTask);
+
+            logger.info("[SCENE-TEST] 根任务: {}", task);
+            logger.info("[SCENE-TEST] 场景参数 - decisionThreshold: {}分钟",
+                context.getDecisionThresholdMinutes());
+
+            // 执行
+            logger.info("[SCENE-TEST] 开始执行编排...");
+            orchestrator.run(context);
+
+            // 构建结果
+            Map<String, Object> result = buildSceneTestResult(context, executionId, sceneId, task);
+            logger.info("[SCENE-TEST] ===== 场景测试结束 =====");
+            logger.info("========================================");
+
+            return ResponseEntity.ok(result);
+
+        } catch (Exception e) {
+            logger.error("[SCENE-TEST] 测试异常: {}", e.getMessage(), e);
+            Map<String, Object> errorResult = new HashMap<>();
+            errorResult.put("success", false);
+            errorResult.put("error", e.getMessage());
+            errorResult.put("executionId", executionId);
+            errorResult.put("sceneId", sceneId);
+            errorResult.put("task", task);
+            return ResponseEntity.internalServerError().body(errorResult);
+        }
+    }
+
+    /**
+     * 加载场景配置
+     */
+    private void loadSceneConfig(DecomposeContext context, String sceneId) {
+        com.openclaw.workflow.entity.SmartDecomposeScene scene =
+            sceneRepository.findById(sceneId).orElse(null);
+
+        if (scene == null) {
+            throw new IllegalArgumentException("场景不存在: " + sceneId);
+        }
+
+        logger.info("[SCENE-TEST] 加载场景: {} - {}", scene.getId(), scene.getName());
+
+        if (scene.getDecisionTemplateId() != null) {
+            context.setDecisionTemplateId(scene.getDecisionTemplateId());
+        }
+        if (scene.getReviewTemplateId() != null) {
+            context.setReviewTemplateId(scene.getReviewTemplateId());
+        }
+        if (scene.getRetryTemplateId() != null) {
+            context.setRetryTemplateId(scene.getRetryTemplateId());
+        }
+        if (scene.getDecisionThresholdMinutes() != null) {
+            context.setDecisionThresholdMinutes(scene.getDecisionThresholdMinutes());
+        }
+        if (scene.getOutputFormatExecute() != null) {
+            context.setOutputFormatExecute(scene.getOutputFormatExecute());
+        }
+        if (scene.getOutputFormatSplit() != null) {
+            context.setOutputFormatSplit(scene.getOutputFormatSplit());
+        }
+        context.setSceneId(sceneId);
+    }
+
+    /**
+     * 加载模板
+     */
+    private void loadTemplatesForScene(DecomposeContext context) {
+        // 决策模板
+        PromptTemplate decisionTemplate;
+        if (context.getDecisionTemplateId() != null) {
+            decisionTemplate = promptTemplateRepository.findById(context.getDecisionTemplateId())
+                .orElseThrow(() -> new IllegalStateException("决策模板不存在: " + context.getDecisionTemplateId()));
+        } else {
+            decisionTemplate = promptTemplateRepository.findByTypeAndIsDefaultTrue("decision")
+                .orElseThrow(() -> new IllegalStateException("未找到默认决策模板"));
+        }
+        context.setDecisionTemplateContent(decisionTemplate.getContent());
+
+        // 审核模板
+        PromptTemplate reviewTemplate;
+        if (context.getReviewTemplateId() != null) {
+            reviewTemplate = promptTemplateRepository.findById(context.getReviewTemplateId())
+                .orElseThrow(() -> new IllegalStateException("审核模板不存在: " + context.getReviewTemplateId()));
+        } else {
+            reviewTemplate = promptTemplateRepository.findByTypeAndIsDefaultTrue("review")
+                .orElseThrow(() -> new IllegalStateException("未找到默认审核模板"));
+        }
+        context.setReviewTemplateContent(reviewTemplate.getContent());
+
+        // 重试模板
+        PromptTemplate retryTemplate;
+        if (context.getRetryTemplateId() != null) {
+            retryTemplate = promptTemplateRepository.findById(context.getRetryTemplateId())
+                .orElseThrow(() -> new IllegalStateException("重试模板不存在: " + context.getRetryTemplateId()));
+        } else {
+            retryTemplate = promptTemplateRepository.findByTypeAndIsDefaultTrue("retry")
+                .orElseThrow(() -> new IllegalStateException("未找到默认重试模板"));
+        }
+        context.setRetryTemplateContent(retryTemplate.getContent());
+
+        logger.info("[SCENE-TEST] 模板加载完成: decision={}, review={}, retry={}",
+            decisionTemplate.getId(), reviewTemplate.getId(), retryTemplate.getId());
+    }
+
+    /**
+     * 构建场景测试结果
+     */
+    private Map<String, Object> buildSceneTestResult(DecomposeContext context,
+            String executionId, String sceneId, String task) {
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("success", context.getStatus() == DecomposeStatus.COMPLETED);
+        result.put("executionId", executionId);
+        result.put("sceneId", sceneId);
+        result.put("task", task);
+        result.put("status", context.getStatus().name());
+        result.put("iterations", context.getIterationCount());
+        result.put("completedTasks", context.getCompletedTasks().size());
+        result.put("failedTasks", context.getFailedTasks().size());
+        result.put("decisionThresholdMinutes", context.getDecisionThresholdMinutes());
+        result.put("errorMessage", context.getErrorMessage());
+
+        // 任务详情
+        java.util.List<Map<String, Object>> taskDetails = new java.util.ArrayList<>();
+        for (SubTask t : context.getCompletedTasks()) {
+            Map<String, Object> info = new HashMap<>();
+            info.put("id", t.getId());
+            info.put("description", t.getDescription());
+            info.put("executionResult", truncate(t.getExecutionResult(), 500));
+            taskDetails.add(info);
+        }
+        result.put("taskDetails", taskDetails);
+
+        return result;
+    }
+
+    @Autowired
+    private com.openclaw.workflow.repository.SmartDecomposeSceneRepository sceneRepository;
 }
