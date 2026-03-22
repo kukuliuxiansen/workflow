@@ -87,12 +87,17 @@ public class AIClient {
 
         HttpURLConnection connection = null;
         try {
+            // 构建 messages 数组（Java 8 兼容）
+            Map<String, String> systemMessage = new LinkedHashMap<>();
+            systemMessage.put("role", "system");
+            systemMessage.put("content", systemPrompt);
+            Map<String, String> userMessage = new LinkedHashMap<>();
+            userMessage.put("role", "user");
+            userMessage.put("content", userPrompt);
+
             Map<String, Object> requestBody = new LinkedHashMap<>();
             requestBody.put("model", model);
-            requestBody.put("messages", Arrays.asList(
-                    Map.of("role", "system", "content", systemPrompt),
-                    Map.of("role", "user", "content", userPrompt)
-            ));
+            requestBody.put("messages", Arrays.asList(systemMessage, userMessage));
             requestBody.put("temperature", 0.7);
             requestBody.put("max_tokens", 4096);
 

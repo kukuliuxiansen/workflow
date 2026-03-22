@@ -9,6 +9,7 @@ import com.openclaw.workflow.service.OperationLogService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -41,13 +42,13 @@ public class NodeExecutionHelper {
         try {
             NodeExecutionContext context = buildContext(node, workflowId, executionId);
 
-            nodeInput = Map.of(
-                "nodeId", node.getId(),
-                "nodeName", node.getName(),
-                "nodeType", node.getType().toString(),
-                "input", truncateForLog(context.getInput(), 500),
-                "previousOutputs", truncateForLog(context.getPreviousOutputs(), 500)
-            );
+            Map<String, Object> inputMap = new HashMap<>();
+            inputMap.put("nodeId", node.getId());
+            inputMap.put("nodeName", node.getName());
+            inputMap.put("nodeType", node.getType().toString());
+            inputMap.put("input", truncateForLog(context.getInput(), 500));
+            inputMap.put("previousOutputs", truncateForLog(context.getPreviousOutputs(), 500));
+            nodeInput = inputMap;
 
             BaseNodeHandler handler = handlerFactory.getHandler(node.getType());
             NodeResult result = handler.execute(context);
@@ -81,14 +82,13 @@ public class NodeExecutionHelper {
     private void logSuccess(WorkflowNode node, String executionId, Object nodeInput, NodeResult result, long duration) {
         if (logService == null) return;
 
-        Object nodeOutput = Map.of(
-            "status", result.getStatus(),
-            "output", truncateForLog(result.getOutput(), 1000),
-            "error", result.getError() != null ? result.getError() : "",
-            "duration", duration + "ms"
-        );
+        Map<String, Object> outputMap = new HashMap<>();
+        outputMap.put("status", result.getStatus());
+        outputMap.put("output", truncateForLog(result.getOutput(), 1000));
+        outputMap.put("error", result.getError() != null ? result.getError() : "");
+        outputMap.put("duration", duration + "ms");
         logService.logNodeOperation(executionId, node.getId(), node.getType().toString(),
-            "EXECUTE", nodeInput, nodeOutput);
+            "EXECUTE", nodeInput, outputMap);
     }
 
     private NodeResult handleException(WorkflowNode node, String executionId, Object nodeInput,
@@ -97,8 +97,11 @@ public class NodeExecutionHelper {
         logger.error("节点 {} 执行异常: {}", node.getName(), e.getMessage(), e);
 
         if (logService != null) {
+            Map<String, Object> errorMap = new HashMap<>();
+            errorMap.put("error", e.getMessage());
+            errorMap.put("duration", duration + "ms");
             logService.logNodeOperation(executionId, node.getId(), node.getType().toString(),
-                "ERROR", nodeInput, Map.of("error", e.getMessage(), "duration", duration + "ms"));
+                "ERROR", nodeInput, errorMap);
         }
 
         return NodeResult.failed(e.getMessage());

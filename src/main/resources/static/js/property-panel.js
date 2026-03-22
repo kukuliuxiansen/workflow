@@ -68,6 +68,10 @@
         <div class="form-group">
           <label class="form-label">提示词</label>
           <textarea class="form-input form-textarea" id="promptTextarea" onchange="updateNode('prompt',this.value)" placeholder="输入执行提示词...">${node.prompt || ''}</textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">超时时间（秒）</label>
+          <input type="number" class="form-input" value="${node.timeout || 600}" onchange="updateNode('timeout',parseInt(this.value)||600)" placeholder="默认600秒" min="10" max="3600">
         </div>`;
     }
 

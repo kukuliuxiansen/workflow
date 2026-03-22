@@ -70,14 +70,35 @@
       addLog('success', '全局配置已更新');
     }
 
-    // 加载保存的全局配置
-    function loadSavedGlobalConfig() {
+    // 加载保存的全局配置（从数据库优先，localStorage 作为备份）
+    async function loadSavedGlobalConfig() {
+      try {
+        const res = await fetch(`${API}/config/global`);
+        const data = await res.json();
+        if (data.success && data.data) {
+          const dbConfig = data.data;
+          // 从数据库加载配置
+          if (dbConfig.openclawJsonPath !== undefined) globalConfig.openclawJsonPath = dbConfig.openclawJsonPath || '';
+          if (dbConfig.globalPromptFile !== undefined) globalConfig.globalPromptFile = dbConfig.globalPromptFile || '';
+          if (dbConfig.globalPromptContent !== undefined) globalConfig.globalPromptContent = dbConfig.globalPromptContent || '';
+          if (dbConfig.feishuOpenId !== undefined) globalConfig.feishuOpenId = dbConfig.feishuOpenId || '';
+          if (dbConfig.maxGlobalLoop !== undefined) globalConfig.maxGlobalLoop = parseInt(dbConfig.maxGlobalLoop) || 3;
+          if (dbConfig.availableAgents) globalConfig.availableAgents = dbConfig.availableAgents;
+          console.log('从数据库加载全局配置成功');
+          return;
+        }
+      } catch (e) {
+        console.warn('从数据库加载全局配置失败，尝试 localStorage:', e);
+      }
+
+      // 备用：从 localStorage 加载
       const saved = localStorage.getItem('openclaw_global_config');
       if (saved) {
         try {
           globalConfig = JSON.parse(saved);
+          console.log('从 localStorage 加载全局配置');
         } catch (e) {
-          globalConfig = {};
+          console.warn('解析 localStorage 配置失败:', e);
         }
       }
     }
