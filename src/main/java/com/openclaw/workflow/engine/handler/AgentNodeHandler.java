@@ -110,8 +110,12 @@ public class AgentNodeHandler extends BaseNodeHandler {
         try {
             if (node.getConfig() != null) {
                 JsonNode config = objectMapper.readTree(node.getConfig());
+                // 支持两种字段名：agentId（camelCase）和 agent_id（snake_case）
                 if (config.has("agentId")) {
                     return config.get("agentId").asText();
+                }
+                if (config.has("agent_id")) {
+                    return config.get("agent_id").asText();
                 }
             }
         } catch (Exception e) {

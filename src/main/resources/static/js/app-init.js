@@ -157,6 +157,11 @@
     async function initApp() {
       console.log('初始化应用...');
 
+      // 加载全局配置（从localStorage恢复）
+      if (typeof loadSavedGlobalConfig === 'function') {
+        loadSavedGlobalConfig();
+      }
+
       // 加载面板状态
       loadPanelStates();
 

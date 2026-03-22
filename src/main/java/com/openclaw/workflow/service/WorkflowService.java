@@ -126,16 +126,36 @@ public class WorkflowService {
      */
     private void saveNodes(String workflowId, List<WorkflowNode> nodes) {
         for (WorkflowNode node : nodes) {
-            if (node.getWorkflowId() == null) {
-                node.setWorkflowId(workflowId);
+            // 查找现有节点
+            WorkflowNode existingNode = nodeRepository.findById(node.getId()).orElse(null);
+
+            if (existingNode != null) {
+                // 更新现有节点
+                existingNode.setName(node.getName());
+                existingNode.setDescription(node.getDescription());
+                existingNode.setPositionX(node.getPositionX());
+                existingNode.setPositionY(node.getPositionY());
+                existingNode.setUpdatedAt(LocalDateTime.now());
+
+                // 合并 extraConfig：新配置优先
+                if (node.getExtraConfig() != null && !node.getExtraConfig().isEmpty()) {
+                    existingNode.getExtraConfig().putAll(node.getExtraConfig());
+                    existingNode.serializeExtraConfig();
+                }
+
+                nodeRepository.save(existingNode);
+            } else {
+                // 创建新节点
+                if (node.getWorkflowId() == null) {
+                    node.setWorkflowId(workflowId);
+                }
+                if (node.getCreatedAt() == null) {
+                    node.setCreatedAt(LocalDateTime.now());
+                }
+                node.setUpdatedAt(LocalDateTime.now());
+                node.serializeExtraConfig();
+                nodeRepository.save(node);
             }
-            if (node.getCreatedAt() == null) {
-                node.setCreatedAt(LocalDateTime.now());
-            }
-            node.setUpdatedAt(LocalDateTime.now());
-            // 显式序列化extraConfig到config字段
-            node.serializeExtraConfig();
-            nodeRepository.save(node);
         }
     }
 
