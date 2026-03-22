@@ -66,7 +66,7 @@
           <input type="text" class="form-input" id="agentIdCustom" style="display:none;margin-top:8px;" placeholder="输入自定义 Agent ID" onchange="updateNode('agent_id',this.value)">
         </div>
         <div class="form-group">
-          <label class="form-label">提示词</label>
+          <label class="form-label">提示词 <button class="ai-gen-btn" onclick="generatePrompt(event)" style="margin-left:8px;padding:2px 8px;font-size:11px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;border:none;border-radius:4px;cursor:pointer;">✨ AI生成</button></label>
           <textarea class="form-input form-textarea" id="promptTextarea" onchange="updateNode('prompt',this.value)" placeholder="输入执行提示词...">${node.prompt || ''}</textarea>
         </div>
         <div class="form-group">
