@@ -41,17 +41,23 @@ public class SmartDecomposeTestController {
     /**
      * 集成测试：实现登录注册功能
      *
-     * GET /api/test/smart-decompose/login-register?projectPath=/path/to/project
+     * GET /api/test/smart-decompose/login-register?projectPath=/path/to/project&agentId=xxx
      */
     @GetMapping("/login-register")
     public ResponseEntity<Map<String, Object>> testLoginRegister(
-            @RequestParam(required = false, defaultValue = "/tmp/test-project") String projectPath) {
+            @RequestParam(required = false, defaultValue = "/tmp/test-project") String projectPath,
+            @RequestParam(required = false) String agentId) {
 
         String executionId = "test_" + System.currentTimeMillis();
         logger.info("========== SmartDecompose 集成测试开始 ==========");
         logger.info("[TEST] executionId: {}", executionId);
         logger.info("[TEST] projectPath: {}", projectPath);
+        logger.info("[TEST] agentId: {}", agentId);
         logger.info("[TEST] 任务: 实现一个完善的登录注册功能");
+
+        if (agentId != null && !agentId.isEmpty()) {
+            openClawClient.setAgentId(agentId);
+        }
 
         try {
             // 1. 初始化上下文
@@ -104,16 +110,22 @@ public class SmartDecomposeTestController {
     /**
      * 简单测试：只调用一次 OpenClaw
      *
-     * GET /api/test/smart-decompose/simple?prompt=xxx
+     * GET /api/test/smart-decompose/simple?prompt=xxx&agentId=xxx
      */
     @GetMapping("/simple")
     public ResponseEntity<Map<String, Object>> testSimpleCall(
-            @RequestParam(required = false, defaultValue = "请说 hello") String prompt) {
+            @RequestParam(required = false, defaultValue = "请说 hello") String prompt,
+            @RequestParam(required = false) String agentId) {
 
         String executionId = "simple_" + System.currentTimeMillis();
         logger.info("========== OpenClaw 简单调用测试 ==========");
         logger.info("[TEST] executionId: {}", executionId);
         logger.info("[TEST] prompt: {}", prompt);
+        logger.info("[TEST] agentId: {}", agentId);
+
+        if (agentId != null && !agentId.isEmpty()) {
+            openClawClient.setAgentId(agentId);
+        }
 
         try {
             logger.info("[STEP-1] 开始 OpenClaw 会话...");
@@ -136,6 +148,7 @@ public class SmartDecomposeTestController {
             Map<String, Object> result = new HashMap<>();
             result.put("success", true);
             result.put("executionId", executionId);
+            result.put("agentId", openClawClient.getAgentId());
             result.put("prompt", prompt);
             result.put("response", response);
             result.put("elapsedMs", elapsed);
@@ -160,12 +173,18 @@ public class SmartDecomposeTestController {
     @GetMapping("/decision")
     public ResponseEntity<Map<String, Object>> testDecision(
             @RequestParam(required = false, defaultValue = "/tmp/test-project") String projectPath,
-            @RequestParam(required = false, defaultValue = "创建一个 Hello World 程序") String taskDescription) {
+            @RequestParam(required = false, defaultValue = "创建一个 Hello World 程序") String taskDescription,
+            @RequestParam(required = false) String agentId) {
 
         String executionId = "decision_" + System.currentTimeMillis();
         logger.info("========== 决策流程测试 ==========");
         logger.info("[TEST] executionId: {}", executionId);
         logger.info("[TEST] taskDescription: {}", taskDescription);
+        logger.info("[TEST] agentId: {}", agentId);
+
+        if (agentId != null && !agentId.isEmpty()) {
+            openClawClient.setAgentId(agentId);
+        }
 
         try {
             // 加载决策模板

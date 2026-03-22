@@ -22,7 +22,7 @@ public class OpenClawClient {
     @Value("${openclaw.gateway.url:http://localhost:18789}")
     private String gatewayUrl;
 
-    @Value("${openclaw.gateway.token:}")
+    @Value("${openclaw.gateway.token:56b640cc2d91411f63255af68355c19ee33c88ec458878ca}")
     private String token;
 
     @Value("${openclaw.agent.id:smart-decompose}")
@@ -182,5 +182,23 @@ public class OpenClawClient {
      */
     public void setSessionId(String sessionId) {
         this.currentSessionId = sessionId;
+    }
+
+    /**
+     * 设置 Agent ID
+     *
+     * @param agentId Agent ID
+     */
+    public void setAgentId(String agentId) {
+        this.agentId = agentId;
+        // 重置客户端以使用新的agentId
+        this.gatewayClient = null;
+    }
+
+    /**
+     * 获取当前 Agent ID
+     */
+    public String getAgentId() {
+        return agentId;
     }
 }
