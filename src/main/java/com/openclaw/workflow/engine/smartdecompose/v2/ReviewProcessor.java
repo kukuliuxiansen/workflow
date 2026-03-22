@@ -56,6 +56,7 @@ public class ReviewProcessor {
     public boolean reviewAndRetry(DecomposeContext context, SubTask task, String executionResult) {
         int retryCount = 0;
         List<String> previousIssues = new ArrayList<>();
+        ReviewStrategy strategy = extensionRegistry.getReviewStrategy();
 
         while (retryCount <= context.getMaxRetries()) {
             String reviewPrompt = promptBuilder.buildReviewPrompt(context, task, executionResult, previousIssues);
@@ -78,9 +79,7 @@ public class ReviewProcessor {
 
             if (retryCount > context.getMaxRetries()) {
                 // 使用 ReviewStrategy 判断是否需要人工审核
-                ReviewStrategy strategy = extensionRegistry.getReviewStrategy();
                 boolean needManualReview = context.isRequireManualReview();
-
                 if (strategy != null) {
                     needManualReview = strategy.requireManualReview(task, retryCount);
                 }
@@ -93,7 +92,6 @@ public class ReviewProcessor {
 
             // 构建 retry 提示词（优先使用 ReviewStrategy）
             String retryPrompt;
-            ReviewStrategy strategy = extensionRegistry.getReviewStrategy();
             if (strategy != null) {
                 retryPrompt = strategy.buildRetryPrompt(task, previousIssues);
             } else {
