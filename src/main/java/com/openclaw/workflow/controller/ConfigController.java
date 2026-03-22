@@ -50,9 +50,22 @@ public class ConfigController {
     @Operation(summary = "保存全局配置")
     @PostMapping("/global")
     public ApiResponse<Void> saveGlobalConfig(@RequestBody Map<String, Object> config) {
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
         for (Map.Entry<String, Object> entry : config.entrySet()) {
             String key = entry.getKey();
-            String value = String.valueOf(entry.getValue());
+            Object value = entry.getValue();
+            String valueStr;
+
+            // 如果是对象或数组，转成 JSON 字符串
+            if (value instanceof Map || value instanceof List) {
+                try {
+                    valueStr = mapper.writeValueAsString(value);
+                } catch (Exception e) {
+                    valueStr = String.valueOf(value);
+                }
+            } else {
+                valueStr = String.valueOf(value);
+            }
 
             GlobalConfig gc = globalConfigRepository.findByKey(key)
                     .orElseGet(() -> {
@@ -60,7 +73,7 @@ public class ConfigController {
                         newGc.setKey(key);
                         return newGc;
                     });
-            gc.setValue(value);
+            gc.setValue(valueStr);
             globalConfigRepository.save(gc);
         }
         return ApiResponse.success();
@@ -141,6 +154,17 @@ public class ConfigController {
         if (value == null) return null;
         if (value.equalsIgnoreCase("true")) return true;
         if (value.equalsIgnoreCase("false")) return false;
+
+        // 尝试解析为 JSON 数组或对象
+        if (value.startsWith("[") || value.startsWith("{")) {
+            try {
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                return mapper.readValue(value, Object.class);
+            } catch (Exception e) {
+                // 解析失败，继续尝试其他格式
+            }
+        }
+
         try {
             return Integer.parseInt(value);
         } catch (NumberFormatException e1) {

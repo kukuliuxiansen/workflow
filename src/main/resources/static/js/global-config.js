@@ -83,8 +83,20 @@
           if (dbConfig.globalPromptContent !== undefined) globalConfig.globalPromptContent = dbConfig.globalPromptContent || '';
           if (dbConfig.feishuOpenId !== undefined) globalConfig.feishuOpenId = dbConfig.feishuOpenId || '';
           if (dbConfig.maxGlobalLoop !== undefined) globalConfig.maxGlobalLoop = parseInt(dbConfig.maxGlobalLoop) || 3;
-          if (dbConfig.availableAgents) globalConfig.availableAgents = dbConfig.availableAgents;
-          console.log('从数据库加载全局配置成功');
+
+          // availableAgents 可能是字符串或数组
+          if (dbConfig.availableAgents) {
+            if (typeof dbConfig.availableAgents === 'string') {
+              try {
+                globalConfig.availableAgents = JSON.parse(dbConfig.availableAgents);
+              } catch (e) {
+                globalConfig.availableAgents = [];
+              }
+            } else {
+              globalConfig.availableAgents = dbConfig.availableAgents;
+            }
+          }
+          console.log('从数据库加载全局配置成功:', globalConfig);
           return;
         }
       } catch (e) {
