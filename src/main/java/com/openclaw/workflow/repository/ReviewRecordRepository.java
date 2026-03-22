@@ -26,4 +26,6 @@ public interface ReviewRecordRepository extends JpaRepository<ReviewRecord, Stri
     List<ReviewRecord> findByReviewer(String reviewer);
 
     List<ReviewRecord> findByNodeId(String nodeId);
+
+    void deleteByExecutionId(String executionId);
 }

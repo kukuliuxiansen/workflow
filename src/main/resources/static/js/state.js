@@ -82,6 +82,7 @@
       selectedNode: null,
       selectedNodeType: 'agent_execution',
       execution: null,
+      executionStatus: 'idle',  // 执行状态: idle, running, paused
       logs: {
         execution: [],  // 执行日志
         agent: [],       // Agent交互日志

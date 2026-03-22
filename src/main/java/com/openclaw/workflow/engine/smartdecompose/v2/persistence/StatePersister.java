@@ -68,6 +68,35 @@ public class StatePersister {
     }
 
     /**
+     * 加载执行状态（如果存在）
+     */
+    public DecomposeContext loadIfExists(String executionId, String nodeId) {
+        return repository.findByExecutionIdAndNodeId(executionId, nodeId)
+            .map(state -> {
+                DecomposeContext context = new DecomposeContext();
+                context.setExecutionId(state.getExecutionId());
+                context.setNodeId(state.getNodeId());
+                context.setStatus(com.openclaw.workflow.engine.smartdecompose.v2.model.enums.DecomposeStatus.valueOf(state.getStatus()));
+                context.setErrorMessage(state.getErrorMessage());
+                context.setIterationCount(state.getCurrentIteration());
+                context.setMaxIterations(state.getMaxIterations());
+                context.setTaskQueue(deserializeDeque(state.getTaskStack()));
+                context.setCompletedTasks(deserializeList(state.getCompletedTasks()));
+                context.setFailedTasks(deserializeList(state.getFailedTasks()));
+                context.setOpenClawSessionId(state.getOpenClawSessionId());
+                if (state.getMaxRetries() != null) {
+                    context.setMaxRetries(state.getMaxRetries());
+                }
+                if (state.getRequireManualReview() != null) {
+                    context.setRequireManualReview(state.getRequireManualReview());
+                }
+                context.setManualReviewId(state.getManualReviewId());
+                return context;
+            })
+            .orElse(null);
+    }
+
+    /**
      * 加载执行状态
      *
      * 从数据库恢复 DecomposeContext

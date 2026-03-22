@@ -203,3 +203,42 @@
       gap: 4px;
       z-index: 100;
     }
+
+    /* 验证结果样式 */
+    .validation-result { padding: 8px 0; }
+    .validation-section { margin-bottom: 16px; }
+    .validation-section .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #e0e0e0;
+    }
+    .validation-section.errors .section-title { color: #ff6b6b; }
+    .validation-section.warnings .section-title { color: #ffa94d; }
+    .validation-item {
+      padding: 10px 12px;
+      margin-bottom: 6px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-size: 13px;
+    }
+    .validation-item.error {
+      background: rgba(255, 107, 107, 0.1);
+      border: 1px solid rgba(255, 107, 107, 0.3);
+      color: #ff8a8a;
+    }
+    .validation-item.error:hover { background: rgba(255, 107, 107, 0.2); }
+    .validation-item.warning {
+      background: rgba(255, 169, 77, 0.1);
+      border: 1px solid rgba(255, 169, 77, 0.3);
+      color: #ffc078;
+    }
+    .validation-item.warning:hover { background: rgba(255, 169, 77, 0.2); }
+    .node.highlight {
+      animation: nodeHighlight 2s ease-out;
+    }
+    @keyframes nodeHighlight {
+      0% { box-shadow: 0 0 0 3px rgba(107, 92, 231, 0.8); }
+      100% { box-shadow: 0 0 0 0 transparent; }
+    }

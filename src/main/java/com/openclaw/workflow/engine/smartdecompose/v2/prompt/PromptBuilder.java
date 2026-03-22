@@ -32,6 +32,8 @@ public class PromptBuilder {
         params.put("projectPath", nvl(context.getProjectPath(), ""));
         params.put("techStack", nvl(context.getTechStack(), ""));
         params.put("taskDescription", nvl(task.getDescription(), ""));
+        params.put("taskCriteria", nvl(task.getCriteria(), ""));
+        params.put("taskDepth", task.getDepth());
         params.put("completedTasks", context.getCompletedTasksInfo());
 
         // 场景参数
@@ -75,7 +77,7 @@ public class PromptBuilder {
      * 构建审核提示词
      */
     public String buildReviewPrompt(DecomposeContext context, SubTask task,
-                                    String executionResult, List<String> previousIssues) {
+                                    String executionResult, String executionThought, List<String> previousIssues) {
         String template = context.getReviewTemplateContent();
         if (template == null || template.isEmpty()) {
             throw new IllegalStateException("审核模板内容为空");
@@ -85,6 +87,7 @@ public class PromptBuilder {
         params.put("taskDescription", nvl(task.getDescription(), ""));
         params.put("criteria", nvl(task.getCriteria(), "无特殊要求"));
         params.put("executionResult", nvl(executionResult, ""));
+        params.put("executionThought", nvl(executionThought, ""));
         params.put("projectPath", nvl(context.getProjectPath(), ""));
         params.put("previousIssues", previousIssues);
 

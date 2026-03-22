@@ -53,14 +53,15 @@ public class ReviewProcessor {
     /**
      * 审核与重试
      *
-     * 入参: DecomposeContext context, SubTask task, String executionResult
+     * 入参: DecomposeContext context, SubTask task, String executionResult, String executionThought
      * 出参: boolean (true=审核通过, false=审核失败)
      */
-    public boolean reviewAndRetry(DecomposeContext context, SubTask task, String executionResult) {
+    public boolean reviewAndRetry(DecomposeContext context, SubTask task, String executionResult, String executionThought) {
         logger.info("========================================");
         logger.info("[REVIEW] ===== 审核阶段开始 =====");
         logger.info("[REVIEW] 入参 - taskId: {}", task.getId());
         logger.info("[REVIEW] 入参 - taskDescription: {}", truncate(task.getDescription(), 100));
+        logger.info("[REVIEW] 入参 - executionThought: {}", truncate(executionThought, 200));
         logger.info("[REVIEW] 入参 - executionResult: {}", truncate(executionResult, 200));
         logger.info("[REVIEW] 入参 - maxRetries: {}", context.getMaxRetries());
         logger.info("[REVIEW] 入参 - requireManualReview: {}", context.isRequireManualReview());
@@ -73,7 +74,7 @@ public class ReviewProcessor {
         while (retryCount <= context.getMaxRetries()) {
             logger.info("[REVIEW] ----- 第 {} 次审核 -----", retryCount + 1);
 
-            String reviewPrompt = promptBuilder.buildReviewPrompt(context, task, executionResult, previousIssues);
+            String reviewPrompt = promptBuilder.buildReviewPrompt(context, task, executionResult, executionThought, previousIssues);
             logger.info("[REVIEW] 审核提示词长度: {} 字符", reviewPrompt.length());
             logger.debug("[REVIEW] 审核提示词:\n{}", truncate(reviewPrompt, 500));
 

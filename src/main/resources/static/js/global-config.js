@@ -114,3 +114,15 @@
         }
       }
     }
+
+    // 重置任务配置（切换工作流时调用）
+    function resetTaskConfig() {
+      taskConfig = {
+        executionId: null,
+        name: '',
+        description: '',
+        projectPath: '',
+        contextFilePath: ''
+      };
+      updateTaskConfigDisplay();
+    }

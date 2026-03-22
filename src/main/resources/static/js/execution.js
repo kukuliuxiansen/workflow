@@ -1,10 +1,14 @@
 // 工作流执行
 
     function resetExecution() {
+      // 重置所有按钮状态
       document.getElementById('btnExecute').style.display = 'inline-flex';
+      document.getElementById('btnPause').style.display = 'none';
+      document.getElementById('btnResume').style.display = 'none';
       document.getElementById('btnStop').style.display = 'none';
       updateStatus('idle');
       state.execution = null;
+      state.executionStatus = 'idle';
       state.nodeStatus.clear();
     }
 
@@ -32,6 +36,20 @@
             updateStatus('error');
             addLog('error', '执行失败: ' + (msg.data.error || ''));
             resetExecution();
+          } else if (msg.data.status === 'paused') {
+            state.executionStatus = 'paused';
+            updateStatus('idle');
+            // 更新按钮状态：隐藏暂停，显示继续和停止
+            document.getElementById('btnPause').style.display = 'none';
+            document.getElementById('btnResume').style.display = 'inline-flex';
+            document.getElementById('btnStop').style.display = 'inline-flex';
+            addLog('warn', '执行已暂停（服务端）');
+          } else if (msg.data.status === 'running') {
+            // 可能是从暂停恢复
+            state.executionStatus = 'running';
+            document.getElementById('btnPause').style.display = 'inline-flex';
+            document.getElementById('btnResume').style.display = 'none';
+            document.getElementById('btnStop').style.display = 'inline-flex';
           }
         } else if (msg.type === 'nodeStatus') {
           state.nodeStatus.set(msg.data.nodeId, msg.data.status);

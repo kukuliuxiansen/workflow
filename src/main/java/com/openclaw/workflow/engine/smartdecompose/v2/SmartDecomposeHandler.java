@@ -3,15 +3,19 @@ package com.openclaw.workflow.engine.smartdecompose.v2;
 import com.openclaw.workflow.engine.handler.BaseNodeHandler;
 import com.openclaw.workflow.engine.model.NodeExecutionContext;
 import com.openclaw.workflow.engine.model.NodeResult;
+import com.openclaw.workflow.engine.smartdecompose.v2.client.OpenClawClient;
 import com.openclaw.workflow.engine.smartdecompose.v2.config.SmartDecomposeConfig;
 import com.openclaw.workflow.engine.smartdecompose.v2.model.DecomposeContext;
 import com.openclaw.workflow.engine.smartdecompose.v2.model.SubTask;
 import com.openclaw.workflow.engine.smartdecompose.v2.model.enums.DecomposeStatus;
+import com.openclaw.workflow.engine.smartdecompose.v2.persistence.StatePersister;
 import com.openclaw.workflow.entity.PromptTemplate;
 import com.openclaw.workflow.entity.SmartDecomposeScene;
+import com.openclaw.workflow.entity.TemplateConfig;
 import com.openclaw.workflow.entity.WorkflowNode;
 import com.openclaw.workflow.repository.PromptTemplateRepository;
 import com.openclaw.workflow.repository.SmartDecomposeSceneRepository;
+import com.openclaw.workflow.repository.TemplateConfigRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,6 +46,15 @@ public class SmartDecomposeHandler extends BaseNodeHandler {
     @Autowired
     private SmartDecomposeSceneRepository sceneRepository;
 
+    @Autowired
+    private TemplateConfigRepository templateConfigRepository;
+
+    @Autowired
+    private StatePersister statePersister;
+
+    @Autowired
+    private OpenClawClient openClawClient;
+
     public String getNodeType() {
         return NODE_TYPE;
     }
@@ -51,7 +64,7 @@ public class SmartDecomposeHandler extends BaseNodeHandler {
         logger.info("SmartDecompose 开始执行: executionId={}", ctx.getExecutionId());
 
         try {
-            DecomposeContext context = initializeContext(ctx);
+            DecomposeContext context = tryRestoreOrCreate(ctx);
             loadTemplates(context);
             orchestrator.run(context);
             return buildResult(context);
@@ -59,6 +72,33 @@ public class SmartDecomposeHandler extends BaseNodeHandler {
             logger.error("SmartDecompose 执行异常: {}", e.getMessage(), e);
             return NodeResult.failed(e.getMessage());
         }
+    }
+
+    /**
+     * 尝试恢复或创建新的上下文
+     */
+    private DecomposeContext tryRestoreOrCreate(NodeExecutionContext ctx) {
+        String executionId = ctx.getExecutionId();
+        String nodeId = ctx.getNode().getId();
+
+        // 查找备份数据
+        DecomposeContext cached = statePersister.loadIfExists(executionId, nodeId);
+
+        if (cached != null && cached.getStatus() == DecomposeStatus.RUNNING) {
+            logger.info("[HANDLER] 恢复未完成的任务: executionId={}, sessionId={}",
+                executionId, cached.getOpenClawSessionId());
+
+            // 恢复OpenClaw会话
+            if (cached.getOpenClawSessionId() != null) {
+                openClawClient.setSessionId(cached.getOpenClawSessionId());
+            }
+
+            return cached;
+        }
+
+        // 没有备份，正常初始化
+        logger.info("[HANDLER] 创建新的执行上下文");
+        return initializeContext(ctx);
     }
 
     private DecomposeContext initializeContext(NodeExecutionContext ctx) {
@@ -71,15 +111,22 @@ public class SmartDecomposeHandler extends BaseNodeHandler {
 
         SmartDecomposeConfig config = SmartDecomposeConfig.fromJson(ctx.getNode().getConfig());
 
+        // 加载模板配置（优先使用 templateId）
+        if (config.getTemplateId() != null && !config.getTemplateId().isEmpty()) {
+            loadTemplateConfig(context, config.getTemplateId());
+        }
+
         // 加载场景配置（如果指定了sceneId）
         if (config.getSceneId() != null && !config.getSceneId().isEmpty()) {
             loadSceneConfig(context, config.getSceneId());
         }
 
-        // 节点配置覆盖场景默认值
+        // 节点配置覆盖默认值
         context.setMaxRetries(config.getMaxRetries());
+        context.setMaxTotalTasks(config.getMaxTotalTasks());
         context.setMaxIterations(config.getMaxIterations());
         context.setRequireManualReview(config.isRequireManualReview());
+        context.setTemplateId(config.getTemplateId());
 
         // 如果场景未设置模板ID，使用节点配置（向后兼容）
         if (context.getDecisionTemplateId() == null) {
@@ -89,7 +136,12 @@ public class SmartDecomposeHandler extends BaseNodeHandler {
             context.setReviewTemplateId(config.getReviewTemplateId());
         }
 
-        String taskDescription = getTaskDescription(ctx);
+        // 任务描述优先使用节点配置，否则从上下文获取
+        String taskDescription = config.getTaskDescription();
+        if (taskDescription == null || taskDescription.isEmpty()) {
+            taskDescription = getTaskDescription(ctx);
+        }
+
         SubTask rootTask = SubTask.builder()
             .id("TASK_ROOT")
             .description(taskDescription)
@@ -97,9 +149,33 @@ public class SmartDecomposeHandler extends BaseNodeHandler {
             .build();
 
         context.getTaskQueue().add(rootTask);
-        logger.debug("初始化完成: taskDescription={}, sceneId={}", taskDescription, config.getSceneId());
+        logger.debug("初始化完成: taskDescription={}, templateId={}", taskDescription, config.getTemplateId());
 
         return context;
+    }
+
+    /**
+     * 加载模板配置
+     */
+    private void loadTemplateConfig(DecomposeContext context, String templateId) {
+        TemplateConfig template = templateConfigRepository.findById(templateId).orElse(null);
+        if (template == null) {
+            logger.warn("模板不存在: {}, 使用默认配置", templateId);
+            return;
+        }
+
+        logger.info("加载模板配置: id={}, name={}", template.getId(), template.getName());
+
+        // 设置模板内容
+        if (template.getDecisionTemplate() != null) {
+            context.setDecisionTemplateContent(template.getDecisionTemplate());
+        }
+        if (template.getReviewTemplate() != null) {
+            context.setReviewTemplateContent(template.getReviewTemplate());
+        }
+        if (template.getRetryTemplate() != null) {
+            context.setRetryTemplateContent(template.getRetryTemplate());
+        }
     }
 
     /**

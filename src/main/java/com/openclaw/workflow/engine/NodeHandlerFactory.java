@@ -2,10 +2,8 @@ package com.openclaw.workflow.engine;
 
 import com.openclaw.workflow.engine.handler.*;
 import com.openclaw.workflow.engine.service.NodePromptService;
-import com.openclaw.workflow.engine.smartdecompose.SmartDecomposeHandler;
+import com.openclaw.workflow.engine.smartdecompose.v2.SmartDecomposeHandler;
 import com.openclaw.workflow.entity.WorkflowNode;
-import com.openclaw.workflow.repository.DecisionHistoryRepository;
-import com.openclaw.workflow.repository.SmartDecomposeStateRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,14 +25,13 @@ public class NodeHandlerFactory {
     private final LoopNodeHandler loopNodeHandler;
     private final ConditionNodeHandler conditionNodeHandler;
     private final HumanReviewNodeHandler humanReviewNodeHandler;
-    private final SmartDecomposeHandler smartDecomposeHandler;
+
+    // v2 智能分解处理器（通过Spring注入）
+    @Autowired
+    private SmartDecomposeHandler smartDecomposeHandler;
 
     // 提示词服务
     private NodePromptService promptService;
-
-    // 智能分解持久化Repository
-    private SmartDecomposeStateRepository smartDecomposeStateRepository;
-    private DecisionHistoryRepository decisionHistoryRepository;
 
     // Gateway API配置
     private String gatewayUrl = "http://localhost:18789";
@@ -46,7 +43,6 @@ public class NodeHandlerFactory {
         this.loopNodeHandler = new LoopNodeHandler();
         this.conditionNodeHandler = new ConditionNodeHandler();
         this.humanReviewNodeHandler = new HumanReviewNodeHandler();
-        this.smartDecomposeHandler = new SmartDecomposeHandler(gatewayUrl, gatewayToken, "project-manager");
 
         // 配置Gateway API
         configureHandlers();
@@ -150,17 +146,5 @@ public class NodeHandlerFactory {
         conditionNodeHandler.setPromptService(promptService);
         parallelNodeHandler.setPromptService(promptService);
         loopNodeHandler.setPromptService(promptService);
-    }
-
-    @Autowired
-    public void setSmartDecomposeStateRepository(SmartDecomposeStateRepository smartDecomposeStateRepository) {
-        this.smartDecomposeStateRepository = smartDecomposeStateRepository;
-        this.smartDecomposeHandler.setStateRepository(smartDecomposeStateRepository);
-    }
-
-    @Autowired
-    public void setDecisionHistoryRepository(DecisionHistoryRepository decisionHistoryRepository) {
-        this.decisionHistoryRepository = decisionHistoryRepository;
-        this.smartDecomposeHandler.setDecisionHistoryRepository(decisionHistoryRepository);
     }
 }

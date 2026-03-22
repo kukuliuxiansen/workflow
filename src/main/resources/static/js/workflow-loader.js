@@ -15,9 +15,14 @@
           state.currentWorkflow = data.data;
           state.selectedNode = null;
 
-          // 清空当前日志
+          // 清空当前日志和节点状态
           state.logs = { execution: [], agent: [] };
           state.selectedHistoryId = null;
+          state.nodeStatus.clear();
+          state.execution = null;
+
+          // 重置执行按钮状态
+          resetExecution();
 
           // 从工作流数据中加载任务配置
           const taskConfigData = state.currentWorkflow.taskConfig || state.currentWorkflow.task_config;

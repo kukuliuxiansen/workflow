@@ -6,12 +6,6 @@
       gap: 8px;
       border-radius: 8px 8px 0 0;
     }
-    .node-header.agent { background: #3a2f6e; }
-    .node-header.api { background: #3a3a2a; }
-    .node-header.start { background: #2a3a2a; }
-    .node-header.finish { background: #3a2a2a; }
-    .node-header.condition { background: #2a2a3a; }
-    .node-header.human_review { background: #3a302a; }
     .node-icon {
       width: 28px;
       height: 28px;
@@ -34,6 +28,68 @@
     .node-status-badge.running { background: #3a2f6e; color: #a99fff; }
     .node-status-badge.success { background: #2a3a2a; color: #8f8; }
     .node-status-badge.failed { background: #3a2a2a; color: #f88; }
+
+    /* 节点执行状态样式 */
+    .node.running {
+      border: 2px solid #4a6aff;
+      box-shadow: 0 0 15px rgba(74, 106, 255, 0.5);
+      animation: node-pulse 1.5s ease-in-out infinite;
+    }
+    .node.success {
+      border: 2px solid #4a4;
+      box-shadow: 0 0 8px rgba(68, 170, 68, 0.3);
+    }
+    .node.success .node-header::after {
+      content: '✓';
+      position: absolute;
+      right: 8px;
+      top: 8px;
+      color: #4a4;
+      font-size: 14px;
+      font-weight: bold;
+    }
+    .node.failed {
+      border: 2px solid #f44;
+      box-shadow: 0 0 8px rgba(255, 68, 68, 0.3);
+    }
+    .node.failed .node-header::after {
+      content: '✕';
+      position: absolute;
+      right: 8px;
+      top: 8px;
+      color: #f44;
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    @keyframes node-pulse {
+      0%, 100% { box-shadow: 0 0 15px rgba(74, 106, 255, 0.3); }
+      50% { box-shadow: 0 0 25px rgba(74, 106, 255, 0.6); }
+    }
+
+    /* 边线动画 */
+    .edge-path.animated {
+      stroke-dasharray: 8, 4;
+      animation: edge-flow 0.5s linear infinite;
+    }
+    @keyframes edge-flow {
+      from { stroke-dashoffset: 12; }
+      to { stroke-dashoffset: 0; }
+    }
+
+    /* 未配置节点警告样式 */
+    .node.warning {
+      border: 2px solid #f59e0b;
+      background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), transparent);
+    }
+    .node-warning-badge {
+      font-size: 14px;
+      animation: warning-pulse 2s ease-in-out infinite;
+    }
+    @keyframes warning-pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
     .node-body {
       padding: 8px 12px;
       font-size: 11px;

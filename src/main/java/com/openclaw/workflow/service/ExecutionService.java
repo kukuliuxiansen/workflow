@@ -5,8 +5,10 @@ import com.openclaw.workflow.engine.handler.HumanReviewNodeHandler;
 import com.openclaw.workflow.engine.model.ExecutionOptions;
 import com.openclaw.workflow.engine.model.ExecutionResult;
 import com.openclaw.workflow.entity.Execution;
+import com.openclaw.workflow.entity.NodeExecution;
 import com.openclaw.workflow.entity.ReviewRecord;
 import com.openclaw.workflow.repository.ExecutionRepository;
+import com.openclaw.workflow.repository.NodeExecutionRepository;
 import com.openclaw.workflow.repository.ReviewRecordRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,6 +16,7 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -26,16 +29,19 @@ public class ExecutionService {
     private final ExecutionRepository executionRepository;
     private final WorkflowEngine workflowEngine;
     private final ReviewRecordRepository reviewRecordRepository;
+    private final NodeExecutionRepository nodeExecutionRepository;
 
     // 存储活跃的执行实例
     private final Map<String, WorkflowEngine> activeEngines = new ConcurrentHashMap<>();
 
     public ExecutionService(ExecutionRepository executionRepository,
                             WorkflowEngine workflowEngine,
-                            ReviewRecordRepository reviewRecordRepository) {
+                            ReviewRecordRepository reviewRecordRepository,
+                            NodeExecutionRepository nodeExecutionRepository) {
         this.executionRepository = executionRepository;
         this.workflowEngine = workflowEngine;
         this.reviewRecordRepository = reviewRecordRepository;
+        this.nodeExecutionRepository = nodeExecutionRepository;
     }
 
     public List<Execution> findAll() {
@@ -279,5 +285,59 @@ public class ExecutionService {
     private String generateExecutionId() {
         return "exec-" + java.time.LocalDate.now().toString().replace("-", "") +
                 "-" + Integer.toHexString((int) (Math.random() * 0xFFFFFF));
+    }
+
+    /**
+     * 删除执行记录
+     */
+    public void delete(String executionId) {
+        Execution execution = findById(executionId);
+
+        // 不允许删除正在运行的执行
+        if ("running".equals(execution.getStatus()) || "paused".equals(execution.getStatus())) {
+            throw new RuntimeException("无法删除正在执行或暂停的记录，请先停止执行");
+        }
+
+        // 删除相关的审核记录
+        reviewRecordRepository.deleteByExecutionId(executionId);
+
+        // 删除执行记录
+        executionRepository.delete(execution);
+
+        logger.info("已删除执行记录: {}", executionId);
+    }
+
+    /**
+     * 获取执行记录的节点状态
+     */
+    public Map<String, String> getNodeStatuses(String executionId) {
+        Map<String, String> result = new HashMap<>();
+
+        // 从 node_execution 表获取节点状态
+        List<NodeExecution> nodeExecutions = nodeExecutionRepository.findByExecutionIdOrderByCreatedAtAsc(executionId);
+        for (NodeExecution ne : nodeExecutions) {
+            NodeExecution.NodeStatus nodeStatus = ne.getStatus();
+            String status = "pending";
+            // 转换状态格式以匹配前端
+            if (nodeStatus == NodeExecution.NodeStatus.SUCCESS) {
+                status = "success";
+            } else if (nodeStatus == NodeExecution.NodeStatus.FAILED) {
+                status = "failed";
+            } else if (nodeStatus == NodeExecution.NodeStatus.RUNNING) {
+                status = "running";
+            } else if (nodeStatus == NodeExecution.NodeStatus.RETRY) {
+                status = "running";
+            }
+            result.put(ne.getNodeId(), status);
+        }
+
+        // 如果没有记录，根据执行状态推断整体状态
+        if (result.isEmpty()) {
+            Execution execution = findById(executionId);
+            String execStatus = execution.getStatus();
+            logger.debug("执行 {} 无节点状态记录，整体状态: {}", executionId, execStatus);
+        }
+
+        return result;
     }
 }

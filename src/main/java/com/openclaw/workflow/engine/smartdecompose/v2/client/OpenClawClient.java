@@ -25,7 +25,7 @@ public class OpenClawClient {
     @Value("${openclaw.gateway.token:56b640cc2d91411f63255af68355c19ee33c88ec458878ca}")
     private String token;
 
-    @Value("${openclaw.agent.id:smart-decompose}")
+    @Value("${openclaw.agent.id:project-manager}")
     private String agentId;
 
     /** 当前会话ID */
@@ -67,16 +67,55 @@ public class OpenClawClient {
     }
 
     /**
-     * 调用 OpenClaw Agent
+     * 调用 OpenClaw Agent（带重试机制）
      *
-     * 入参: String prompt
-     * 出参: String (OpenClaw 的原始文本响应)
-     *
-     * @param prompt 提示词
-     * @return OpenClaw 的原始文本响应
-     * @throws OpenClawException 调用失败时抛出
+     * 失败时重试10次，每次间隔5分钟
      */
     private String callAgent(String prompt) {
+        int maxRetries = 10;
+        int retryCount = 0;
+        Exception lastException = null;
+
+        while (retryCount <= maxRetries) {
+            try {
+                return doCallAgent(prompt);
+            } catch (Exception e) {
+                lastException = e;
+                retryCount++;
+
+                if (retryCount > maxRetries) {
+                    logger.error("[OPENCLAW] 重试{}次后仍失败，暂停任务", maxRetries);
+                    throw new OpenClawException(
+                        OpenClawException.ErrorCode.MAX_RETRIES_EXCEEDED,
+                        "OpenClaw调用失败" + maxRetries + "次: " + e.getMessage()
+                    );
+                }
+
+                logger.warn("[OPENCLAW] 调用失败，第{}次重试，等待5分钟... 错误: {}",
+                    retryCount, e.getMessage());
+
+                try {
+                    Thread.sleep(5 * 60 * 1000);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new OpenClawException(
+                        OpenClawException.ErrorCode.CONNECTION_FAILED,
+                        "重试等待被中断"
+                    );
+                }
+            }
+        }
+        // 理论上不会执行到这里，但编译器需要返回语句
+        throw new OpenClawException(
+            OpenClawException.ErrorCode.MAX_RETRIES_EXCEEDED,
+            "OpenClaw调用失败"
+        );
+    }
+
+    /**
+     * 实际调用 OpenClaw Agent
+     */
+    private String doCallAgent(String prompt) {
         logger.info("[OPENCLAW] ===== 调用 OpenClaw =====");
         logger.info("[OPENCLAW] 入参 - agentId: {}", agentId);
         logger.info("[OPENCLAW] 入参 - currentSessionId: {}", currentSessionId);

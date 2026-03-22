@@ -15,6 +15,8 @@ public interface DecisionHistoryRepository extends JpaRepository<DecisionHistory
 
     List<DecisionHistory> findByExecutionIdAndNodeIdOrderByIterationAsc(String executionId, String nodeId);
 
+    List<DecisionHistory> findByExecutionIdOrderByIterationAsc(String executionId);
+
     List<DecisionHistory> findTop10ByExecutionIdAndNodeIdOrderByIterationDesc(String executionId, String nodeId);
 
     void deleteByExecutionId(String executionId);

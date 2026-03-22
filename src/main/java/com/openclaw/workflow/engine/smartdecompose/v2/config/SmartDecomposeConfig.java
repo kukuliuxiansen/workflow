@@ -9,11 +9,20 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 public class SmartDecomposeConfig {
 
+    /** 模板ID，关联 TemplateConfig 表 */
+    private String templateId;
+
+    /** 当前任务描述（节点级别） */
+    private String taskDescription;
+
     /** 场景ID，选择场景后自动加载对应配置 */
     private String sceneId;
 
-    /** 最大重试次数，默认 5 */
-    private int maxRetries = 5;
+    /** 最大重试次数（打回次数），默认 10 */
+    private int maxRetries = 10;
+
+    /** 最大任务总数，默认 1000 */
+    private int maxTotalTasks = 1000;
 
     /** 最大迭代次数，默认 50 */
     private int maxIterations = 50;
@@ -68,11 +77,20 @@ public class SmartDecomposeConfig {
 
     // ==================== Getters & Setters ====================
 
+    public String getTemplateId() { return templateId; }
+    public void setTemplateId(String templateId) { this.templateId = templateId; }
+
+    public String getTaskDescription() { return taskDescription; }
+    public void setTaskDescription(String taskDescription) { this.taskDescription = taskDescription; }
+
     public String getSceneId() { return sceneId; }
     public void setSceneId(String sceneId) { this.sceneId = sceneId; }
 
     public int getMaxRetries() { return maxRetries; }
     public void setMaxRetries(int maxRetries) { this.maxRetries = maxRetries; }
+
+    public int getMaxTotalTasks() { return maxTotalTasks; }
+    public void setMaxTotalTasks(int maxTotalTasks) { this.maxTotalTasks = maxTotalTasks; }
 
     public int getMaxIterations() { return maxIterations; }
     public void setMaxIterations(int maxIterations) { this.maxIterations = maxIterations; }

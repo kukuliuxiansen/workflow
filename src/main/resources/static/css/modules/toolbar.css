@@ -22,6 +22,8 @@
     .toolbar-btn.primary:hover { background: #5849d4; }
     .toolbar-btn.danger { color: #f44; border-color: #5a2020; }
     .toolbar-btn.danger:hover { background: #3a2020; }
+    .toolbar-btn.warning { color: #fa0; border-color: #5a4020; }
+    .toolbar-btn.warning:hover { background: #3a3020; }
     .undo-count {
       font-size: 11px;
       color: #6b5ce7;

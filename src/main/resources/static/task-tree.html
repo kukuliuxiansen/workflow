@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartDecompose 任务树查看器</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            min-height: 100vh;
+        }
+        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        h1 { text-align: center; margin-bottom: 20px; color: #58a6ff; font-size: 24px; }
+
+        .search-panel {
+            background: #161b22;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #30363d;
+        }
+        .search-row { display: flex; gap: 15px; flex-wrap: wrap; align-items: flex-end; }
+        .form-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 200px; }
+        .form-group label { font-size: 12px; color: #8b949e; }
+        .form-group input {
+            padding: 10px 12px;
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            background: #0d1117;
+            color: #c9d1d9;
+            font-size: 14px;
+        }
+        .form-group input:focus { outline: none; border-color: #58a6ff; }
+        .btn {
+            padding: 10px 20px;
+            background: #238636;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        .btn:hover { background: #2ea043; }
+        .btn-secondary { background: #21262d; border: 1px solid #30363d; }
+        .btn-secondary:hover { background: #30363d; }
+
+        .stats-panel {
+            background: #161b22;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 40px;
+            border: 1px solid #30363d;
+        }
+        .stat-item { text-align: center; }
+        .stat-value { font-size: 28px; font-weight: bold; color: #58a6ff; }
+        .stat-label { font-size: 12px; color: #8b949e; margin-top: 4px; }
+
+        .main-content { display: flex; gap: 20px; }
+        .tree-panel {
+            flex: 1;
+            background: #161b22;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+            overflow: hidden;
+        }
+        .panel-header {
+            padding: 12px 16px;
+            background: #21262d;
+            border-bottom: 1px solid #30363d;
+            font-weight: 500;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .tree-content {
+            padding: 16px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .tree-node { margin-left: 20px; }
+        .tree-node:first-child { margin-left: 0; }
+        .node-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            margin: 2px 0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .node-item:hover { background: #21262d; }
+        .node-item.selected { background: #1f6feb33; border: 1px solid #1f6feb; }
+
+        .node-toggle {
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #8b949e;
+            font-size: 10px;
+            flex-shrink: 0;
+        }
+        .node-toggle.empty { visibility: hidden; }
+
+        .node-id {
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 12px;
+            color: #79c0ff;
+            background: #388bfd26;
+            padding: 2px 6px;
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+        .node-depth {
+            font-size: 10px;
+            color: #8b949e;
+            background: #21262d;
+            padding: 1px 5px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+        .node-action {
+            font-size: 10px;
+            padding: 1px 6px;
+            border-radius: 3px;
+            text-transform: uppercase;
+            flex-shrink: 0;
+        }
+        .node-action.split { background: #238636; color: #fff; }
+        .node-action.execute { background: #1f6feb; color: #fff; }
+        .node-desc {
+            flex: 1;
+            font-size: 13px;
+            color: #c9d1d9;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .node-desc.empty { color: #6e7681; font-style: italic; }
+
+        .children-container { display: none; }
+        .children-container.expanded { display: block; }
+
+        .detail-panel {
+            width: 400px;
+            background: #161b22;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .detail-content { padding: 16px; }
+        .detail-section {
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #21262d;
+        }
+        .detail-section:last-child { border-bottom: none; margin-bottom: 0; }
+        .detail-label {
+            font-size: 11px;
+            color: #8b949e;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+            font-weight: 500;
+        }
+        .detail-value {
+            font-size: 13px;
+            color: #c9d1d9;
+            background: #0d1117;
+            padding: 10px 12px;
+            border-radius: 6px;
+            border: 1px solid #21262d;
+            word-break: break-word;
+            white-space: pre-wrap;
+        }
+        .detail-value.scrollable { max-height: 200px; overflow-y: auto; }
+        .detail-value pre { margin: 0; white-space: pre-wrap; font-size: 12px; }
+        .detail-empty { text-align: center; color: #6e7681; padding: 40px 20px; }
+
+        .executions-list {
+            background: #161b22;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #30363d;
+            overflow: hidden;
+        }
+        .exec-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-bottom: 1px solid #21262d;
+            cursor: pointer;
+        }
+        .exec-item:last-child { border-bottom: none; }
+        .exec-item:hover { background: #21262d; }
+        .exec-id { font-family: monospace; font-size: 13px; color: #79c0ff; }
+        .exec-status {
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+        .exec-status.completed { background: #238636; color: #fff; }
+        .exec-status.running { background: #1f6feb; color: #fff; }
+        .exec-status.failed { background: #da3633; color: #fff; }
+
+        .loading { text-align: center; padding: 40px; color: #8b949e; }
+        .error { color: #f85149; text-align: center; padding: 20px; background: #f8514922; border-radius: 6px; }
+
+        .controls { display: flex; gap: 8px; }
+        .control-btn {
+            padding: 4px 10px;
+            font-size: 12px;
+            background: #21262d;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .control-btn:hover { background: #30363d; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SmartDecompose 任务树查看器</h1>
+
+        <div class="search-panel">
+            <div class="search-row">
+                <div class="form-group">
+                    <label>执行ID (executionId)</label>
+                    <input type="text" id="executionId" placeholder="如: exec-xxx-xxx">
+                </div>
+                <div class="form-group" style="flex: 0.5;">
+                    <label>节点ID (可选)</label>
+                    <input type="text" id="nodeId" placeholder="node_xxx">
+                </div>
+                <button class="btn" onclick="loadTaskTree()">查询</button>
+                <button class="btn btn-secondary" onclick="loadRecentExecutions()">最近执行</button>
+            </div>
+        </div>
+
+        <div id="statsPanel" class="stats-panel" style="display: none;">
+            <div class="stat-item">
+                <div class="stat-value" id="totalDecisions">0</div>
+                <div class="stat-label">决策次数</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="totalTasks">0</div>
+                <div class="stat-label">任务总数</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="maxDepth">0</div>
+                <div class="stat-label">最大深度</div>
+            </div>
+        </div>
+
+        <div id="executionsList" class="executions-list" style="display: none;">
+            <div class="panel-header">最近执行记录</div>
+            <div id="executionsContent"></div>
+        </div>
+
+        <div class="main-content">
+            <div class="tree-panel">
+                <div class="panel-header">
+                    <span>任务树</span>
+                    <div class="controls">
+                        <button class="control-btn" onclick="expandAll()">全部展开</button>
+                        <button class="control-btn" onclick="collapseAll()">全部折叠</button>
+                    </div>
+                </div>
+                <div id="treeContent" class="tree-content">
+                    <div style="text-align: center; color: #6e7681; padding: 40px;">
+                        请输入执行ID并点击查询
+                    </div>
+                </div>
+            </div>
+
+            <div class="detail-panel">
+                <div class="panel-header">任务详情</div>
+                <div id="detailContent" class="detail-content">
+                    <div class="detail-empty">点击任务节点查看详情</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '';
+        let currentTaskData = {};
+        let selectedNodeId = null;
+
+        async function loadRecentExecutions() {
+            try {
+                const res = await fetch(`${API_BASE}/api/executions/records?page=0&size=10`);
+                const data = await res.json();
+                if (data.success && data.data) {
+                    const container = document.getElementById('executionsContent');
+                    container.innerHTML = data.data.map(e => `
+                        <div class="exec-item" onclick="selectExecution('${e.id}')">
+                            <div>
+                                <div class="exec-id">${e.id}</div>
+                                <div style="font-size: 11px; color: #8b949e; margin-top: 2px;">${e.workflow_name || '工作流'}</div>
+                            </div>
+                            <div class="exec-status ${e.status}">${e.status}</div>
+                        </div>
+                    `).join('');
+                    document.getElementById('executionsList').style.display = 'block';
+                }
+            } catch (e) { console.error('加载失败:', e); }
+        }
+
+        function selectExecution(id) {
+            document.getElementById('executionId').value = id;
+            document.getElementById('executionsList').style.display = 'none';
+            loadTaskTree();
+        }
+
+        async function loadTaskTree() {
+            const execId = document.getElementById('executionId').value.trim();
+            if (!execId) { alert('请输入执行ID'); return; }
+
+            const nodeId = document.getElementById('nodeId').value.trim();
+            const url = nodeId
+                ? `${API_BASE}/api/smart-decompose/executions/${execId}/task-tree?nodeId=${nodeId}`
+                : `${API_BASE}/api/smart-decompose/executions/${execId}/task-tree`;
+
+            document.getElementById('treeContent').innerHTML = '<div class="loading">加载中...</div>';
+            document.getElementById('statsPanel').style.display = 'none';
+
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if (data.error) {
+                    document.getElementById('treeContent').innerHTML = `<div class="error">${data.error}</div>`;
+                    return;
+                }
+
+                if (data.taskTree) {
+                    currentTaskData = data;
+                    updateStats(data);
+                    renderTree(data.taskTree);
+                    document.getElementById('detailContent').innerHTML = '<div class="detail-empty">点击任务节点查看详情</div>';
+                } else {
+                    document.getElementById('treeContent').innerHTML = '<div class="error">未找到任务数据</div>';
+                }
+            } catch (e) {
+                document.getElementById('treeContent').innerHTML = `<div class="error">加载失败: ${e.message}</div>`;
+            }
+        }
+
+        function updateStats(d) {
+            document.getElementById('totalDecisions').textContent = d.totalDecisions || 0;
+            document.getElementById('totalTasks').textContent = d.totalTasks || 0;
+            document.getElementById('maxDepth').textContent = d.maxDepth || 0;
+            document.getElementById('statsPanel').style.display = 'flex';
+        }
+
+        function renderTree(root) {
+            const container = document.getElementById('treeContent');
+            container.innerHTML = renderNode(root, true);
+        }
+
+        function renderNode(node, isRoot) {
+            if (!node) return '';
+            const id = node.id || 'unknown';
+            const depth = node.depth || 0;
+            const action = node.action || '';
+            const desc = node.description || '';
+            const children = node.children || [];
+            const hasChildren = children.length > 0;
+
+            return `
+                <div class="tree-node" data-id="${id}">
+                    <div class="node-item" onclick="selectNode('${id}')" data-node-id="${id}">
+                        <span class="node-toggle ${hasChildren ? '' : 'empty'}" onclick="event.stopPropagation(); toggleChildren('${id}')">▶</span>
+                        <span class="node-id">${id}</span>
+                        <span class="node-depth">L${depth}</span>
+                        ${action ? `<span class="node-action ${action}">${action}</span>` : ''}
+                        <span class="node-desc ${desc ? '' : 'empty'}">${desc || '(无描述)'}</span>
+                    </div>
+                    ${hasChildren ? `
+                        <div class="children-container" id="children-${id}">
+                            ${children.map(c => renderNode(c, false)).join('')}
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        function toggleChildren(id) {
+            const container = document.getElementById('children-' + id);
+            const toggle = document.querySelector(`[data-id="${id}"] .node-toggle`);
+            if (container) {
+                const isExpanded = container.classList.toggle('expanded');
+                toggle.textContent = isExpanded ? '▼' : '▶';
+            }
+        }
+
+        function selectNode(id) {
+            // 移除之前的选中状态
+            document.querySelectorAll('.node-item.selected').forEach(el => el.classList.remove('selected'));
+            // 添加新的选中状态
+            const nodeItem = document.querySelector(`[data-node-id="${id}"]`);
+            if (nodeItem) nodeItem.classList.add('selected');
+
+            selectedNodeId = id;
+            showDetail(id);
+        }
+
+        function showDetail(id) {
+            const content = document.getElementById('detailContent');
+
+            // 从当前树中查找节点
+            const node = findNode(currentTaskData.taskTree, id);
+            if (!node) {
+                content.innerHTML = '<div class="detail-empty">未找到节点信息</div>';
+                return;
+            }
+
+            content.innerHTML = `
+                <div class="detail-section">
+                    <div class="detail-label">任务ID</div>
+                    <div class="detail-value">${node.id || '-'}</div>
+                </div>
+                <div class="detail-section">
+                    <div class="detail-label">描述</div>
+                    <div class="detail-value">${node.description || '(无描述)'}</div>
+                </div>
+                ${node.criteria ? `
+                <div class="detail-section">
+                    <div class="detail-label">验收标准</div>
+                    <div class="detail-value scrollable">${escapeHtml(node.criteria)}</div>
+                </div>
+                ` : ''}
+                <div class="detail-section">
+                    <div class="detail-label">决策类型</div>
+                    <div class="detail-value">${node.action || '-'}</div>
+                </div>
+                <div class="detail-section">
+                    <div class="detail-label">层级深度</div>
+                    <div class="detail-value">第 ${node.depth || 0} 层</div>
+                </div>
+                ${node.iteration !== undefined ? `
+                <div class="detail-section">
+                    <div class="detail-label">决策迭代</div>
+                    <div class="detail-value">第 ${node.iteration} 次迭代</div>
+                </div>
+                ` : ''}
+                ${node.thought ? `
+                <div class="detail-section">
+                    <div class="detail-label">思考过程</div>
+                    <div class="detail-value scrollable">${escapeHtml(node.thought)}</div>
+                </div>
+                ` : ''}
+                ${node.timestamp ? `
+                <div class="detail-section">
+                    <div class="detail-label">时间</div>
+                    <div class="detail-value">${node.timestamp}</div>
+                </div>
+                ` : ''}
+                <div class="detail-section">
+                    <div class="detail-label">子任务数</div>
+                    <div class="detail-value">${node.children ? node.children.length : 0} 个</div>
+                </div>
+            `;
+        }
+
+        function findNode(tree, id) {
+            if (!tree) return null;
+            if (tree.id === id) return tree;
+            if (tree.children) {
+                for (const child of tree.children) {
+                    const found = findNode(child, id);
+                    if (found) return found;
+                }
+            }
+            return null;
+        }
+
+        function expandAll() {
+            document.querySelectorAll('.children-container').forEach(el => {
+                el.classList.add('expanded');
+            });
+            document.querySelectorAll('.node-toggle').forEach(el => {
+                if (!el.classList.contains('empty')) el.textContent = '▼';
+            });
+        }
+
+        function collapseAll() {
+            document.querySelectorAll('.children-container').forEach(el => {
+                el.classList.remove('expanded');
+            });
+            document.querySelectorAll('.node-toggle').forEach(el => {
+                if (!el.classList.contains('empty')) el.textContent = '▶';
+            });
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+    </script>
+</body>
+</html>

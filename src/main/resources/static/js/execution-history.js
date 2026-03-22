@@ -55,17 +55,19 @@
       content.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
 
       try {
-        const [recordRes, execLogsRes, agentLogsRes, taskConfigRes] = await Promise.all([
+        const [recordRes, execLogsRes, agentLogsRes, taskConfigRes, nodeStatusRes] = await Promise.all([
           fetch(`${API}/executions/records/${executionId}`),
           fetch(`${API}/executions/${executionId}/logs/execution`),
           fetch(`${API}/executions/${executionId}/logs/agent`),
-          fetch(`${API}/executions/${executionId}/task-config`)
+          fetch(`${API}/executions/${executionId}/task-config`),
+          fetch(`${API}/executions/${executionId}/node-statuses`)
         ]);
 
         const recordData = await recordRes.json();
         const execLogsData = await execLogsRes.json();
         const agentLogsData = await agentLogsRes.json();
         const taskConfigData = await taskConfigRes.json();
+        const nodeStatusData = await nodeStatusRes.json();
 
         if (recordData.success) {
           const record = recordData.data;
@@ -73,6 +75,15 @@
           if (execLogsData.success) state.logs.execution = execLogsData.data;
           if (agentLogsData.success) state.logs.agent = agentLogsData.data;
           renderLogs();
+
+          // 加载节点状态并渲染到画布
+          if (nodeStatusData.success && nodeStatusData.data) {
+            state.nodeStatus.clear();
+            Object.entries(nodeStatusData.data).forEach(([nodeId, status]) => {
+              state.nodeStatus.set(nodeId, status);
+            });
+            renderCanvas();
+          }
 
           if (taskConfigData.success && taskConfigData.data) {
             taskConfig = {
@@ -104,11 +115,32 @@
 
     // 渲染历史详情
     function renderHistoryDetail(record, executionId) {
+      const status = record.status || '';
+      const isRunning = status === 'running';
+      const isPaused = status === 'paused';
+      const isFinished = ['completed', 'stopped', 'failed'].includes(status);
+
+      // 根据状态显示不同操作按钮
+      let actionButtons = '';
+      if (isRunning) {
+        actionButtons = `
+          <button class="log-action-btn warning" onclick="pauseHistoryExecution('${executionId}')">⏸️ 暂停</button>
+          <button class="log-action-btn danger" onclick="stopHistoryExecution('${executionId}')">⏹️ 停止</button>`;
+      } else if (isPaused) {
+        actionButtons = `
+          <button class="log-action-btn" onclick="resumeHistoryExecution('${executionId}')">▶️ 继续</button>
+          <button class="log-action-btn danger" onclick="stopHistoryExecution('${executionId}')">⏹️ 停止</button>`;
+      } else if (isFinished) {
+        actionButtons = `
+          <button class="log-action-btn" onclick="restartExecution('${executionId}')">🔄 重新执行</button>
+          <button class="log-action-btn danger" onclick="deleteExecutionRecord('${executionId}')">🗑️ 删除</button>`;
+      }
+
       let html = `
         <div class="detail-block">
           <div class="detail-block-title">
             <span>基本信息</span>
-            <button class="log-action-btn" onclick="restartExecution('${executionId}')">🔄 重新执行</button>
+            ${actionButtons}
           </div>
           <div class="detail-block-content">
             <p><strong>执行ID:</strong> ${record.executionId || record.id}</p>
@@ -145,4 +177,76 @@
 
     async function showHistoryModal() {
       await openHistoryPanel();
+    }
+
+    // 删除执行记录
+    async function deleteExecutionRecord(executionId) {
+      if (!await confirmAsync('确定要删除此执行记录吗？\n\n删除后无法恢复。')) return;
+
+      try {
+        const res = await fetch(`${API}/executions/${executionId}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+          showToast('success', '记录已删除');
+          // 刷新列表
+          await refreshHistoryList();
+          // 清空详情
+          document.getElementById('historyDetailContent').innerHTML = '<div class="empty-state" style="padding:20px;"><div class="title">选择一条记录查看详情</div></div>';
+          state.selectedHistoryId = null;
+        } else {
+          showToast('error', data.message || '删除失败');
+        }
+      } catch (e) {
+        showToast('error', '删除失败: ' + e.message);
+      }
+    }
+
+    // 从历史记录暂停执行
+    async function pauseHistoryExecution(executionId) {
+      try {
+        const res = await fetch(`${API}/executions/${executionId}/pause`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          showToast('success', '执行已暂停');
+          await selectHistoryItem(executionId);
+        } else {
+          showToast('error', data.message || '暂停失败');
+        }
+      } catch (e) {
+        showToast('error', '暂停失败');
+      }
+    }
+
+    // 从历史记录恢复执行
+    async function resumeHistoryExecution(executionId) {
+      try {
+        const res = await fetch(`${API}/executions/${executionId}/resume`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          showToast('success', '执行已恢复');
+          await selectHistoryItem(executionId);
+        } else {
+          showToast('error', data.message || '恢复失败');
+        }
+      } catch (e) {
+        showToast('error', '恢复失败');
+      }
+    }
+
+    // 从历史记录停止执行
+    async function stopHistoryExecution(executionId) {
+      if (!await confirmAsync('确定要停止此执行吗？')) return;
+
+      try {
+        const res = await fetch(`${API}/executions/${executionId}/stop`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          showToast('success', '执行已停止');
+          await selectHistoryItem(executionId);
+        } else {
+          showToast('error', data.message || '停止失败');
+        }
+      } catch (e) {
+        showToast('error', '停止失败');
+      }
     }

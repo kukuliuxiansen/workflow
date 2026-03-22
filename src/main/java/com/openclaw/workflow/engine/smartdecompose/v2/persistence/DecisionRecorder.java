@@ -71,6 +71,9 @@ public class DecisionRecorder {
      * @return 决策历史列表
      */
     public List<DecisionHistory> findByExecutionId(String executionId, String nodeId) {
+        if (nodeId == null || nodeId.isEmpty()) {
+            return repository.findByExecutionIdOrderByIterationAsc(executionId);
+        }
         return repository.findByExecutionIdAndNodeIdOrderByIterationAsc(executionId, nodeId);
     }
 

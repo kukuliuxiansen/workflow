@@ -164,15 +164,21 @@
     }
 
     function getIcon(type) {
-      return { agent_execution:'🤖', api_call:'🔗', start:'▶️', finish:'⏹️', condition:'❓', human_review:'👤' }[type] || '📦';
+      return { agent_execution:'🤖', smart_decompose:'🧠', api_call:'🔗', start:'▶️', finish:'⏹️', condition:'❓', human_review:'👤' }[type] || '📦';
     }
 
     function getTypeName(type) {
-      return { agent_execution:'Agent执行', api_call:'API调用', start:'开始', finish:'结束', condition:'条件判断', human_review:'人工审核', parallel:'并行执行', loop:'循环执行' }[type] || type;
+      return { agent_execution:'Agent执行', smart_decompose:'智能节点', api_call:'API调用', start:'开始', finish:'结束', condition:'条件判断', human_review:'人工审核', parallel:'并行执行', loop:'循环执行' }[type] || type;
     }
 
     function getNodeDesc(node) {
       if (node.type === 'agent_execution') return node.agent_id ? `Agent: ${node.agent_id}` : '未配置 Agent';
+      if (node.type === 'smart_decompose') {
+        try {
+          const config = typeof node.config === 'string' ? JSON.parse(node.config || '{}') : (node.config || {});
+          return config.taskDescription ? config.taskDescription.substring(0, 30) + '...' : '未配置任务';
+        } catch (e) { return '未配置任务'; }
+      }
       if (node.type === 'api_call') return node.url || '未配置 URL';
       return node.description || '';
     }

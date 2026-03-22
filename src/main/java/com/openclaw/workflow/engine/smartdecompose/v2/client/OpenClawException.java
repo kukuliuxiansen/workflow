@@ -18,7 +18,9 @@ public class OpenClawException extends RuntimeException {
         /** 执行超时 */
         TIMEOUT,
         /** 服务器错误 */
-        SERVER_ERROR
+        SERVER_ERROR,
+        /** 超过最大重试次数 */
+        MAX_RETRIES_EXCEEDED
     }
 
     public OpenClawException(ErrorCode errorCode, String message) {

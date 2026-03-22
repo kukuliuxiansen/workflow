@@ -10,6 +10,8 @@ import com.openclaw.workflow.entity.WorkflowNode;
 import com.openclaw.workflow.repository.WorkflowEdgeRepository;
 import com.openclaw.workflow.repository.WorkflowNodeRepository;
 import com.openclaw.workflow.repository.WorkflowRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +20,8 @@ import java.util.*;
 
 @Service
 public class WorkflowService {
+
+    private static final Logger logger = LoggerFactory.getLogger(WorkflowService.class);
 
     private final WorkflowRepository workflowRepository;
     private final WorkflowNodeRepository nodeRepository;
@@ -135,7 +139,11 @@ public class WorkflowService {
                 existingNode.setDescription(node.getDescription());
                 existingNode.setPositionX(node.getPositionX());
                 existingNode.setPositionY(node.getPositionY());
+                existingNode.setConfig(node.getConfig());
                 existingNode.setUpdatedAt(LocalDateTime.now());
+
+                // 清空旧的 extraConfig，避免旧数据污染
+                existingNode.getExtraConfig().clear();
 
                 // 合并 extraConfig：新配置优先
                 if (node.getExtraConfig() != null && !node.getExtraConfig().isEmpty()) {

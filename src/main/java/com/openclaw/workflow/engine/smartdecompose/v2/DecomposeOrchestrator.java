@@ -95,6 +95,14 @@ public class DecomposeOrchestrator {
                     break;
                 }
 
+                // 检查任务总数限制
+                if (context.getTotalTaskCount() >= context.getMaxTotalTasks()) {
+                    context.setStatus(DecomposeStatus.ITERATION_EXCEEDED);
+                    context.setErrorMessage("超过最大任务总数: " + context.getMaxTotalTasks());
+                    logger.warn("[ORCHESTRATOR] 任务总数超限: {}, 当前: {}", context.getMaxTotalTasks(), context.getTotalTaskCount());
+                    break;
+                }
+
                 SubTask currentTask = context.getTaskQueue().poll();
                 if (currentTask == null) {
                     logger.warn("[ORCHESTRATOR] 队列为空，退出循环");
@@ -104,6 +112,9 @@ public class DecomposeOrchestrator {
                 context.setCurrentTask(currentTask);
                 context.incrementIteration();
                 currentTask.setStatus(SubTaskStatus.RUNNING);
+
+                // 保存：任务开始
+                statePersister.save(context);
 
                 logger.info("[ORCHESTRATOR] 取出任务: id={}, depth={}, description={}",
                     currentTask.getId(), currentTask.getDepth(),
@@ -182,6 +193,11 @@ public class DecomposeOrchestrator {
         logger.info("[DECISION] OpenClaw 响应耗时: {}ms", elapsed);
         logger.info("[DECISION] OpenClaw 原始响应长度: {} 字符", rawResponse != null ? rawResponse.length() : 0);
         logger.info("[DECISION] OpenClaw 原始响应:\n{}", rawResponse);
+
+        // 立即保存 sessionId（OpenClaw调用后可能已更新）
+        context.setOpenClawSessionId(openClawClient.getSessionId());
+        logger.info("[DECISION] 保存 sessionId: {}", context.getOpenClawSessionId());
+        statePersister.save(context);
 
         DecisionResponse response = responseParser.parseDecision(rawResponse);
         logger.info("[DECISION] 解析结果: decision={}, thought={}",
@@ -268,11 +284,22 @@ public class DecomposeOrchestrator {
     private void handleExecute(DecomposeContext context, SubTask task, DecisionResponse decision) {
         logger.info("[EXECUTE] ===== 执行阶段开始 =====");
         logger.info("[EXECUTE] taskId: {}", task.getId());
+        logger.info("[EXECUTE] 执行分析(来自决策): {}", truncate(decision.getThought(), 200));
+
+        // 执行阶段也可能返回 split（如测试发现BUG需要创建修复任务）
+        if (decision.isSplit()) {
+            logger.info("[EXECUTE] 执行结果需要拆分任务（如发现BUG）");
+            handleSplit(context, task, decision);
+            logger.info("[EXECUTE] ===== 执行阶段结束 =====");
+            return;
+        }
+
         logger.info("[EXECUTE] 执行结果(来自决策): {}", truncate(decision.getResult(), 200));
 
         String executionResult = decision.getResult();
+        String executionThought = decision.getThought();
         logger.info("[EXECUTE] 调用审核处理器...");
-        boolean approved = reviewProcessor.reviewAndRetry(context, task, executionResult);
+        boolean approved = reviewProcessor.reviewAndRetry(context, task, executionResult, executionThought);
 
         if (approved) {
             task.setStatus(SubTaskStatus.COMPLETED);

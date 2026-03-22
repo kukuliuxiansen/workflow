@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能节点模板配置</title>
+    <link rel="stylesheet" href="css/modules/base.css">
+    <style>
+        /* 使用与主页面一致的风格 */
+        .template-app {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: #1a1a1a;
+        }
+
+        /* 顶部工具栏 */
+        .template-toolbar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            padding: 0 16px;
+            background: rgba(37, 37, 37, 0.95);
+            border-bottom: 1px solid #3a3a3a;
+            z-index: 200;
+        }
+        .template-toolbar .title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #fff;
+        }
+        .template-toolbar .toolbar-group {
+            margin-left: auto;
+            display: flex;
+            gap: 8px;
+        }
+
+        /* 左侧边栏 */
+        .template-sidebar {
+            position: absolute;
+            left: 0;
+            top: 44px;
+            bottom: 0;
+            width: 260px;
+            background: #252525;
+            border-right: 1px solid #3a3a3a;
+            display: flex;
+            flex-direction: column;
+        }
+        .sidebar-header {
+            padding: 14px 16px;
+            border-bottom: 1px solid #3a3a3a;
+            background: #2a2a2a;
+        }
+        .sidebar-header h3 {
+            font-size: 13px;
+            color: #888;
+            font-weight: 500;
+        }
+        .template-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 6px;
+        }
+        .template-item {
+            padding: 10px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 4px;
+            transition: all 0.15s;
+            border: 1px solid transparent;
+            background: #2a2a2a;
+        }
+        .template-item:hover {
+            background: #333;
+            border-color: #444;
+        }
+        .template-item.active {
+            background: #3a2f6e;
+            border-color: #6b5ce7;
+        }
+        .template-item .name {
+            font-weight: 500;
+            font-size: 13px;
+            color: #e0e0e0;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .template-item .badge {
+            font-size: 10px;
+            background: #6b5ce7;
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+        }
+        .template-item .meta {
+            font-size: 11px;
+            color: #666;
+            margin-top: 3px;
+        }
+        .template-item .actions {
+            margin-top: 6px;
+            display: none;
+            gap: 4px;
+        }
+        .template-item:hover .actions {
+            display: flex;
+        }
+        .template-item .action-btn {
+            padding: 4px 8px;
+            border: none;
+            border-radius: 4px;
+            background: #3a3a3a;
+            color: #888;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .template-item .action-btn:hover {
+            background: #444;
+            color: #fff;
+        }
+        .template-item .action-btn.danger:hover {
+            background: #4a2020;
+            color: #f88;
+        }
+        .empty-state {
+            text-align: center;
+            color: #666;
+            padding: 30px;
+            font-size: 13px;
+        }
+
+        /* 主内容区 */
+        .template-main {
+            position: absolute;
+            left: 260px;
+            top: 44px;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            padding: 16px;
+            gap: 16px;
+        }
+
+        /* 编辑面板 */
+        .edit-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #252525;
+            border-radius: 6px;
+            border: 1px solid #3a3a3a;
+        }
+        .edit-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid #3a3a3a;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            background: #2a2a2a;
+        }
+        .edit-header .form-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .edit-header label {
+            font-size: 12px;
+            color: #888;
+        }
+        .edit-header input[type="text"] {
+            background: #1a1a1a;
+            border: 1px solid #3a3a3a;
+            border-radius: 4px;
+            padding: 6px 10px;
+            color: #e0e0e0;
+            font-size: 13px;
+            width: 180px;
+            outline: none;
+        }
+        .edit-header input[type="text"]:focus {
+            border-color: #6b5ce7;
+        }
+        .edit-header .id-display {
+            font-size: 12px;
+            color: #666;
+        }
+        .edit-header .actions {
+            margin-left: auto;
+            display: flex;
+            gap: 8px;
+        }
+
+        /* 模板类型标签 */
+        .template-tabs {
+            display: flex;
+            border-bottom: 1px solid #3a3a3a;
+            background: #2a2a2a;
+        }
+        .template-tabs .tab {
+            padding: 10px 20px;
+            font-size: 13px;
+            color: #888;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.15s;
+        }
+        .template-tabs .tab:hover {
+            color: #e0e0e0;
+            background: #333;
+        }
+        .template-tabs .tab.active {
+            color: #6b5ce7;
+            border-bottom-color: #6b5ce7;
+        }
+
+        /* 编辑器容器 */
+        .editor-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 12px;
+        }
+        .editor-wrapper {
+            flex: 1;
+            position: relative;
+            border-radius: 4px;
+            overflow: hidden;
+            background: #1a1a1a;
+            border: 1px solid #3a3a3a;
+        }
+        .editor-textarea {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            padding: 10px;
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            background: transparent;
+            border: none;
+            outline: none;
+            color: #e0e0e0;
+            resize: none;
+            caret-color: #fff;
+        }
+        .editor-textarea::placeholder {
+            color: #555;
+        }
+
+        /* 变量面板 */
+        .variables-panel {
+            width: 200px;
+            background: #252525;
+            border-radius: 6px;
+            border: 1px solid #3a3a3a;
+            padding: 12px;
+        }
+        .variables-panel h4 {
+            font-size: 12px;
+            color: #888;
+            font-weight: 500;
+            margin: 0 0 4px 0;
+        }
+        .variables-panel .hint {
+            font-size: 11px;
+            color: #555;
+            margin: 0 0 10px 0;
+        }
+        .variables-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .variable-item {
+            padding: 6px 10px;
+            background: #2a2a2a;
+            border-radius: 4px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.15s;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .variable-item:hover {
+            background: #333;
+        }
+        .variable-item .var-name {
+            color: #a78bfa;
+            font-family: monospace;
+        }
+        .variable-item .var-desc {
+            color: #666;
+            font-size: 11px;
+        }
+
+        /* 按钮样式 - 与主页面一致 */
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .btn-primary {
+            background: #6b5ce7;
+            color: #fff;
+        }
+        .btn-primary:hover {
+            background: #5849d4;
+        }
+        .btn-secondary {
+            background: #3a3a3a;
+            color: #aaa;
+        }
+        .btn-secondary:hover {
+            background: #444;
+            color: #fff;
+        }
+        .btn-sm {
+            padding: 4px 10px;
+            font-size: 11px;
+        }
+
+        /* 模态框 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-overlay.show {
+            display: flex;
+        }
+        .modal-content {
+            background: #252525;
+            border-radius: 8px;
+            border: 1px solid #3a3a3a;
+            width: 560px;
+            max-height: 80vh;
+            overflow: auto;
+        }
+        .modal-header {
+            padding: 14px 16px;
+            border-bottom: 1px solid #3a3a3a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #2a2a2a;
+        }
+        .modal-header h3 {
+            margin: 0;
+            font-size: 14px;
+            color: #e0e0e0;
+        }
+        .close-btn {
+            background: none;
+            border: none;
+            color: #666;
+            font-size: 20px;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .close-btn:hover {
+            color: #fff;
+        }
+        .modal-body {
+            padding: 16px;
+        }
+        .preview-vars {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .preview-vars input {
+            background: #1a1a1a;
+            border: 1px solid #3a3a3a;
+            border-radius: 4px;
+            padding: 6px 10px;
+            color: #e0e0e0;
+            width: 160px;
+            font-size: 12px;
+            outline: none;
+        }
+        .preview-vars input:focus {
+            border-color: #6b5ce7;
+        }
+        .preview-output {
+            background: #1a1a1a;
+            border-radius: 4px;
+            padding: 12px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow: auto;
+            border: 1px solid #3a3a3a;
+            color: #e0e0e0;
+        }
+
+        /* 变量下拉列表 */
+        .var-dropdown {
+            position: fixed;
+            background: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            border-radius: 6px;
+            padding: 4px;
+            min-width: 180px;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+        .var-dropdown.show {
+            display: block;
+        }
+        .var-dropdown .dropdown-item {
+            padding: 6px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            transition: all 0.15s;
+        }
+        .var-dropdown .dropdown-item:hover {
+            background: #3a2f6e;
+        }
+        .var-dropdown .var-name {
+            color: #a78bfa;
+            font-family: monospace;
+        }
+        .var-dropdown .var-desc {
+            color: #666;
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+<div class="template-app">
+    <div class="template-toolbar">
+        <span class="title">智能节点模板配置</span>
+        <div class="toolbar-group">
+            <button class="btn btn-primary" onclick="createTemplate()">新建模板</button>
+        </div>
+    </div>
+
+    <div class="template-sidebar">
+        <div class="sidebar-header"><h3>模板列表</h3></div>
+        <div class="template-list" id="templateList">
+            <div class="empty-state">加载中...</div>
+        </div>
+    </div>
+
+    <div class="template-main" id="editMain" style="display:none;">
+        <div class="edit-panel">
+            <div class="edit-header">
+                <div class="form-group">
+                    <label>名称</label>
+                    <input type="text" id="templateName" placeholder="输入模板名称">
+                </div>
+                <div class="form-group">
+                    <label>ID</label>
+                    <span class="id-display" id="templateIdDisplay">自动生成</span>
+                </div>
+                <div class="actions">
+                    <button class="btn btn-secondary" onclick="showPreview()">预览</button>
+                    <button class="btn btn-primary" onclick="saveTemplate()">保存</button>
+                </div>
+            </div>
+            <div class="template-tabs">
+                <div class="tab active" data-type="decision" onclick="switchTab('decision')">决策模板</div>
+                <div class="tab" data-type="review" onclick="switchTab('review')">审核模板</div>
+                <div class="tab" data-type="retry" onclick="switchTab('retry')">重试模板</div>
+            </div>
+            <div class="editor-container">
+                <div class="editor-wrapper">
+                    <textarea class="editor-textarea" id="editorContent"
+                        placeholder="在此输入模板内容，输入 @ 插入变量..."
+                        onkeydown="onEditorKeydown(event)"></textarea>
+                </div>
+            </div>
+        </div>
+        <div class="variables-panel">
+            <h4>可用变量</h4>
+            <p class="hint">点击复制到剪贴板</p>
+            <div class="variables-list" id="variableList"></div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="previewModal">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <div class="modal-header">
+            <h3>模板预览</h3>
+            <button class="close-btn" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="preview-vars" id="previewVars"></div>
+            <h4 style="font-size:11px;color:#888;margin-bottom:6px;">渲染结果</h4>
+            <div class="preview-output" id="previewOutput"></div>
+        </div>
+    </div>
+</div>
+
+<!-- 变量下拉列表 -->
+<div class="var-dropdown" id="varDropdown"></div>
+
+<script src="js/template-config/state.js"></script>
+<script src="js/template-config/api.js"></script>
+<script src="js/template-config/action.js"></script>
+</body>
+</html>

@@ -32,6 +32,14 @@
         const isSelected = state.selectedNode?.id === node.id || state.selectedNodes.has(node.id);
         const selectionClass = isSelected ? (state.selectedNodes.size > 1 ? 'selected-multi' : 'selected') : '';
 
+        // 检查节点配置是否完整，添加警告类
+        let warningClass = '';
+        if (type === 'agent_execution' && !node.agent_id) {
+          warningClass = 'warning';
+        } else if (type === 'api_call' && !node.url) {
+          warningClass = 'warning';
+        }
+
         let nodeColor = '';
         try {
           const config = typeof node.config === 'string' ? JSON.parse(node.config || '{}') : (node.config || {});
@@ -40,6 +48,7 @@
 
         const isStart = type === 'start';
         const isFinish = type === 'finish';
+        const headerClass = type === 'smart_decompose' ? 'smart' : type.split('_')[0];
 
         const inputPortHtml = isStart ? '' : '<div class="port input" title="输入"></div>';
         let outputPortsHtml = '';
@@ -54,19 +63,20 @@
         }
 
         html += `
-          <div class="node ${selectionClass} ${status}"
+          <div class="node ${selectionClass} ${status} ${warningClass}"
                id="node-${node.id}"
                style="left:${x}px;top:${y}px;"
                data-color="${nodeColor}"
                onclick="selectNode('${node.id}')"
                onmousedown="startDrag(event,'${node.id}')"
                oncontextmenu="${isStart || isFinish ? '' : `showNodeContextMenu(event,'${node.id}')`}">
-            <div class="node-header">
-              <div class="node-icon ${type.split('_')[0]}">${getIcon(type)}</div>
+            <div class="node-header ${headerClass}">
+              <div class="node-icon ${headerClass}">${getIcon(type)}</div>
               <div class="node-info">
                 <div class="node-name">${node.name || node.id}</div>
                 <div class="node-type">${getTypeName(type)}</div>
               </div>
+              ${warningClass ? '<div class="node-warning-badge" title="节点未完整配置">⚠️</div>' : ''}
               ${status ? `<div class="node-status-badge ${status}">${getStatusText(status)}</div>` : ''}
             </div>
             <div class="node-body">${getNodeDesc(node)}</div>

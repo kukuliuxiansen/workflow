@@ -6,11 +6,11 @@
   <title>OpenClaw 工作流编排</title>
   <!-- CSS 模块 -->
   <link rel="stylesheet" href="css/modules/base.css?v=20260321z">
-  <link rel="stylesheet" href="css/modules/toolbar.css?v=20260321b">
-  <link rel="stylesheet" href="css/modules/node.css?v=20260321z">
+  <link rel="stylesheet" href="css/modules/toolbar.css?v=202603222308">
+  <link rel="stylesheet" href="css/modules/node.css?v=202603222239">
   <link rel="stylesheet" href="css/modules/panel.css?v=20260321z">
   <link rel="stylesheet" href="css/modules/panel-part2.css?v=20260321z">
-  <link rel="stylesheet" href="css/modules/modal.css?v=20260321z">
+  <link rel="stylesheet" href="css/modules/modal.css?v=202603222308">
   <link rel="stylesheet" href="css/modules/modal-part2.css?v=20260321z">
   <link rel="stylesheet" href="css/modules/form.css?v=20260321z">
   <link rel="stylesheet" href="css/modules/form-part2.css?v=20260321z">
@@ -69,6 +69,8 @@
         <span id="statusText">就绪</span>
       </div>
       <button class="toolbar-btn primary" onclick="executeWorkflow()" id="btnExecute">执行</button>
+      <button class="toolbar-btn warning" onclick="pauseExecution()" id="btnPause" style="display:none;">暂停</button>
+      <button class="toolbar-btn primary" onclick="resumeExecution()" id="btnResume" style="display:none;">继续</button>
       <button class="toolbar-btn danger" onclick="stopExecution()" id="btnStop" style="display:none;">停止</button>
     </div>
 
@@ -459,6 +461,10 @@
               <div class="icon">🤖</div>
               <div class="name">Agent 执行</div>
             </div>
+            <div class="node-type-card" data-type="smart_decompose" onclick="selectNodeType(this)">
+              <div class="icon">🧠</div>
+              <div class="name">智能节点</div>
+            </div>
             <div class="node-type-card" data-type="api_call" onclick="selectNodeType(this)">
               <div class="icon">🔗</div>
               <div class="name">API 调用</div>
@@ -586,10 +592,11 @@
 <script src="js/api-logger.js?v=20260321z"></script>
 <script src="js/panels.js?v=20260321z"></script>
 <script src="js/path-selector.js?v=20260321z"></script>
-<script src="js/workflow-save.js?v=20260321a"></script>
+<script src="js/workflow-save.js?v=20260323000357a"></script>
 <script src="js/workflow-loader.js?v=20260321z"></script>
 <script src="js/context-menu.js?v=20260321z"></script>
-<script src="js/canvas-render.js?v=20260321b"></script>
+<script src="js/task-config.js?v=202603222206"></script>
+<script src="js/canvas-render.js?v=202603222206"></script>
 <script src="js/node-select.js?v=20260321a"></script>
 <script src="js/edges.js?v=20260321z"></script>
 <script src="js/drag-connect.js?v=20260321b"></script>
@@ -606,11 +613,10 @@
 <script src="js/ux-features.js?v=20260321z"></script>
 <script src="js/execution.js?v=20260321z"></script>
 <script src="js/execution-history.js?v=20260321z"></script>
-<script src="js/task-config.js?v=20260321z"></script>
 <script src="js/global-config.js?v=202603221118"></script>
 <script src="js/config-loaders.js?v=20260321c"></script>
 <script src="js/prompt-templates.js?v=20260321z"></script>
-<script src="js/property-panel.js?v=202603221120"></script>
+<script src="js/property-panel.js?v=20260323000357"></script>
 <script src="js/property-panel-part2.js?v=202603221119"></script>
 <!-- 丢失函数恢复 -->
 <script src="js/log-functions.js?v=20260321z"></script>

@@ -74,6 +74,7 @@
         'start': '▶️',
         'finish': '⏹️',
         'agent_execution': '🤖',
+        'smart_decompose': '🧠',
         'api_call': '🌐',
         'condition': '❓',
         'parallel': '⚡',

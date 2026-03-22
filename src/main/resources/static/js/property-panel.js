@@ -30,6 +30,7 @@
           <label class="form-label">节点类型</label>
           <select class="form-select" disabled style="background:#222;color:#888;cursor:not-allowed;">
             <option value="agent_execution" ${node.type==='agent_execution'?'selected':''}>Agent 执行</option>
+            <option value="smart_decompose" ${node.type==='smart_decompose'?'selected':''}>智能节点</option>
             <option value="api_call" ${node.type==='api_call'?'selected':''}>API 调用</option>
             <option value="start" ${node.type==='start'?'selected':''}>开始</option>
             <option value="finish" ${node.type==='finish'?'selected':''}>结束</option>
@@ -43,14 +44,21 @@
 
     // 根据节点类型渲染特定字段
     function renderTypeSpecificFields(node) {
+      let html = '';
       switch(node.type) {
-        case 'agent_execution': return renderAgentFields(node);
-        case 'api_call': return renderApiFields(node);
-        case 'condition': return renderConditionFields(node);
-        case 'loop': return renderLoopFields(node);
-        case 'parallel': return renderParallelFields(node);
-        default: return '';
+        case 'agent_execution': html = renderAgentFields(node); break;
+        case 'smart_decompose': html = renderSmartDecomposeFields(node); break;
+        case 'api_call': html = renderApiFields(node); break;
+        case 'condition': html = renderConditionFields(node); break;
+        case 'loop': html = renderLoopFields(node); break;
+        case 'parallel': html = renderParallelFields(node); break;
+        default: html = '';
       }
+      // 智能节点需要异步加载模板列表
+      if (node.type === 'smart_decompose') {
+        setTimeout(loadTemplateList, 0);
+      }
+      return html;
     }
 
     // Agent执行节点字段
@@ -140,4 +148,62 @@
             }).join('')}
           </select>
         </div>`;
+    }
+
+    // 智能节点字段
+    function renderSmartDecomposeFields(node) {
+      const config = node.config ? JSON.parse(node.config) : {};
+      return `
+        <div class="form-divider"></div>
+        <div class="form-section-title">智能节点配置</div>
+        <div class="form-group">
+          <label class="form-label">模板</label>
+          <select class="form-select" id="templateSelect" onchange="updateSmartConfig('templateId', this.value)">
+            <option value="">加载中...</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">当前任务</label>
+          <textarea class="form-input form-textarea" placeholder="描述当前节点要完成的任务..."
+            onchange="updateSmartConfig('taskDescription', this.value)">${config.taskDescription || ''}</textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">最大打回次数</label>
+          <input type="number" class="form-input" value="${config.maxRetries || 10}"
+            onchange="updateSmartConfig('maxRetries', parseInt(this.value) || 10)" min="1" max="20">
+        </div>
+        <div class="form-group">
+          <label class="form-label">最大任务数</label>
+          <input type="number" class="form-input" value="${config.maxTotalTasks || 1000}"
+            onchange="updateSmartConfig('maxTotalTasks', parseInt(this.value) || 1000)" min="1" max="10000">
+        </div>`;
+    }
+
+    // 更新智能节点配置
+    async function updateSmartConfig(key, value) {
+      const node = state.selectedNode;
+      if (!node) return;
+      const config = node.config ? JSON.parse(node.config) : {};
+      config[key] = value;
+      node.config = JSON.stringify(config);
+      markDirty();
+      await saveWorkflow(true);
+    }
+
+    // 加载模板列表
+    async function loadTemplateList() {
+      try {
+        const res = await fetch('/api/smart-templates');
+        const data = await res.json();
+        if (data.success) {
+          const select = document.getElementById('templateSelect');
+          if (!select) return;
+          const config = state.selectedNode?.config ? JSON.parse(state.selectedNode.config) : {};
+          select.innerHTML = data.data.map(t =>
+            `<option value="${t.id}" ${config.templateId === t.id ? 'selected' : ''}>${t.name}${t.isDefault ? ' (默认)' : ''}</option>`
+          ).join('');
+        }
+      } catch (e) {
+        console.error('加载模板列表失败', e);
+      }
     }

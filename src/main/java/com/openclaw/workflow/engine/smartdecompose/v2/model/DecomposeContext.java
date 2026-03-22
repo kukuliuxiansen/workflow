@@ -60,6 +60,9 @@ public class DecomposeContext {
     /** 最大重试次数 */
     private int maxRetries;
 
+    /** 最大任务总数 */
+    private int maxTotalTasks = 1000;
+
     /** 是否需要人工审核 */
     private boolean requireManualReview;
 
@@ -72,6 +75,9 @@ public class DecomposeContext {
     private String errorMessage;
 
     // ==================== 提示词模板 ====================
+
+    /** 模板ID，关联 TemplateConfig */
+    private String templateId;
 
     /** 决策模板ID */
     private String decisionTemplateId;
@@ -123,7 +129,8 @@ public class DecomposeContext {
         this.failedTasks = new ArrayList<>();
         this.iterationCount = 0;
         this.maxIterations = 50;
-        this.maxRetries = 5;
+        this.maxRetries = 10;
+        this.maxTotalTasks = 1000;
         this.requireManualReview = true;
         this.status = DecomposeStatus.RUNNING;
     }
@@ -188,6 +195,13 @@ public class DecomposeContext {
         return sb.toString();
     }
 
+    /**
+     * 获取任务总数（队列 + 已完成 + 失败）
+     */
+    public int getTotalTaskCount() {
+        return taskQueue.size() + completedTasks.size() + failedTasks.size();
+    }
+
     // ==================== Getters & Setters ====================
 
     public String getExecutionId() { return executionId; }
@@ -226,6 +240,9 @@ public class DecomposeContext {
     public int getMaxRetries() { return maxRetries; }
     public void setMaxRetries(int maxRetries) { this.maxRetries = maxRetries; }
 
+    public int getMaxTotalTasks() { return maxTotalTasks; }
+    public void setMaxTotalTasks(int maxTotalTasks) { this.maxTotalTasks = maxTotalTasks; }
+
     public boolean isRequireManualReview() { return requireManualReview; }
     public void setRequireManualReview(boolean requireManualReview) { this.requireManualReview = requireManualReview; }
 
@@ -234,6 +251,9 @@ public class DecomposeContext {
 
     public String getErrorMessage() { return errorMessage; }
     public void setErrorMessage(String errorMessage) { this.errorMessage = errorMessage; }
+
+    public String getTemplateId() { return templateId; }
+    public void setTemplateId(String templateId) { this.templateId = templateId; }
 
     public String getDecisionTemplateId() { return decisionTemplateId; }
     public void setDecisionTemplateId(String decisionTemplateId) { this.decisionTemplateId = decisionTemplateId; }

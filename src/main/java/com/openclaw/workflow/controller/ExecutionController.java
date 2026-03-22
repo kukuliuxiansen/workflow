@@ -140,4 +140,21 @@ public class ExecutionController {
             return ApiResponse.error(404, "审核记录不存在");
         }
     }
+
+    @Operation(summary = "删除执行记录")
+    @DeleteMapping("/executions/{executionId}")
+    public ApiResponse<Void> delete(@PathVariable String executionId) {
+        try {
+            executionService.delete(executionId);
+            return ApiResponse.success();
+        } catch (Exception e) {
+            return ApiResponse.error(400, e.getMessage());
+        }
+    }
+
+    @Operation(summary = "获取执行记录的节点状态")
+    @GetMapping("/executions/{executionId}/node-statuses")
+    public ApiResponse<Map<String, String>> getNodeStatuses(@PathVariable String executionId) {
+        return ApiResponse.success(executionService.getNodeStatuses(executionId));
+    }
 }
