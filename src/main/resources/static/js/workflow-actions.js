@@ -133,6 +133,8 @@
     // 渲染工作流项
     function renderWorkflowItem(w) {
       const nodeCount = w.node_count ?? w.nodeCount ?? w.nodes?.length ?? 0;
+      const description = w.description || '';
+      const shortDesc = description.length > 30 ? description.substring(0, 30) + '...' : description;
       return `
         <div class="workflow-item ${state.currentWorkflow?.id === w.id ? 'active' : ''}"
              data-id="${w.id}"
@@ -142,11 +144,84 @@
              onclick="selectWorkflow('${w.id}')">
           <div class="workflow-item-content">
             <div class="name">${w.name}</div>
+            ${shortDesc ? `<div class="desc">${shortDesc}</div>` : ''}
             <div class="meta">${nodeCount} 个节点 · ${formatDate(w.updated_at || w.updatedAt)}</div>
           </div>
           <div class="workflow-actions">
+            <button class="workflow-action-btn" onclick="event.stopPropagation(); editWorkflowInfo('${w.id}')" title="编辑">✏️</button>
             <button class="workflow-action-btn" onclick="event.stopPropagation(); cloneWorkflow('${w.id}')" title="克隆">📋</button>
             <button class="workflow-action-btn danger" onclick="event.stopPropagation(); deleteWorkflow('${w.id}')" title="删除">🗑️</button>
           </div>
         </div>`;
+    }
+
+    // 编辑工作流信息
+    async function editWorkflowInfo(id) {
+      const workflow = state.workflows.find(w => w.id === id);
+      if (!workflow) return;
+
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay show';
+      modal.id = 'editWorkflowModal';
+      modal.innerHTML = `
+        <div class="modal" style="max-width:400px;">
+          <div class="modal-header">
+            <h3>编辑工作流</h3>
+            <button class="close-btn" onclick="closeModal('editWorkflowModal')">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label class="form-label">名称</label>
+              <input type="text" class="form-input" id="editWorkflowName" value="${workflow.name || ''}" placeholder="工作流名称">
+            </div>
+            <div class="form-group">
+              <label class="form-label">描述</label>
+              <textarea class="form-input form-textarea" id="editWorkflowDesc" placeholder="工作流描述">${workflow.description || ''}</textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-primary" onclick="saveWorkflowInfo('${id}')">保存</button>
+            <button class="btn btn-secondary" onclick="closeModal('editWorkflowModal')">取消</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+    }
+
+    // 保存工作流信息
+    async function saveWorkflowInfo(id) {
+      const name = document.getElementById('editWorkflowName').value.trim();
+      const description = document.getElementById('editWorkflowDesc').value.trim();
+
+      if (!name) {
+        showToast('warn', '请输入名称');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/workflows/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name,
+            description,
+            nodes: state.currentWorkflow?.nodes || [],
+            edges: state.currentWorkflow?.edges || []
+          })
+        });
+        const data = await res.json();
+        if (data.success) {
+          closeModal('editWorkflowModal');
+          await loadWorkflows();
+          if (state.currentWorkflow?.id === id) {
+            state.currentWorkflow.name = name;
+            state.currentWorkflow.description = description;
+          }
+          showToast('success', '保存成功');
+        } else {
+          showToast('error', data.message || '保存失败');
+        }
+      } catch (e) {
+        showToast('error', '保存失败: ' + e.message);
+      }
     }

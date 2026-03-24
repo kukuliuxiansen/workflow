@@ -112,6 +112,14 @@
       font-size: 13px;
       color: #e0e0e0;
     }
+    .workflow-item .desc {
+      font-size: 11px;
+      color: #888;
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     .workflow-item .meta {
       font-size: 11px;
       color: #666;

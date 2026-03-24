@@ -139,14 +139,16 @@ public class WorkflowService {
                 existingNode.setDescription(node.getDescription());
                 existingNode.setPositionX(node.getPositionX());
                 existingNode.setPositionY(node.getPositionY());
-                existingNode.setConfig(node.getConfig());
                 existingNode.setUpdatedAt(LocalDateTime.now());
 
                 // 清空旧的 extraConfig，避免旧数据污染
                 existingNode.getExtraConfig().clear();
 
-                // 合并 extraConfig：新配置优先
-                if (node.getExtraConfig() != null && !node.getExtraConfig().isEmpty()) {
+                // 优先使用前端传来的 config 字符串
+                // 只有当前端没有传 config 时，才从 extraConfig 序列化
+                if (node.getConfig() != null && !node.getConfig().isEmpty()) {
+                    existingNode.setConfig(node.getConfig());
+                } else if (node.getExtraConfig() != null && !node.getExtraConfig().isEmpty()) {
                     existingNode.getExtraConfig().putAll(node.getExtraConfig());
                     existingNode.serializeExtraConfig();
                 }

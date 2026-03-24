@@ -5,6 +5,7 @@ import com.openclaw.workflow.entity.Execution;
 import com.openclaw.workflow.entity.TaskConfig;
 import com.openclaw.workflow.repository.ExecutionRepository;
 import com.openclaw.workflow.repository.TaskConfigRepository;
+import com.openclaw.workflow.service.ExecutionService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
@@ -21,11 +22,14 @@ public class ExecutionRecordController {
 
     private final ExecutionRepository executionRepository;
     private final TaskConfigRepository taskConfigRepository;
+    private final ExecutionService executionService;
 
     public ExecutionRecordController(ExecutionRepository executionRepository,
-                                      TaskConfigRepository taskConfigRepository) {
+                                      TaskConfigRepository taskConfigRepository,
+                                      ExecutionService executionService) {
         this.executionRepository = executionRepository;
         this.taskConfigRepository = taskConfigRepository;
+        this.executionService = executionService;
     }
 
     @Operation(summary = "获取执行记录列表")
@@ -56,9 +60,9 @@ public class ExecutionRecordController {
 
     @Operation(summary = "重新启动执行")
     @PostMapping("/records/{executionId}/restart")
-    public ApiResponse<Void> restart(@PathVariable String executionId) {
-        // TODO: 实现重新启动逻辑
-        return ApiResponse.success();
+    public ApiResponse<Execution> restart(@PathVariable String executionId) {
+        Execution execution = executionService.rerun(executionId);
+        return ApiResponse.success(execution);
     }
 
     @Operation(summary = "获取任务配置")

@@ -248,16 +248,16 @@ public class SmartDecomposeMonitorController {
     private Map<String, Object> buildTree(String taskId, Map<String, Map<String, Object>> taskDataMap,
                                           Map<String, List<String>> decisionChildrenMap, int depth,
                                           Set<String> visited) {
-        // 防止循环引用
+        // 防止循环引用 - 检查当前路径是否已包含此任务
         if (visited.contains(taskId)) {
             Map<String, Object> cycleNode = new LinkedHashMap<>();
             cycleNode.put("id", taskId);
             cycleNode.put("depth", depth);
-            cycleNode.put("description", "[循环引用]");
+            cycleNode.put("description", "[循环引用: 任务ID与祖先节点重复]");
+            cycleNode.put("isCycleReference", true);
             cycleNode.put("children", new ArrayList<>());
             return cycleNode;
         }
-        visited.add(taskId);
 
         Map<String, Object> node = new LinkedHashMap<>();
         Map<String, Object> data = taskDataMap.get(taskId);
@@ -275,9 +275,13 @@ public class SmartDecomposeMonitorController {
         // 获取子任务列表
         List<String> childIds = decisionChildrenMap.get(taskId);
         if (childIds != null && !childIds.isEmpty()) {
+            // 创建新的 visited 集合用于子树（只检查当前路径）
+            Set<String> childVisited = new HashSet<>(visited);
+            childVisited.add(taskId);
+
             List<Map<String, Object>> children = new ArrayList<>();
             for (String childId : childIds) {
-                children.add(buildTree(childId, taskDataMap, decisionChildrenMap, depth + 1, visited));
+                children.add(buildTree(childId, taskDataMap, decisionChildrenMap, depth + 1, childVisited));
             }
             node.put("children", children);
         } else {

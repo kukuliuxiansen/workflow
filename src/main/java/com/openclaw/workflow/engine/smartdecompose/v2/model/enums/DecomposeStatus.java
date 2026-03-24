@@ -10,6 +10,9 @@ public enum DecomposeStatus {
     /** 执行中 */
     RUNNING,
 
+    /** 已暂停（可恢复） */
+    PAUSED,
+
     /** 全部完成 */
     COMPLETED,
 

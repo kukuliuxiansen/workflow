@@ -9,7 +9,6 @@ import java.util.Map;
 public class ExecutionOptions {
 
     private String executionId;
-    private boolean isResume;
     private boolean resetRetry;
     private int maxRetries = 3;
     private int maxGlobalRetries = 10;
@@ -22,9 +21,6 @@ public class ExecutionOptions {
     // Getters and Setters
     public String getExecutionId() { return executionId; }
     public void setExecutionId(String executionId) { this.executionId = executionId; }
-
-    public boolean isResume() { return isResume; }
-    public void setResume(boolean resume) { isResume = resume; }
 
     public boolean isResetRetry() { return resetRetry; }
     public void setResetRetry(boolean resetRetry) { this.resetRetry = resetRetry; }

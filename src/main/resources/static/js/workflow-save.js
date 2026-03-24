@@ -377,18 +377,40 @@
     // 停止执行
     async function stopExecution() {
       if (!state.execution) return;
+      if (!await confirmAsync('确定停止任务吗？\n\n停止后任务将终止，无法恢复。')) return;
+
+      const btn = document.getElementById('btnStop');
+      btn.classList.add('loading');
+      btn.textContent = '处理中...';
+
       try {
-        await fetch(`${API}/executions/${state.execution.executionId}/stop`, { method: 'POST' });
-        addLog('warn', '执行已停止');
-        resetExecution();
+        const res = await fetch(`${API}/executions/${state.execution.executionId}/stop`, { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          addLog('warn', '执行已停止');
+          showToast('success', '执行已停止');
+          resetExecution();
+        } else {
+          showToast('error', data.message || '停止失败');
+          btn.classList.remove('loading');
+          btn.textContent = '停止';
+        }
       } catch (e) {
         showToast('error', '停止失败');
+        btn.classList.remove('loading');
+        btn.textContent = '停止';
       }
     }
 
     // 暂停执行
     async function pauseExecution() {
       if (!state.execution) return;
+      if (!await confirmAsync('确定暂停任务吗？\n\n暂停后可以继续执行。')) return;
+
+      const btn = document.getElementById('btnPause');
+      btn.classList.add('loading');
+      btn.textContent = '处理中...';
+
       try {
         const res = await fetch(`${API}/executions/${state.execution.executionId}/pause`, { method: 'POST' });
         const data = await res.json();
@@ -401,15 +423,27 @@
           addLog('warn', '执行已暂停');
           updateStatus('idle');
           showToast('success', '执行已暂停');
+        } else {
+          showToast('error', data.message || '暂停失败');
+          btn.classList.remove('loading');
+          btn.textContent = '暂停';
         }
       } catch (e) {
         showToast('error', '暂停失败');
+        btn.classList.remove('loading');
+        btn.textContent = '暂停';
       }
     }
 
     // 恢复执行
     async function resumeExecution() {
       if (!state.execution) return;
+      if (!await confirmAsync('确定继续执行任务吗？')) return;
+
+      const btn = document.getElementById('btnResume');
+      btn.classList.add('loading');
+      btn.textContent = '处理中...';
+
       try {
         const res = await fetch(`${API}/executions/${state.execution.executionId}/resume`, { method: 'POST' });
         const data = await res.json();
@@ -422,9 +456,15 @@
           addLog('info', '执行已恢复');
           updateStatus('running');
           showToast('success', '执行已恢复');
+        } else {
+          showToast('error', data.message || '恢复失败');
+          btn.classList.remove('loading');
+          btn.textContent = '继续';
         }
       } catch (e) {
         showToast('error', '恢复失败');
+        btn.classList.remove('loading');
+        btn.textContent = '继续';
       }
     }
 

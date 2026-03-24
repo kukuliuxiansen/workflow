@@ -58,6 +58,8 @@
       transition: all 0.15s;
       border: 1px solid transparent;
       background: #2a2a2a;
+      display: flex;
+      align-items: flex-start;
     }
     .workflow-item:hover { background: #333; border-color: #444; }
     .workflow-item.active {
@@ -96,6 +98,14 @@
       font-weight: 500;
       font-size: 13px;
       color: #e0e0e0;
+    }
+    .workflow-item .desc {
+      font-size: 11px;
+      color: #888;
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .workflow-item .meta {
       font-size: 11px;

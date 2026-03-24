@@ -1,6 +1,8 @@
 package com.openclaw.workflow.engine.smartdecompose.v2;
 
+import com.openclaw.workflow.engine.ExecutionControl;
 import com.openclaw.workflow.engine.smartdecompose.v2.client.OpenClawClient;
+import com.openclaw.workflow.engine.smartdecompose.v2.client.OpenClawException;
 import com.openclaw.workflow.engine.smartdecompose.v2.client.ResponseParseException;
 import com.openclaw.workflow.engine.smartdecompose.v2.client.ResponseParser;
 import com.openclaw.workflow.engine.smartdecompose.v2.model.DecomposeContext;
@@ -55,12 +57,23 @@ public class DecomposeOrchestrator {
     private ExtensionRegistry extensionRegistry;
 
     /**
-     * 执行主循环
-     *
-     * 入参: DecomposeContext context
-     * 出参: void（结果保存在 context 中）
+     * 执行主循环（兼容旧调用）
      */
     public void run(DecomposeContext context) {
+        run(context, null);
+    }
+
+    /** 当前执行控制对象 */
+    private ExecutionControl currentExecutionControl;
+
+    /**
+     * 执行主循环
+     *
+     * @param context 分解上下文
+     * @param executionControl 执行控制对象，用于检查暂停/停止状态
+     */
+    public void run(DecomposeContext context, ExecutionControl executionControl) {
+        this.currentExecutionControl = executionControl;
         logger.info("========================================");
         logger.info("[ORCHESTRATOR] ===== 开始执行 =====");
         logger.info("[ORCHESTRATOR] 入参 - executionId: {}", context.getExecutionId());
@@ -85,6 +98,24 @@ public class DecomposeOrchestrator {
             }
 
             while (!context.getTaskQueue().isEmpty()) {
+                // ========== 检查暂停/停止状态 ==========
+                if (executionControl != null && executionControl.shouldInterrupt()) {
+                    if (executionControl.isStopped()) {
+                        context.setStatus(DecomposeStatus.FAILED);
+                        context.setErrorMessage("执行已被停止");
+                        logger.warn("[ORCHESTRATOR] 检测到停止信号，退出执行");
+                    } else if (executionControl.isPaused()) {
+                        context.setStatus(DecomposeStatus.PAUSED);
+                        context.setErrorMessage("执行已被暂停");
+                        logger.info("[ORCHESTRATOR] 检测到暂停信号，保存状态并退出");
+                    }
+                    // 保存当前状态以便恢复
+                    context.setOpenClawSessionId(openClawClient.getSessionId());
+                    statePersister.save(context);
+                    break;
+                }
+                // ====================================
+
                 logger.info("----------------------------------------");
                 logger.info("[ORCHESTRATOR] 迭代 #{}, 队列剩余: {}",
                     context.getIterationCount() + 1, context.getTaskQueue().size());
@@ -152,6 +183,26 @@ public class DecomposeOrchestrator {
                         context.setErrorMessage("JSON解析失败, 已重试" + maxDecisionRetries + "次: " + e.getMessage());
                     }
 
+                } catch (OpenClawException e) {
+                    // 处理中断异常
+                    if (e.getErrorCode() == OpenClawException.ErrorCode.INTERRUPTED) {
+                        logger.info("[ORCHESTRATOR] OpenClaw 调用被中断: {}", e.getMessage());
+                        context.setStatus(DecomposeStatus.PAUSED);
+                        context.setErrorMessage("执行被中断");
+                        // 把当前任务放回队列头部
+                        currentTask.setStatus(SubTaskStatus.PENDING);
+                        context.getTaskQueue().addFirst(currentTask);
+                        // 保存状态以便恢复
+                        context.setOpenClawSessionId(openClawClient.getSessionId());
+                        statePersister.save(context);
+                        break; // 退出循环
+                    } else {
+                        logger.error("[ORCHESTRATOR] OpenClaw 调用异常: {}", e.getMessage(), e);
+                        currentTask.setStatus(SubTaskStatus.FAILED);
+                        context.addFailedTask(currentTask);
+                        context.setErrorMessage(e.getMessage());
+                    }
+
                 } catch (Exception e) {
                     logger.error("[ORCHESTRATOR] 任务执行异常: {}", e.getMessage(), e);
                     currentTask.setStatus(SubTaskStatus.FAILED);
@@ -166,13 +217,20 @@ public class DecomposeOrchestrator {
                 logger.info("[ORCHESTRATOR] 所有任务处理完成");
             }
 
-            // 保存会话ID以便恢复
+            // 保存最终状态
             context.setOpenClawSessionId(openClawClient.getSessionId());
+            statePersister.save(context);
+            logger.info("[ORCHESTRATOR] 已保存最终状态: {}", context.getStatus());
             logger.info("[ORCHESTRATOR] OpenClaw 会话ID: {}", context.getOpenClawSessionId());
 
         } finally {
-            logger.info("[ORCHESTRATOR] 结束 OpenClaw 会话");
-            openClawClient.endSession();
+            // 只有完成或失败时才结束会话，暂停时保持会话
+            if (context.getStatus() != DecomposeStatus.PAUSED) {
+                logger.info("[ORCHESTRATOR] 结束 OpenClaw 会话");
+                openClawClient.endSession();
+            } else {
+                logger.info("[ORCHESTRATOR] 暂停状态，保持 OpenClaw 会话: {}", openClawClient.getSessionId());
+            }
         }
 
         logger.info("========================================");
@@ -208,7 +266,8 @@ public class DecomposeOrchestrator {
 
         logger.info("[DECISION] 调用 OpenClaw...");
         long startTime = System.currentTimeMillis();
-        String rawResponse = openClawClient.execute(prompt);
+        String rawResponse = openClawClient.execute(prompt,
+            currentExecutionControl != null ? currentExecutionControl::shouldInterrupt : null);
         long elapsed = System.currentTimeMillis() - startTime;
         logger.info("[DECISION] OpenClaw 响应耗时: {}ms", elapsed);
         logger.info("[DECISION] OpenClaw 原始响应长度: {} 字符", rawResponse != null ? rawResponse.length() : 0);

@@ -1,5 +1,6 @@
 package com.openclaw.workflow.engine.smartdecompose.v2.client;
 
+import com.openclaw.workflow.engine.ExecutionControl;
 import com.openclaw.workflow.engine.connector.AgentRequest;
 import com.openclaw.workflow.engine.connector.AgentResponse;
 import com.openclaw.workflow.engine.connector.OpenClawGatewayClient;
@@ -7,6 +8,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+
+import java.util.function.Supplier;
 
 /**
  * OpenClaw 客户端
@@ -52,7 +55,19 @@ public class OpenClawClient {
      * @throws OpenClawException 调用失败时抛出
      */
     public String execute(String prompt) {
-        return callAgent(prompt);
+        return callAgent(prompt, null);
+    }
+
+    /**
+     * 执行决策/任务（支持暂停检查）
+     *
+     * @param prompt 完整的决策提示词
+     * @param shouldInterrupt 检查是否应该中断的函数
+     * @return OpenClaw 的原始文本响应
+     * @throws OpenClawException 调用失败时抛出
+     */
+    public String execute(String prompt, Supplier<Boolean> shouldInterrupt) {
+        return callAgent(prompt, shouldInterrupt);
     }
 
     /**
@@ -63,7 +78,7 @@ public class OpenClawClient {
      * @throws OpenClawException 调用失败时抛出
      */
     public String review(String prompt) {
-        return callAgent(prompt);
+        return callAgent(prompt, null);
     }
 
     /**
@@ -71,12 +86,21 @@ public class OpenClawClient {
      *
      * 失败时重试10次，每次间隔5分钟
      */
-    private String callAgent(String prompt) {
+    private String callAgent(String prompt, Supplier<Boolean> shouldInterrupt) {
         int maxRetries = 10;
         int retryCount = 0;
         Exception lastException = null;
 
         while (retryCount <= maxRetries) {
+            // 检查是否应该中断（暂停或停止）
+            if (shouldInterrupt != null && shouldInterrupt.get()) {
+                logger.info("[OPENCLAW] 检测到中断信号，取消调用");
+                throw new OpenClawException(
+                    OpenClawException.ErrorCode.INTERRUPTED,
+                    "执行已被中断"
+                );
+            }
+
             try {
                 return doCallAgent(prompt);
             } catch (Exception e) {
@@ -94,14 +118,24 @@ public class OpenClawClient {
                 logger.warn("[OPENCLAW] 调用失败，第{}次重试，等待5分钟... 错误: {}",
                     retryCount, e.getMessage());
 
-                try {
-                    Thread.sleep(5 * 60 * 1000);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    throw new OpenClawException(
-                        OpenClawException.ErrorCode.CONNECTION_FAILED,
-                        "重试等待被中断"
-                    );
+                // 分段等待，每秒检查一次中断状态
+                for (int i = 0; i < 300; i++) { // 5分钟 = 300秒
+                    if (shouldInterrupt != null && shouldInterrupt.get()) {
+                        logger.info("[OPENCLAW] 重试等待期间检测到中断信号");
+                        throw new OpenClawException(
+                            OpenClawException.ErrorCode.INTERRUPTED,
+                            "执行已被中断"
+                        );
+                    }
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new OpenClawException(
+                            OpenClawException.ErrorCode.CONNECTION_FAILED,
+                            "重试等待被中断"
+                        );
+                    }
                 }
             }
         }

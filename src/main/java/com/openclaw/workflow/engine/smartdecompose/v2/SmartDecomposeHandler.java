@@ -66,7 +66,8 @@ public class SmartDecomposeHandler extends BaseNodeHandler {
         try {
             DecomposeContext context = tryRestoreOrCreate(ctx);
             loadTemplates(context);
-            orchestrator.run(context);
+            // 传递 ExecutionControl 以支持暂停/停止
+            orchestrator.run(context, ctx.getExecutionControl());
             return buildResult(context);
         } catch (Exception e) {
             logger.error("SmartDecompose 执行异常: {}", e.getMessage(), e);
@@ -84,13 +85,19 @@ public class SmartDecomposeHandler extends BaseNodeHandler {
         // 查找备份数据
         DecomposeContext cached = statePersister.loadIfExists(executionId, nodeId);
 
-        if (cached != null && cached.getStatus() == DecomposeStatus.RUNNING) {
-            logger.info("[HANDLER] 恢复未完成的任务: executionId={}, sessionId={}",
-                executionId, cached.getOpenClawSessionId());
+        if (cached != null && (cached.getStatus() == DecomposeStatus.RUNNING || cached.getStatus() == DecomposeStatus.PAUSED)) {
+            logger.info("[HANDLER] 恢复未完成的任务: executionId={}, status={}, sessionId={}",
+                executionId, cached.getStatus(), cached.getOpenClawSessionId());
 
             // 恢复OpenClaw会话
             if (cached.getOpenClawSessionId() != null) {
                 openClawClient.setSessionId(cached.getOpenClawSessionId());
+            }
+
+            // 如果是暂停状态，重置为运行状态
+            if (cached.getStatus() == DecomposeStatus.PAUSED) {
+                cached.setStatus(DecomposeStatus.RUNNING);
+                logger.info("[HANDLER] 暂停状态恢复为运行状态");
             }
 
             return cached;
@@ -226,27 +233,35 @@ public class SmartDecomposeHandler extends BaseNodeHandler {
     }
 
     private void loadTemplates(DecomposeContext context) {
-        // 加载决策模板
-        PromptTemplate decisionTemplate = loadTemplateById(context.getDecisionTemplateId(), "decision");
-        context.setDecisionTemplateContent(decisionTemplate.getContent());
+        // 只有当模板内容为空时才从 PromptTemplate 加载（避免覆盖 loadTemplateConfig 设置的内容）
+        if (context.getDecisionTemplateContent() == null || context.getDecisionTemplateContent().isEmpty()) {
+            PromptTemplate decisionTemplate = loadTemplateById(context.getDecisionTemplateId(), "decision");
+            context.setDecisionTemplateContent(decisionTemplate.getContent());
+        }
 
         // 加载审核模板
-        PromptTemplate reviewTemplate = loadTemplateById(context.getReviewTemplateId(), "review");
-        context.setReviewTemplateContent(reviewTemplate.getContent());
+        if (context.getReviewTemplateContent() == null || context.getReviewTemplateContent().isEmpty()) {
+            PromptTemplate reviewTemplate = loadTemplateById(context.getReviewTemplateId(), "review");
+            context.setReviewTemplateContent(reviewTemplate.getContent());
+        }
 
         // 加载重试模板（优先使用场景配置的ID）
-        PromptTemplate retryTemplate;
-        if (context.getRetryTemplateId() != null && !context.getRetryTemplateId().isEmpty()) {
-            retryTemplate = promptTemplateRepository.findById(context.getRetryTemplateId())
-                .orElseThrow(() -> new IllegalStateException("重试模板不存在: " + context.getRetryTemplateId()));
-        } else {
-            retryTemplate = promptTemplateRepository.findByTypeAndIsDefaultTrue("retry")
-                .orElseThrow(() -> new IllegalStateException("未找到重试提示词模板"));
+        if (context.getRetryTemplateContent() == null || context.getRetryTemplateContent().isEmpty()) {
+            PromptTemplate retryTemplate;
+            if (context.getRetryTemplateId() != null && !context.getRetryTemplateId().isEmpty()) {
+                retryTemplate = promptTemplateRepository.findById(context.getRetryTemplateId())
+                    .orElseThrow(() -> new IllegalStateException("重试模板不存在: " + context.getRetryTemplateId()));
+            } else {
+                retryTemplate = promptTemplateRepository.findByTypeAndIsDefaultTrue("retry")
+                    .orElseThrow(() -> new IllegalStateException("未找到重试提示词模板"));
+            }
+            context.setRetryTemplateContent(retryTemplate.getContent());
         }
-        context.setRetryTemplateContent(retryTemplate.getContent());
 
         logger.debug("模板加载完成: decision={}, review={}, retry={}",
-            decisionTemplate.getId(), reviewTemplate.getId(), retryTemplate.getId());
+            context.getDecisionTemplateId() != null ? context.getDecisionTemplateId() : "default",
+            context.getReviewTemplateId() != null ? context.getReviewTemplateId() : "default",
+            context.getRetryTemplateId() != null ? context.getRetryTemplateId() : "default");
     }
 
     /**
@@ -271,6 +286,16 @@ public class SmartDecomposeHandler extends BaseNodeHandler {
                 successData.put("failedTasks", context.getFailedTasks().size());
                 logger.info("执行完成: iterations={}", context.getIterationCount());
                 return NodeResult.success(successData);
+
+            case PAUSED:
+                Map<String, Object> pausedData = new HashMap<>();
+                pausedData.put("status", "PAUSED");
+                pausedData.put("openClawSessionId", context.getOpenClawSessionId());
+                pausedData.put("iterations", context.getIterationCount());
+                pausedData.put("remainingTasks", context.getTaskQueue().size());
+                pausedData.put("completedTasks", context.getCompletedTasks().size());
+                logger.info("执行暂停: iterations={}, remainingTasks={}", context.getIterationCount(), context.getTaskQueue().size());
+                return NodeResult.paused("执行已暂停", pausedData);
 
             case WAITING_MANUAL_REVIEW:
                 Map<String, Object> waitingData = new HashMap<>();

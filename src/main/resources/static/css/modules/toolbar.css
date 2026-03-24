@@ -18,12 +18,13 @@
     }
     .toolbar-btn:hover { background: #333; border-color: #555; color: #fff; }
     .toolbar-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-    .toolbar-btn.primary { background: #6b5ce7; border-color: #6b5ce7; color: #fff; }
-    .toolbar-btn.primary:hover { background: #5849d4; }
-    .toolbar-btn.danger { color: #f44; border-color: #5a2020; }
-    .toolbar-btn.danger:hover { background: #3a2020; }
-    .toolbar-btn.warning { color: #fa0; border-color: #5a4020; }
-    .toolbar-btn.warning:hover { background: #3a3020; }
+    .toolbar-btn.primary { background: #2563eb; border-color: #2563eb; color: #fff; }
+    .toolbar-btn.primary:hover { background: #1d4ed8; }
+    .toolbar-btn.danger { background: #dc2626; border-color: #dc2626; color: #fff; }
+    .toolbar-btn.danger:hover { background: #b91c1c; }
+    .toolbar-btn.warning { background: #f59e0b; border-color: #f59e0b; color: #fff; }
+    .toolbar-btn.warning:hover { background: #d97706; }
+    .toolbar-btn.loading { pointer-events: none; opacity: 0.7; }
     .undo-count {
       font-size: 11px;
       color: #6b5ce7;

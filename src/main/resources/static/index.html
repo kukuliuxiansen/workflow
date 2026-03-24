@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>OpenClaw 工作流编排</title>
   <!-- CSS 模块 -->
-  <link rel="stylesheet" href="css/modules/base.css?v=20260321z">
+  <link rel="stylesheet" href="css/modules/base.css?v=202603230125">
   <link rel="stylesheet" href="css/modules/toolbar.css?v=202603222308">
   <link rel="stylesheet" href="css/modules/node.css?v=202603222239">
   <link rel="stylesheet" href="css/modules/panel.css?v=20260321z">
@@ -60,6 +60,7 @@
       <div class="toolbar-group">
         <button class="toolbar-btn" onclick="showGlobalConfigModal()">⚙️ 全局配置</button>
         <button class="toolbar-btn" onclick="showTaskConfigModal()">📋 任务配置</button>
+        <button class="toolbar-btn" onclick="window.open('template-config.html', '_blank')">🧠 模板配置</button>
         <button class="toolbar-btn" onclick="openHistoryPanel()">历史</button>
         <button class="toolbar-btn" onclick="exportYAML()">导出</button>
       </div>
@@ -612,7 +613,7 @@
 <script src="js/keyboard-autosave.js?v=20260321c"></script>
 <script src="js/ux-features.js?v=20260321z"></script>
 <script src="js/execution.js?v=20260321z"></script>
-<script src="js/execution-history.js?v=20260321z"></script>
+<script src="js/execution-history.js?v=20260323b"></script>
 <script src="js/global-config.js?v=202603221118"></script>
 <script src="js/config-loaders.js?v=20260321c"></script>
 <script src="js/prompt-templates.js?v=20260321z"></script>
@@ -621,7 +622,7 @@
 <!-- 丢失函数恢复 -->
 <script src="js/log-functions.js?v=20260321z"></script>
 <script src="js/log-render.js?v=20260321z"></script>
-<script src="js/workflow-actions.js?v=20260321a"></script>
+<script src="js/workflow-actions.js?v=202603230124"></script>
 <script src="js/folder-actions.js?v=20260321a"></script>
 <script src="js/node-exec-actions.js?v=20260321b"></script>
 <script src="js/ui-utils.js?v=20260321z"></script>

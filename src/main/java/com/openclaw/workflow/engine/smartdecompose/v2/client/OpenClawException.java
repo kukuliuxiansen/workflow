@@ -20,7 +20,9 @@ public class OpenClawException extends RuntimeException {
         /** 服务器错误 */
         SERVER_ERROR,
         /** 超过最大重试次数 */
-        MAX_RETRIES_EXCEEDED
+        MAX_RETRIES_EXCEEDED,
+        /** 被中断（暂停或停止） */
+        INTERRUPTED
     }
 
     public OpenClawException(ErrorCode errorCode, String message) {

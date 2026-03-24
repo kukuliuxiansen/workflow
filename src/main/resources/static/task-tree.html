@@ -85,7 +85,7 @@
         }
 
         .tree-node { margin-left: 20px; }
-        .tree-node:first-child { margin-left: 0; }
+        .tree-content > .tree-node { margin-left: 0; }
         .node-item {
             display: flex;
             align-items: center;
@@ -146,6 +146,11 @@
             white-space: nowrap;
         }
         .node-desc.empty { color: #6e7681; font-style: italic; }
+        .node-desc.cycle { color: #f85149; font-style: italic; }
+        .node-item.cycle {
+            background: #f8514922;
+            border: 1px solid #f85149;
+        }
 
         .children-container { display: none; }
         .children-container.expanded { display: block; }
@@ -203,6 +208,7 @@
         }
         .exec-item:last-child { border-bottom: none; }
         .exec-item:hover { background: #21262d; }
+        .exec-item.no-decisions { opacity: 0.6; }
         .exec-id { font-family: monospace; font-size: 13px; color: #79c0ff; }
         .exec-status {
             font-size: 11px;
@@ -300,28 +306,95 @@
 
         async function loadRecentExecutions() {
             try {
-                const res = await fetch(`${API_BASE}/api/executions/records?page=0&size=10`);
-                const data = await res.json();
-                if (data.success && data.data) {
+                const [execRes, wfRes] = await Promise.all([
+                    fetch(`${API_BASE}/api/executions/records?page=0&size=20`),
+                    fetch(`${API_BASE}/api/workflows`)
+                ]);
+
+                const execData = await execRes.json();
+                const wfData = await wfRes.json();
+
+                const workflowMap = {};
+                if (wfData.success && wfData.data) {
+                    wfData.data.forEach(wf => {
+                        workflowMap[wf.id] = wf.name;
+                    });
+                }
+
+                if (execData.success && execData.data) {
+                    // 批量检查决策记录
+                    const executionsWithDecisions = await Promise.all(
+                        execData.data.map(async e => {
+                            try {
+                                const decRes = await fetch(`${API_BASE}/api/smart-decompose/executions/${e.executionId}/decisions`);
+                                const decData = await decRes.json();
+                                const decisionCount = decData.decisions ? decData.decisions.length : 0;
+                                return { ...e, decisionCount };
+                            } catch {
+                                return { ...e, decisionCount: 0 };
+                            }
+                        })
+                    );
+
                     const container = document.getElementById('executionsContent');
-                    container.innerHTML = data.data.map(e => `
-                        <div class="exec-item" onclick="selectExecution('${e.id}')">
-                            <div>
-                                <div class="exec-id">${e.id}</div>
-                                <div style="font-size: 11px; color: #8b949e; margin-top: 2px;">${e.workflow_name || '工作流'}</div>
+                    container.innerHTML = executionsWithDecisions.map(e => {
+                        const workflowName = workflowMap[e.workflowId] || e.workflowId;
+                        const startTime = e.startTime ? formatTime(e.startTime) : '-';
+                        const hasDecisions = e.decisionCount > 0;
+                        return `
+                            <div class="exec-item ${hasDecisions ? '' : 'no-decisions'}" onclick="selectExecution('${e.executionId}')">
+                                <div style="flex: 1;">
+                                    <div class="exec-id">${e.executionId}</div>
+                                    <div style="font-size: 12px; color: #c9d1d9; margin-top: 4px;">${workflowName}</div>
+                                    <div style="font-size: 11px; color: #8b949e; margin-top: 2px;">
+                                        启动: ${startTime}
+                                        ${hasDecisions ? ` · <span style="color: #58a6ff;">${e.decisionCount}条决策</span>` : ' · <span style="color: #6e7681;">无决策记录</span>'}
+                                    </div>
+                                </div>
+                                <div class="exec-status ${e.status}">${e.status}</div>
                             </div>
-                            <div class="exec-status ${e.status}">${e.status}</div>
-                        </div>
-                    `).join('');
+                        `;
+                    }).join('');
                     document.getElementById('executionsList').style.display = 'block';
                 }
             } catch (e) { console.error('加载失败:', e); }
+        }
+
+        function formatTime(isoString) {
+            if (!isoString) return '-';
+            const d = new Date(isoString);
+            return d.toLocaleString('zh-CN', {
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
         }
 
         function selectExecution(id) {
             document.getElementById('executionId').value = id;
             document.getElementById('executionsList').style.display = 'none';
             loadTaskTree();
+        }
+
+        async function checkAndLoadTaskTree(execId) {
+            // 先检查是否有决策记录
+            try {
+                const decRes = await fetch(`${API_BASE}/api/smart-decompose/executions/${execId}/decisions`);
+                const decData = await decRes.json();
+                if (decData.decisions && decData.decisions.length > 0) {
+                    loadTaskTree();
+                } else {
+                    document.getElementById('treeContent').innerHTML = `
+                        <div style="text-align: center; color: #8b949e; padding: 40px;">
+                            <div style="font-size: 16px; margin-bottom: 8px;">该执行没有决策记录</div>
+                            <div style="font-size: 12px;">可能不是通过智能分解节点执行的</div>
+                        </div>
+                    `;
+                }
+            } catch (e) {
+                loadTaskTree();
+            }
         }
 
         async function loadTaskTree() {
@@ -339,6 +412,7 @@
             try {
                 const res = await fetch(url);
                 const data = await res.json();
+                console.log('[DEBUG] task-tree response:', data);
 
                 if (data.error) {
                     document.getElementById('treeContent').innerHTML = `<div class="error">${data.error}</div>`;
@@ -354,6 +428,7 @@
                     document.getElementById('treeContent').innerHTML = '<div class="error">未找到任务数据</div>';
                 }
             } catch (e) {
+                console.error('[DEBUG] loadTaskTree error:', e);
                 document.getElementById('treeContent').innerHTML = `<div class="error">加载失败: ${e.message}</div>`;
             }
         }
@@ -378,15 +453,16 @@
             const desc = node.description || '';
             const children = node.children || [];
             const hasChildren = children.length > 0;
+            const isCycle = node.isCycleReference === true;
 
             return `
                 <div class="tree-node" data-id="${id}">
-                    <div class="node-item" onclick="selectNode('${id}')" data-node-id="${id}">
+                    <div class="node-item ${isCycle ? 'cycle' : ''}" onclick="selectNode('${id}')" data-node-id="${id}">
                         <span class="node-toggle ${hasChildren ? '' : 'empty'}" onclick="event.stopPropagation(); toggleChildren('${id}')">▶</span>
                         <span class="node-id">${id}</span>
                         <span class="node-depth">L${depth}</span>
                         ${action ? `<span class="node-action ${action}">${action}</span>` : ''}
-                        <span class="node-desc ${desc ? '' : 'empty'}">${desc || '(无描述)'}</span>
+                        <span class="node-desc ${desc ? '' : 'empty'} ${isCycle ? 'cycle' : ''}">${desc || '(无描述)'}</span>
                     </div>
                     ${hasChildren ? `
                         <div class="children-container" id="children-${id}">
@@ -513,6 +589,27 @@
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;');
         }
+
+        // 页面加载时处理URL参数
+        function initFromUrl() {
+            const params = new URLSearchParams(window.location.search);
+            const execId = params.get('executionId');
+            const nodeId = params.get('nodeId');
+
+            if (execId) {
+                document.getElementById('executionId').value = execId;
+            }
+            // 不自动填充nodeId，因为可能和数据库中的不一致
+            // 让API返回该执行的所有决策记录
+
+            // 如果有executionId，自动加载
+            if (execId) {
+                loadTaskTree();
+            }
+        }
+
+        // 页面加载完成后初始化
+        initFromUrl();
     </script>
 </body>
 </html>

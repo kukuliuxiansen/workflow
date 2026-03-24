@@ -186,6 +186,8 @@
       const config = node.config ? JSON.parse(node.config) : {};
       config[key] = value;
       node.config = JSON.stringify(config);
+      // 同步更新顶层属性，避免后端 @JsonAnyGetter 导致的数据不一致
+      node[key] = value;
       markDirty();
       await saveWorkflow(true);
     }

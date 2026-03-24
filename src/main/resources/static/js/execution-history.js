@@ -105,7 +105,25 @@
             taskConfig = { executionId, name: '', description: '', projectPath: '', contextFilePath: record.contextFilePath || '' };
           }
 
-          let detailHtml = renderHistoryDetail(record, executionId);
+          // 检查是否有智能节点（优先使用执行记录的 workflowId 加载工作流）
+          let smartDecomposeNodeId = null;
+          const workflowId = record.workflowId;
+          if (workflowId) {
+            try {
+              const wfRes = await fetch(`${API}/workflows/${workflowId}`);
+              const wfData = await wfRes.json();
+              if (wfData.success && wfData.data?.nodes) {
+                const smartNode = wfData.data.nodes.find(n => n.type === 'smart_decompose');
+                if (smartNode) {
+                  smartDecomposeNodeId = smartNode.id;
+                }
+              }
+            } catch (e) {
+              console.warn('加载工作流失败:', e);
+            }
+          }
+
+          let detailHtml = renderHistoryDetail(record, executionId, smartDecomposeNodeId);
           content.innerHTML = detailHtml;
         }
       } catch (e) {
@@ -113,27 +131,37 @@
       }
     }
 
+    // 打开任务树页面
+    function openTaskTree(executionId, nodeId) {
+      const url = `task-tree.html?executionId=${executionId}${nodeId ? `&nodeId=${nodeId}` : ''}`;
+      window.open(url, '_blank');
+    }
+
     // 渲染历史详情
-    function renderHistoryDetail(record, executionId) {
+    function renderHistoryDetail(record, executionId, smartDecomposeNodeId) {
       const status = record.status || '';
       const isRunning = status === 'running';
       const isPaused = status === 'paused';
       const isFinished = ['completed', 'stopped', 'failed'].includes(status);
 
-      // 根据状态显示不同操作按钮
+      // 根据状态显示不同操作按钮（纯文字，填充色）
       let actionButtons = '';
+      // 智能节点按钮
+      if (smartDecomposeNodeId) {
+        actionButtons += `<button class="log-action-btn" onclick="openTaskTree('${executionId}', '${smartDecomposeNodeId}')">查看任务树</button>`;
+      }
       if (isRunning) {
-        actionButtons = `
-          <button class="log-action-btn warning" onclick="pauseHistoryExecution('${executionId}')">⏸️ 暂停</button>
-          <button class="log-action-btn danger" onclick="stopHistoryExecution('${executionId}')">⏹️ 停止</button>`;
+        actionButtons += `
+          <button class="log-action-btn warning" onclick="pauseHistoryExecution('${executionId}', this)">暂停</button>
+          <button class="log-action-btn danger" onclick="stopHistoryExecution('${executionId}', this)">停止</button>`;
       } else if (isPaused) {
-        actionButtons = `
-          <button class="log-action-btn" onclick="resumeHistoryExecution('${executionId}')">▶️ 继续</button>
-          <button class="log-action-btn danger" onclick="stopHistoryExecution('${executionId}')">⏹️ 停止</button>`;
+        actionButtons += `
+          <button class="log-action-btn primary" onclick="resumeHistoryExecution('${executionId}', this)">继续</button>
+          <button class="log-action-btn danger" onclick="stopHistoryExecution('${executionId}', this)">停止</button>`;
       } else if (isFinished) {
-        actionButtons = `
-          <button class="log-action-btn" onclick="restartExecution('${executionId}')">🔄 重新执行</button>
-          <button class="log-action-btn danger" onclick="deleteExecutionRecord('${executionId}')">🗑️ 删除</button>`;
+        actionButtons += `
+          <button class="log-action-btn primary" onclick="restartExecution('${executionId}')">重新执行</button>
+          <button class="log-action-btn danger" onclick="deleteExecutionRecord('${executionId}')">删除</button>`;
       }
 
       let html = `
@@ -181,13 +209,17 @@
 
     // 删除执行记录
     async function deleteExecutionRecord(executionId) {
-      if (!await confirmAsync('确定要删除此执行记录吗？\n\n删除后无法恢复。')) return;
+      if (!await confirmAsync('确定删除此执行记录吗？\n\n删除后无法恢复。')) return;
 
       try {
         const res = await fetch(`${API}/executions/${executionId}`, { method: 'DELETE' });
         const data = await res.json();
         if (data.success) {
           showToast('success', '记录已删除');
+          // 如果删除的是当前执行的任务，重置工具栏
+          if (state.execution?.executionId === executionId) {
+            resetExecution();
+          }
           // 刷新列表
           await refreshHistoryList();
           // 清空详情
@@ -202,51 +234,130 @@
     }
 
     // 从历史记录暂停执行
-    async function pauseHistoryExecution(executionId) {
+    async function pauseHistoryExecution(executionId, btnEl) {
+      if (!await confirmAsync('确定暂停任务吗？\n\n暂停后可以继续执行。')) return;
+
+      if (btnEl) {
+        btnEl.classList.add('loading');
+        btnEl.textContent = '处理中...';
+      }
+
       try {
         const res = await fetch(`${API}/executions/${executionId}/pause`, { method: 'POST' });
         const data = await res.json();
         if (data.success) {
           showToast('success', '执行已暂停');
+          // 同步工具栏状态
+          syncToolbarState(executionId, 'paused');
           await selectHistoryItem(executionId);
         } else {
           showToast('error', data.message || '暂停失败');
+          if (btnEl) {
+            btnEl.classList.remove('loading');
+            btnEl.textContent = '暂停';
+          }
         }
       } catch (e) {
         showToast('error', '暂停失败');
+        if (btnEl) {
+          btnEl.classList.remove('loading');
+          btnEl.textContent = '暂停';
+        }
       }
     }
 
     // 从历史记录恢复执行
-    async function resumeHistoryExecution(executionId) {
+    async function resumeHistoryExecution(executionId, btnEl) {
+      if (!await confirmAsync('确定继续执行任务吗？')) return;
+
+      if (btnEl) {
+        btnEl.classList.add('loading');
+        btnEl.textContent = '处理中...';
+      }
+
       try {
         const res = await fetch(`${API}/executions/${executionId}/resume`, { method: 'POST' });
         const data = await res.json();
         if (data.success) {
           showToast('success', '执行已恢复');
+          // 同步工具栏状态
+          syncToolbarState(executionId, 'running');
           await selectHistoryItem(executionId);
         } else {
           showToast('error', data.message || '恢复失败');
+          if (btnEl) {
+            btnEl.classList.remove('loading');
+            btnEl.textContent = '继续';
+          }
         }
       } catch (e) {
         showToast('error', '恢复失败');
+        if (btnEl) {
+          btnEl.classList.remove('loading');
+          btnEl.textContent = '继续';
+        }
       }
     }
 
     // 从历史记录停止执行
-    async function stopHistoryExecution(executionId) {
-      if (!await confirmAsync('确定要停止此执行吗？')) return;
+    async function stopHistoryExecution(executionId, btnEl) {
+      if (!await confirmAsync('确定停止任务吗？\n\n停止后任务将终止，无法恢复。')) return;
+
+      if (btnEl) {
+        btnEl.classList.add('loading');
+        btnEl.textContent = '处理中...';
+      }
 
       try {
         const res = await fetch(`${API}/executions/${executionId}/stop`, { method: 'POST' });
         const data = await res.json();
         if (data.success) {
           showToast('success', '执行已停止');
+          // 同步工具栏状态
+          syncToolbarState(executionId, 'stopped');
           await selectHistoryItem(executionId);
         } else {
           showToast('error', data.message || '停止失败');
+          if (btnEl) {
+            btnEl.classList.remove('loading');
+            btnEl.textContent = '停止';
+          }
         }
       } catch (e) {
         showToast('error', '停止失败');
+        if (btnEl) {
+          btnEl.classList.remove('loading');
+          btnEl.textContent = '停止';
+        }
+      }
+    }
+
+    // 同步工具栏按钮状态
+    function syncToolbarState(executionId, newStatus) {
+      // 只有当前执行的任务才同步工具栏
+      if (state.execution?.executionId !== executionId) return;
+
+      if (newStatus === 'paused') {
+        document.getElementById('btnExecute').style.display = 'none';
+        document.getElementById('btnPause').style.display = 'none';
+        document.getElementById('btnResume').style.display = 'inline-flex';
+        document.getElementById('btnStop').style.display = 'inline-flex';
+        state.executionStatus = 'paused';
+        updateStatus('idle');
+      } else if (newStatus === 'running') {
+        document.getElementById('btnExecute').style.display = 'none';
+        document.getElementById('btnPause').style.display = 'inline-flex';
+        document.getElementById('btnResume').style.display = 'none';
+        document.getElementById('btnStop').style.display = 'inline-flex';
+        state.executionStatus = 'running';
+        updateStatus('running');
+      } else if (newStatus === 'stopped' || newStatus === 'completed' || newStatus === 'failed') {
+        document.getElementById('btnExecute').style.display = 'inline-flex';
+        document.getElementById('btnPause').style.display = 'none';
+        document.getElementById('btnResume').style.display = 'none';
+        document.getElementById('btnStop').style.display = 'none';
+        state.execution = null;
+        state.executionStatus = 'idle';
+        updateStatus('idle');
       }
     }

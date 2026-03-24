@@ -33,14 +33,14 @@ public class NodeExecutionHelper {
         this.logService = logService;
     }
 
-    public NodeResult execute(WorkflowNode node, String workflowId, String executionId) {
+    public NodeResult execute(WorkflowNode node, String workflowId, String executionId, ExecutionControl executionControl) {
         logger.info("执行节点: {} ({})", node.getName(), node.getType());
 
         long startTime = System.currentTimeMillis();
         Object nodeInput = null;
 
         try {
-            NodeExecutionContext context = buildContext(node, workflowId, executionId);
+            NodeExecutionContext context = buildContext(node, workflowId, executionId, executionControl);
 
             Map<String, Object> inputMap = new HashMap<>();
             inputMap.put("nodeId", node.getId());
@@ -66,7 +66,7 @@ public class NodeExecutionHelper {
         }
     }
 
-    private NodeExecutionContext buildContext(WorkflowNode node, String workflowId, String executionId) {
+    private NodeExecutionContext buildContext(WorkflowNode node, String workflowId, String executionId, ExecutionControl executionControl) {
         NodeExecutionContext context = new NodeExecutionContext();
         context.setNode(node);
         context.setWorkflowId(workflowId);
@@ -76,6 +76,7 @@ public class NodeExecutionHelper {
         context.setTaskDescription(contextManager.getTaskDescription());
         context.setProjectPath(contextManager.getProjectPath());
         context.setGlobalPrompt(contextManager.getGlobalPrompt());
+        context.setExecutionControl(executionControl);
         return context;
     }
 

@@ -41,10 +41,13 @@ public class ResponseParser {
         logger.info("[PARSER] 入参 - rawResponse长度: {}", rawResponse != null ? rawResponse.length() : 0);
 
         String json = extractJson(rawResponse);
-        logger.info("[PARSER] 提取的JSON:\n{}", truncate(json, 500));
+
+        // 清理非法控制字符（ASCII 0-31 和 127），但保留换行符(10)和制表符(9)
+        String cleaned = json.replaceAll("[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]", " ");
+        logger.info("[PARSER] 提取的JSON:\n{}", truncate(cleaned, 500));
 
         try {
-            DecisionResponse response = objectMapper.readValue(json, DecisionResponse.class);
+            DecisionResponse response = objectMapper.readValue(cleaned, DecisionResponse.class);
             validateDecision(response);
             logger.info("[PARSER] 解析成功: decision={}, thought={}",
                 response.getDecision(), truncate(response.getThought(), 100));
@@ -74,10 +77,13 @@ public class ResponseParser {
         logger.info("[PARSER] 入参 - rawResponse长度: {}", rawResponse != null ? rawResponse.length() : 0);
 
         String json = extractJson(rawResponse);
-        logger.info("[PARSER] 提取的JSON:\n{}", truncate(json, 500));
+
+        // 清理非法控制字符（ASCII 0-31 和 127），但保留换行符(10)和制表符(9)
+        String cleaned = json.replaceAll("[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]", " ");
+        logger.info("[PARSER] 提取的JSON:\n{}", truncate(cleaned, 500));
 
         try {
-            ReviewResponse response = objectMapper.readValue(json, ReviewResponse.class);
+            ReviewResponse response = objectMapper.readValue(cleaned, ReviewResponse.class);
             validateReview(response);
             logger.info("[PARSER] 解析成功: status={}, thought={}",
                 response.getStatus(), truncate(response.getThought(), 100));

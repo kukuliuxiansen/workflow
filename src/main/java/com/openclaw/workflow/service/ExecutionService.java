@@ -140,16 +140,69 @@ public class ExecutionService {
         Execution execution = findById(executionId);
         if ("running".equals(execution.getStatus())) {
             workflowEngine.pause();
-            execution.setStatus("paused");
-            executionRepository.save(execution);
+            logger.info("暂停信号已发送: executionId={}", executionId);
+            // 不在这里更新数据库，让执行线程处理
+            // 执行线程会在检测到暂停后更新状态和 currentNodeId
         }
     }
 
+    @Async
     public void resume(String executionId) {
         Execution execution = findById(executionId);
-        if ("paused".equals(execution.getStatus())) {
-            workflowEngine.resume(false);
-            execution.setStatus("running");
+        // 检查是否可以被恢复（paused 或 running 但 executionControl 显示已暂停）
+        boolean canResume = "paused".equals(execution.getStatus()) ||
+            ("running".equals(execution.getStatus()) && workflowEngine.getExecutionControl().isPaused());
+
+        if (!canResume) {
+            logger.warn("执行 {} 状态为 {}，无法恢复", executionId, execution.getStatus());
+            return;
+        }
+
+        logger.info("恢复执行: executionId={}, currentNodeId={}", executionId, execution.getCurrentNodeId());
+
+        // 解析原始输入数据
+        Map<String, Object> inputData = new HashMap<>();
+        if (execution.getTaskConfig() != null) {
+            try {
+                com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+                inputData = mapper.readValue(execution.getTaskConfig(), Map.class);
+            } catch (Exception e) {
+                logger.warn("解析原始输入数据失败", e);
+            }
+        }
+
+        // 设置执行选项
+        ExecutionOptions options = new ExecutionOptions();
+        options.setExecutionId(executionId);
+
+        // 更新执行状态为运行中
+        execution.setStatus("running");
+        executionRepository.save(execution);
+
+        try {
+            // 从当前节点恢复执行
+            ExecutionResult result = workflowEngine.execute(
+                execution.getWorkflowId(),
+                execution.getCurrentNodeId(),
+                inputData,
+                options
+            );
+
+            // 更新最终状态
+            execution.setStatus(result.isSuccess() ? "completed" : "failed");
+            if (!result.isSuccess() && result.getError() != null) {
+                execution.setContextData(result.getError());
+            }
+            execution.setEndTime(LocalDateTime.now());
+            executionRepository.save(execution);
+
+            logger.info("恢复执行完成: executionId={}, status={}", executionId, execution.getStatus());
+
+        } catch (Exception e) {
+            logger.error("恢复执行异常: {}", e.getMessage(), e);
+            execution.setStatus("failed");
+            execution.setContextData(e.getMessage());
+            execution.setEndTime(LocalDateTime.now());
             executionRepository.save(execution);
         }
     }
@@ -158,9 +211,8 @@ public class ExecutionService {
         Execution execution = findById(executionId);
         if ("running".equals(execution.getStatus()) || "paused".equals(execution.getStatus())) {
             workflowEngine.stop();
-            execution.setStatus("stopped");
-            execution.setEndTime(LocalDateTime.now());
-            executionRepository.save(execution);
+            // 不在这里更新数据库状态，让执行线程来更新
+            logger.info("停止信号已发送: executionId={}", executionId);
         }
     }
 

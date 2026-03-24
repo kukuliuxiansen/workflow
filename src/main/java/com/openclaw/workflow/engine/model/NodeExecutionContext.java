@@ -1,5 +1,6 @@
 package com.openclaw.workflow.engine.model;
 
+import com.openclaw.workflow.engine.ExecutionControl;
 import com.openclaw.workflow.entity.WorkflowNode;
 import java.util.Map;
 
@@ -17,6 +18,7 @@ public class NodeExecutionContext {
     private String taskDescription;
     private String projectPath;
     private String globalPrompt;
+    private ExecutionControl executionControl;
 
     public NodeExecutionContext() {}
 
@@ -47,4 +49,7 @@ public class NodeExecutionContext {
 
     public String getGlobalPrompt() { return globalPrompt; }
     public void setGlobalPrompt(String globalPrompt) { this.globalPrompt = globalPrompt; }
+
+    public ExecutionControl getExecutionControl() { return executionControl; }
+    public void setExecutionControl(ExecutionControl executionControl) { this.executionControl = executionControl; }
 }

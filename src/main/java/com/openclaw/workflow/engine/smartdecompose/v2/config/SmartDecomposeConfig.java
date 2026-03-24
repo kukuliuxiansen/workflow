@@ -1,5 +1,6 @@
 package com.openclaw.workflow.engine.smartdecompose.v2.config;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
@@ -7,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  *
  * 从节点的 config JSON 字段解析，控制执行行为。
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class SmartDecomposeConfig {
 
     /** 模板ID，关联 TemplateConfig 表 */
