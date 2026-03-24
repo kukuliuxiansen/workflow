@@ -16,6 +16,7 @@ import com.openclaw.workflow.entity.WorkflowNode;
 import com.openclaw.workflow.repository.PromptTemplateRepository;
 import com.openclaw.workflow.repository.SmartDecomposeSceneRepository;
 import com.openclaw.workflow.repository.TemplateConfigRepository;
+import com.openclaw.workflow.repository.ExecutionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +26,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * SmartDecompose 节点处理器
@@ -55,6 +57,9 @@ public class SmartDecomposeHandler extends BaseNodeHandler {
     @Autowired
     private OpenClawClient openClawClient;
 
+    @Autowired
+    private ExecutionRepository executionRepository;
+
     public String getNodeType() {
         return NODE_TYPE;
     }
@@ -82,17 +87,33 @@ public class SmartDecomposeHandler extends BaseNodeHandler {
         String executionId = ctx.getExecutionId();
         String nodeId = ctx.getNode().getId();
 
+        // 从Execution表获取或创建OpenClaw会话ID
+        Execution execution = executionRepository.findById(executionId).orElse(null);
+        String sessionId = null;
+        if (execution != null) {
+            sessionId = execution.getOpenClawSessionId();
+            if (sessionId == null || sessionId.isEmpty()) {
+                // 首次执行，生成固定的会话ID
+                sessionId = "OC-" + executionId + "-" + UUID.randomUUID().toString().substring(0, 8);
+                execution.setOpenClawSessionId(sessionId);
+                executionRepository.save(execution);
+                logger.info("[HANDLER] 创建新的OpenClaw会话ID: {}", sessionId);
+            } else {
+                logger.info("[HANDLER] 使用已保存的OpenClaw会话ID: {}", sessionId);
+            }
+        }
+
+        // 设置到OpenClawClient
+        if (sessionId != null) {
+            openClawClient.setSessionId(sessionId);
+        }
+
         // 查找备份数据
         DecomposeContext cached = statePersister.loadIfExists(executionId, nodeId);
 
         if (cached != null && (cached.getStatus() == DecomposeStatus.RUNNING || cached.getStatus() == DecomposeStatus.PAUSED)) {
-            logger.info("[HANDLER] 恢复未完成的任务: executionId={}, status={}, sessionId={}",
-                executionId, cached.getStatus(), cached.getOpenClawSessionId());
-
-            // 恢复OpenClaw会话
-            if (cached.getOpenClawSessionId() != null) {
-                openClawClient.setSessionId(cached.getOpenClawSessionId());
-            }
+            logger.info("[HANDLER] 恢复未完成的任务: executionId={}, status={}",
+                executionId, cached.getStatus());
 
             // 如果是暂停状态，重置为运行状态
             if (cached.getStatus() == DecomposeStatus.PAUSED) {
@@ -100,12 +121,16 @@ public class SmartDecomposeHandler extends BaseNodeHandler {
                 logger.info("[HANDLER] 暂停状态恢复为运行状态");
             }
 
+            // 确保会话ID一致
+            cached.setOpenClawSessionId(sessionId);
             return cached;
         }
 
         // 没有备份，正常初始化
         logger.info("[HANDLER] 创建新的执行上下文");
-        return initializeContext(ctx);
+        DecomposeContext context = initializeContext(ctx);
+        context.setOpenClawSessionId(sessionId);
+        return context;
     }
 
     private DecomposeContext initializeContext(NodeExecutionContext ctx) {

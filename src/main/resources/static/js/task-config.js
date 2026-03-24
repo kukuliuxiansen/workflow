@@ -184,17 +184,17 @@
     }
 
     function getStatusText(s) {
-      return { running:'执行中', success:'成功', failed:'失败' }[s] || '';
+      return { running:'执行中', success:'成功', failed:'失败', paused:'已暂停', completed:'已完成', stopped:'已停止' }[s] || s || '';
     }
 
     function updateStatus(s) {
       const dot = document.getElementById('statusDot');
       const text = document.getElementById('statusText');
-      dot.className = 'status-dot ' + (s === 'idle' ? '' : s);
-      text.textContent = { idle:'就绪', running:'执行中', success:'完成', error:'失败' }[s] || s;
+      if (dot) dot.className = 'status-dot ' + (s === 'idle' ? '' : s);
+      if (text) text.textContent = { idle:'就绪', running:'执行中', success:'完成', error:'失败' }[s] || s;
     }
 
     function formatDate(d) {
-      return d ? new Date(d).toLocaleDateString('zh-CN') : '';
+      return d ? new Date(d).toLocaleString('zh-CN') : '';
     }
 

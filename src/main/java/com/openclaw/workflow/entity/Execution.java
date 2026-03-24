@@ -42,6 +42,10 @@ public class Execution {
     @Column(columnDefinition = "TEXT")
     private String contextFilePath;
 
+    // OpenClaw 会话ID（固定，用于整个执行生命周期）
+    @Column(name = "openclaw_session_id")
+    private String openClawSessionId;
+
     // Getters and Setters
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -81,4 +85,7 @@ public class Execution {
 
     public String getContextFilePath() { return contextFilePath; }
     public void setContextFilePath(String contextFilePath) { this.contextFilePath = contextFilePath; }
+
+    public String getOpenClawSessionId() { return openClawSessionId; }
+    public void setOpenClawSessionId(String openClawSessionId) { this.openClawSessionId = openClawSessionId; }
 }

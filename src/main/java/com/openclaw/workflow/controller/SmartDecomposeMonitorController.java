@@ -306,4 +306,45 @@ public class SmartDecomposeMonitorController {
         }
         return maxChildDepth;
     }
+
+    /**
+     * 获取任务的Agent交互日志
+     *
+     * GET /api/smart-decompose/executions/{executionId}/tasks/{taskId}/logs
+     */
+    @GetMapping("/executions/{executionId}/tasks/{taskId}/logs")
+    public ResponseEntity<?> getTaskAgentLogs(
+            @PathVariable String executionId,
+            @PathVariable String taskId) {
+
+        List<DecisionHistory> logs = decisionRecorder.findByExecutionIdAndTaskId(executionId, taskId);
+
+        // 限制最多50条
+        if (logs.size() > 50) {
+            logs = logs.subList(0, 50);
+        }
+
+        List<Map<String, Object>> logList = new ArrayList<>();
+        for (DecisionHistory log : logs) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("iteration", log.getIteration());
+            item.put("timestamp", log.getTimestamp() != null ? log.getTimestamp().toString() : null);
+            item.put("taskId", log.getTaskId());
+            item.put("thought", log.getThought());
+            item.put("action", log.getAction());
+            item.put("prompt", log.getPrompt());
+            item.put("rawResponse", log.getRawResponse());
+            item.put("resultStatus", log.getResultStatus());
+            item.put("resultMessage", log.getResultMessage());
+            logList.add(item);
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("executionId", executionId);
+        result.put("taskId", taskId);
+        result.put("totalLogs", logs.size());
+        result.put("logs", logList);
+
+        return ResponseEntity.ok(result);
+    }
 }

@@ -105,6 +105,9 @@
             taskConfig = { executionId, name: '', description: '', projectPath: '', contextFilePath: record.contextFilePath || '' };
           }
 
+          // 更新任务配置显示
+          updateTaskConfigDisplay();
+
           // 检查是否有智能节点（优先使用执行记录的 workflowId 加载工作流）
           let smartDecomposeNodeId = null;
           const workflowId = record.workflowId;
@@ -142,7 +145,7 @@
       const status = record.status || '';
       const isRunning = status === 'running';
       const isPaused = status === 'paused';
-      const isFinished = ['completed', 'stopped', 'failed'].includes(status);
+      const isFinished = status === 'completed';
 
       // 根据状态显示不同操作按钮（纯文字，填充色）
       let actionButtons = '';
@@ -152,12 +155,10 @@
       }
       if (isRunning) {
         actionButtons += `
-          <button class="log-action-btn warning" onclick="pauseHistoryExecution('${executionId}', this)">暂停</button>
-          <button class="log-action-btn danger" onclick="stopHistoryExecution('${executionId}', this)">停止</button>`;
+          <button class="log-action-btn warning" onclick="pauseHistoryExecution('${executionId}', this)">暂停</button>`;
       } else if (isPaused) {
         actionButtons += `
-          <button class="log-action-btn primary" onclick="resumeHistoryExecution('${executionId}', this)">继续</button>
-          <button class="log-action-btn danger" onclick="stopHistoryExecution('${executionId}', this)">停止</button>`;
+          <button class="log-action-btn primary" onclick="resumeHistoryExecution('${executionId}', this)">继续</button>`;
       } else if (isFinished) {
         actionButtons += `
           <button class="log-action-btn primary" onclick="restartExecution('${executionId}')">重新执行</button>
@@ -299,63 +300,32 @@
       }
     }
 
-    // 从历史记录停止执行
-    async function stopHistoryExecution(executionId, btnEl) {
-      if (!await confirmAsync('确定停止任务吗？\n\n停止后任务将终止，无法恢复。')) return;
-
-      if (btnEl) {
-        btnEl.classList.add('loading');
-        btnEl.textContent = '处理中...';
-      }
-
-      try {
-        const res = await fetch(`${API}/executions/${executionId}/stop`, { method: 'POST' });
-        const data = await res.json();
-        if (data.success) {
-          showToast('success', '执行已停止');
-          // 同步工具栏状态
-          syncToolbarState(executionId, 'stopped');
-          await selectHistoryItem(executionId);
-        } else {
-          showToast('error', data.message || '停止失败');
-          if (btnEl) {
-            btnEl.classList.remove('loading');
-            btnEl.textContent = '停止';
-          }
-        }
-      } catch (e) {
-        showToast('error', '停止失败');
-        if (btnEl) {
-          btnEl.classList.remove('loading');
-          btnEl.textContent = '停止';
-        }
-      }
-    }
-
+    
     // 同步工具栏按钮状态
     function syncToolbarState(executionId, newStatus) {
       // 只有当前执行的任务才同步工具栏
       if (state.execution?.executionId !== executionId) return;
 
+      const btnExecute = document.getElementById('btnExecute');
+      const btnPause = document.getElementById('btnPause');
+      const btnResume = document.getElementById('btnResume');
+
       if (newStatus === 'paused') {
-        document.getElementById('btnExecute').style.display = 'none';
-        document.getElementById('btnPause').style.display = 'none';
-        document.getElementById('btnResume').style.display = 'inline-flex';
-        document.getElementById('btnStop').style.display = 'inline-flex';
+        if (btnExecute) btnExecute.style.display = 'none';
+        if (btnPause) btnPause.style.display = 'none';
+        if (btnResume) btnResume.style.display = 'inline-flex';
         state.executionStatus = 'paused';
         updateStatus('idle');
       } else if (newStatus === 'running') {
-        document.getElementById('btnExecute').style.display = 'none';
-        document.getElementById('btnPause').style.display = 'inline-flex';
-        document.getElementById('btnResume').style.display = 'none';
-        document.getElementById('btnStop').style.display = 'inline-flex';
+        if (btnExecute) btnExecute.style.display = 'none';
+        if (btnPause) btnPause.style.display = 'inline-flex';
+        if (btnResume) btnResume.style.display = 'none';
         state.executionStatus = 'running';
         updateStatus('running');
-      } else if (newStatus === 'stopped' || newStatus === 'completed' || newStatus === 'failed') {
-        document.getElementById('btnExecute').style.display = 'inline-flex';
-        document.getElementById('btnPause').style.display = 'none';
-        document.getElementById('btnResume').style.display = 'none';
-        document.getElementById('btnStop').style.display = 'none';
+      } else if (newStatus === 'completed') {
+        if (btnExecute) btnExecute.style.display = 'inline-flex';
+        if (btnPause) btnPause.style.display = 'none';
+        if (btnResume) btnResume.style.display = 'none';
         state.execution = null;
         state.executionStatus = 'idle';
         updateStatus('idle');

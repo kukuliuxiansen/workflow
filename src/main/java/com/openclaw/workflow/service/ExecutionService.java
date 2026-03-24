@@ -117,13 +117,13 @@ public class ExecutionService {
 
         try {
             ExecutionResult result = workflowEngine.execute(workflowId, null, inputData, options);
-            execution.setStatus(result.isSuccess() ? "completed" : "failed");
+            execution.setStatus(result.isSuccess() ? "completed" : "paused");
             if (!result.isSuccess() && result.getError() != null) {
                 execution.setContextData(result.getError());
             }
         } catch (Exception e) {
             logger.error("工作流执行异常", e);
-            execution.setStatus("failed");
+            execution.setStatus("paused");
             execution.setContextData(e.getMessage());
         }
 
@@ -189,7 +189,7 @@ public class ExecutionService {
             );
 
             // 更新最终状态
-            execution.setStatus(result.isSuccess() ? "completed" : "failed");
+            execution.setStatus(result.isSuccess() ? "completed" : "paused");
             if (!result.isSuccess() && result.getError() != null) {
                 execution.setContextData(result.getError());
             }
@@ -200,7 +200,7 @@ public class ExecutionService {
 
         } catch (Exception e) {
             logger.error("恢复执行异常: {}", e.getMessage(), e);
-            execution.setStatus("failed");
+            execution.setStatus("paused");
             execution.setContextData(e.getMessage());
             execution.setEndTime(LocalDateTime.now());
             executionRepository.save(execution);

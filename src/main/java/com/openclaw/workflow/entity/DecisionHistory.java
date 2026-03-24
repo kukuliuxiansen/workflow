@@ -49,6 +49,14 @@ public class DecisionHistory {
     @Column(name = "result_message", columnDefinition = "TEXT")
     private String resultMessage;
 
+    // 发送给Agent的提示词
+    @Column(name = "prompt", columnDefinition = "TEXT")
+    private String prompt;
+
+    // Agent的原始响应
+    @Column(name = "raw_response", columnDefinition = "TEXT")
+    private String rawResponse;
+
     @Column(name = "timestamp")
     private LocalDateTime timestamp;
 
@@ -82,6 +90,12 @@ public class DecisionHistory {
 
     public String getResultMessage() { return resultMessage; }
     public void setResultMessage(String resultMessage) { this.resultMessage = resultMessage; }
+
+    public String getPrompt() { return prompt; }
+    public void setPrompt(String prompt) { this.prompt = prompt; }
+
+    public String getRawResponse() { return rawResponse; }
+    public void setRawResponse(String rawResponse) { this.rawResponse = rawResponse; }
 
     public LocalDateTime getTimestamp() { return timestamp; }
     public void setTimestamp(LocalDateTime timestamp) { this.timestamp = timestamp; }

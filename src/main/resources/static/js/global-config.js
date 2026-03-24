@@ -30,6 +30,9 @@
 
     function renderAvailableAgents() {
       const container = document.getElementById('availableAgents');
+      const agentListSection = document.getElementById('agentListSection');
+      if (!container) return;
+
       if (globalConfig.availableAgents && globalConfig.availableAgents.length > 0) {
         container.innerHTML = globalConfig.availableAgents.map(a =>
           `<div class="agent-item">
@@ -37,10 +40,10 @@
             <span class="agent-name">${a.name || ''}</span>
           </div>`
         ).join('');
-        document.getElementById('agentListSection').style.display = 'block';
+        if (agentListSection) agentListSection.style.display = 'block';
       } else {
         container.innerHTML = '<span style="color:#666;">尚未加载 Agent</span>';
-        document.getElementById('agentListSection').style.display = 'block';
+        if (agentListSection) agentListSection.style.display = 'block';
       }
     }
 

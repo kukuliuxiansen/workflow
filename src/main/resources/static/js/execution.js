@@ -2,10 +2,12 @@
 
     function resetExecution() {
       // 重置所有按钮状态
-      document.getElementById('btnExecute').style.display = 'inline-flex';
-      document.getElementById('btnPause').style.display = 'none';
-      document.getElementById('btnResume').style.display = 'none';
-      document.getElementById('btnStop').style.display = 'none';
+      const btnExecute = document.getElementById('btnExecute');
+      const btnPause = document.getElementById('btnPause');
+      const btnResume = document.getElementById('btnResume');
+      if (btnExecute) btnExecute.style.display = 'inline-flex';
+      if (btnPause) btnPause.style.display = 'none';
+      if (btnResume) btnResume.style.display = 'none';
       updateStatus('idle');
       state.execution = null;
       state.executionStatus = 'idle';
@@ -39,17 +41,19 @@
           } else if (msg.data.status === 'paused') {
             state.executionStatus = 'paused';
             updateStatus('idle');
-            // 更新按钮状态：隐藏暂停，显示继续和停止
-            document.getElementById('btnPause').style.display = 'none';
-            document.getElementById('btnResume').style.display = 'inline-flex';
-            document.getElementById('btnStop').style.display = 'inline-flex';
+            // 更新按钮状态：隐藏暂停，显示继续
+            const btnPause = document.getElementById('btnPause');
+            const btnResume = document.getElementById('btnResume');
+            if (btnPause) btnPause.style.display = 'none';
+            if (btnResume) btnResume.style.display = 'inline-flex';
             addLog('warn', '执行已暂停（服务端）');
           } else if (msg.data.status === 'running') {
             // 可能是从暂停恢复
             state.executionStatus = 'running';
-            document.getElementById('btnPause').style.display = 'inline-flex';
-            document.getElementById('btnResume').style.display = 'none';
-            document.getElementById('btnStop').style.display = 'inline-flex';
+            const btnPause = document.getElementById('btnPause');
+            const btnResume = document.getElementById('btnResume');
+            if (btnPause) btnPause.style.display = 'inline-flex';
+            if (btnResume) btnResume.style.display = 'none';
           }
         } else if (msg.type === 'nodeStatus') {
           state.nodeStatus.set(msg.data.nodeId, msg.data.status);

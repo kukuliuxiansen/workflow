@@ -173,8 +173,8 @@ public class WorkflowEngine {
 
         } catch (Exception e) {
             logger.error("工作流执行异常: {}", e.getMessage(), e);
-            this.status = ExecutionStatus.FAILED;
-            return ExecutionResult.failed(executionId, e.getMessage());
+            this.status = ExecutionStatus.PAUSED;
+            return ExecutionResult.paused(executionId, e.getMessage());
         }
     }
 

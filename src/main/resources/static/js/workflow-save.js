@@ -360,11 +360,13 @@
           // 保存上下文文件路径
           taskConfig.contextFilePath = data.data.contextFilePath || '';
           connectWS(data.data.executionId);
-          // 更新按钮状态：隐藏执行，显示暂停和停止
-          document.getElementById('btnExecute').style.display = 'none';
-          document.getElementById('btnPause').style.display = 'inline-flex';
-          document.getElementById('btnResume').style.display = 'none';
-          document.getElementById('btnStop').style.display = 'inline-flex';
+          // 更新按钮状态：隐藏执行，显示暂停
+          const btnExecute = document.getElementById('btnExecute');
+          const btnPause = document.getElementById('btnPause');
+          const btnResume = document.getElementById('btnResume');
+          if (btnExecute) btnExecute.style.display = 'none';
+          if (btnPause) btnPause.style.display = 'inline-flex';
+          if (btnResume) btnResume.style.display = 'none';
           addLog('info', '开始执行: ' + data.data.executionId);
           addLog('info', '上下文文件: ' + (data.data.contextFilePath || '未创建'), 'execution');
         }
@@ -374,64 +376,44 @@
       }
     }
 
-    // 停止执行
-    async function stopExecution() {
-      if (!state.execution) return;
-      if (!await confirmAsync('确定停止任务吗？\n\n停止后任务将终止，无法恢复。')) return;
-
-      const btn = document.getElementById('btnStop');
-      btn.classList.add('loading');
-      btn.textContent = '处理中...';
-
-      try {
-        const res = await fetch(`${API}/executions/${state.execution.executionId}/stop`, { method: 'POST' });
-        const data = await res.json();
-        if (data.success) {
-          addLog('warn', '执行已停止');
-          showToast('success', '执行已停止');
-          resetExecution();
-        } else {
-          showToast('error', data.message || '停止失败');
-          btn.classList.remove('loading');
-          btn.textContent = '停止';
-        }
-      } catch (e) {
-        showToast('error', '停止失败');
-        btn.classList.remove('loading');
-        btn.textContent = '停止';
-      }
-    }
-
+    
     // 暂停执行
     async function pauseExecution() {
       if (!state.execution) return;
       if (!await confirmAsync('确定暂停任务吗？\n\n暂停后可以继续执行。')) return;
 
       const btn = document.getElementById('btnPause');
-      btn.classList.add('loading');
-      btn.textContent = '处理中...';
+      if (btn) {
+        btn.classList.add('loading');
+        btn.textContent = '处理中...';
+      }
 
       try {
         const res = await fetch(`${API}/executions/${state.execution.executionId}/pause`, { method: 'POST' });
         const data = await res.json();
         if (data.success) {
           state.executionStatus = 'paused';
-          // 更新按钮状态：隐藏暂停，显示继续和停止
-          document.getElementById('btnPause').style.display = 'none';
-          document.getElementById('btnResume').style.display = 'inline-flex';
-          document.getElementById('btnStop').style.display = 'inline-flex';
+          // 更新按钮状态：隐藏暂停，显示继续
+          const btnPause = document.getElementById('btnPause');
+          const btnResume = document.getElementById('btnResume');
+          if (btnPause) btnPause.style.display = 'none';
+          if (btnResume) btnResume.style.display = 'inline-flex';
           addLog('warn', '执行已暂停');
           updateStatus('idle');
           showToast('success', '执行已暂停');
         } else {
           showToast('error', data.message || '暂停失败');
-          btn.classList.remove('loading');
-          btn.textContent = '暂停';
+          if (btn) {
+            btn.classList.remove('loading');
+            btn.textContent = '暂停';
+          }
         }
       } catch (e) {
         showToast('error', '暂停失败');
-        btn.classList.remove('loading');
-        btn.textContent = '暂停';
+        if (btn) {
+          btn.classList.remove('loading');
+          btn.textContent = '暂停';
+        }
       }
     }
 
@@ -441,30 +423,37 @@
       if (!await confirmAsync('确定继续执行任务吗？')) return;
 
       const btn = document.getElementById('btnResume');
-      btn.classList.add('loading');
-      btn.textContent = '处理中...';
+      if (btn) {
+        btn.classList.add('loading');
+        btn.textContent = '处理中...';
+      }
 
       try {
         const res = await fetch(`${API}/executions/${state.execution.executionId}/resume`, { method: 'POST' });
         const data = await res.json();
         if (data.success) {
           state.executionStatus = 'running';
-          // 更新按钮状态：隐藏继续，显示暂停和停止
-          document.getElementById('btnPause').style.display = 'inline-flex';
-          document.getElementById('btnResume').style.display = 'none';
-          document.getElementById('btnStop').style.display = 'inline-flex';
+          // 更新按钮状态：隐藏继续，显示暂停
+          const btnPause = document.getElementById('btnPause');
+          const btnResume = document.getElementById('btnResume');
+          if (btnPause) btnPause.style.display = 'inline-flex';
+          if (btnResume) btnResume.style.display = 'none';
           addLog('info', '执行已恢复');
           updateStatus('running');
           showToast('success', '执行已恢复');
         } else {
           showToast('error', data.message || '恢复失败');
-          btn.classList.remove('loading');
-          btn.textContent = '继续';
+          if (btn) {
+            btn.classList.remove('loading');
+            btn.textContent = '继续';
+          }
         }
       } catch (e) {
         showToast('error', '恢复失败');
-        btn.classList.remove('loading');
-        btn.textContent = '继续';
+        if (btn) {
+          btn.classList.remove('loading');
+          btn.textContent = '继续';
+        }
       }
     }
 

@@ -36,8 +36,10 @@ public class DecisionRecorder {
      * @param context  执行上下文
      * @param task     当前任务
      * @param response 决策响应
+     * @param prompt   发送给Agent的提示词
+     * @param rawResponse Agent的原始响应
      */
-    public void record(DecomposeContext context, SubTask task, DecisionResponse response) {
+    public void record(DecomposeContext context, SubTask task, DecisionResponse response, String prompt, String rawResponse) {
         DecisionHistory history = new DecisionHistory();
         history.setId(UUID.randomUUID().toString());
         history.setIteration(context.getIterationCount());
@@ -47,6 +49,8 @@ public class DecisionRecorder {
         history.setThought(response.getThought());
         history.setAction(response.getDecision());
         history.setTimestamp(LocalDateTime.now());
+        history.setPrompt(prompt);
+        history.setRawResponse(rawResponse);
 
         if (response.isExecute()) {
             history.setResultStatus("EXECUTE");
@@ -61,6 +65,13 @@ public class DecisionRecorder {
         }
 
         repository.save(history);
+    }
+
+    /**
+     * 记录决策（兼容旧调用）
+     */
+    public void record(DecomposeContext context, SubTask task, DecisionResponse response) {
+        record(context, task, response, null, null);
     }
 
     /**
@@ -84,5 +95,16 @@ public class DecisionRecorder {
      */
     public void deleteByExecutionId(String executionId) {
         repository.deleteByExecutionId(executionId);
+    }
+
+    /**
+     * 查询任务的决策历史（按时间倒序）
+     *
+     * @param executionId 执行ID
+     * @param taskId      任务ID
+     * @return 决策历史列表
+     */
+    public List<DecisionHistory> findByExecutionIdAndTaskId(String executionId, String taskId) {
+        return repository.findByExecutionIdAndTaskIdOrderByIterationDesc(executionId, taskId);
     }
 }

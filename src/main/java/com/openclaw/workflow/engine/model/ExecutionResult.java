@@ -31,6 +31,14 @@ public class ExecutionResult {
         return result;
     }
 
+    public static ExecutionResult paused(String executionId, String error) {
+        ExecutionResult result = new ExecutionResult();
+        result.setSuccess(false);
+        result.setExecutionId(executionId);
+        result.setError(error);
+        return result;
+    }
+
     // Getters and Setters
     public boolean isSuccess() { return success; }
     public void setSuccess(boolean success) { this.success = success; }

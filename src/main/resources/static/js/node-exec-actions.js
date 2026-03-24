@@ -97,11 +97,13 @@
           state.executionStatus = 'running';
           taskConfig.contextFilePath = data.data.contextFilePath || '';
           connectWS(data.data.executionId);
-          // 更新按钮状态：隐藏执行，显示暂停和停止
-          document.getElementById('btnExecute').style.display = 'none';
-          document.getElementById('btnPause').style.display = 'inline-flex';
-          document.getElementById('btnResume').style.display = 'none';
-          document.getElementById('btnStop').style.display = 'inline-flex';
+          // 更新按钮状态：隐藏执行，显示暂停
+          const btnExecute = document.getElementById('btnExecute');
+          const btnPause = document.getElementById('btnPause');
+          const btnResume = document.getElementById('btnResume');
+          if (btnExecute) btnExecute.style.display = 'none';
+          if (btnPause) btnPause.style.display = 'inline-flex';
+          if (btnResume) btnResume.style.display = 'none';
           updateStatus('running');
           addLog('info', '重新执行: ' + data.data.executionId);
         }

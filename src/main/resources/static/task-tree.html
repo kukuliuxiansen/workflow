@@ -191,6 +191,55 @@
         .detail-value pre { margin: 0; white-space: pre-wrap; font-size: 12px; }
         .detail-empty { text-align: center; color: #6e7681; padding: 40px 20px; }
 
+        .agent-logs-section { margin-top: 16px; border-top: 1px solid #21262d; padding-top: 16px; }
+        .agent-logs-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .agent-logs-title { font-size: 12px; color: #8b949e; font-weight: 500; }
+        .agent-logs-count { font-size: 11px; color: #58a6ff; }
+        .agent-log-item {
+            background: #0d1117;
+            border: 1px solid #21262d;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            overflow: hidden;
+        }
+        .agent-log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: #161b22;
+            border-bottom: 1px solid #21262d;
+            cursor: pointer;
+        }
+        .agent-log-meta { font-size: 11px; color: #8b949e; }
+        .agent-log-action { font-size: 10px; padding: 2px 6px; border-radius: 3px; text-transform: uppercase; }
+        .agent-log-action.split { background: #238636; color: #fff; }
+        .agent-log-action.execute { background: #1f6feb; color: #fff; }
+        .agent-log-toggle { color: #8b949e; font-size: 10px; }
+        .agent-log-body { display: none; padding: 12px; }
+        .agent-log-body.expanded { display: block; }
+        .agent-log-section { margin-bottom: 12px; }
+        .agent-log-section:last-child { margin-bottom: 0; }
+        .agent-log-label { font-size: 10px; color: #8b949e; margin-bottom: 4px; text-transform: uppercase; }
+        .agent-log-content {
+            font-size: 11px;
+            color: #c9d1d9;
+            background: #161b22;
+            padding: 10px;
+            border-radius: 4px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-family: 'SF Mono', Monaco, monospace;
+        }
+        .agent-log-content.truncated { max-height: 150px; }
+
         .executions-list {
             background: #161b22;
             border-radius: 8px;
@@ -548,7 +597,96 @@
                     <div class="detail-label">子任务数</div>
                     <div class="detail-value">${node.children ? node.children.length : 0} 个</div>
                 </div>
+                <div class="agent-logs-section">
+                    <div id="agentLogsContainer">
+                        <div style="text-align: center; color: #6e7681; padding: 10px;">加载Agent日志...</div>
+                    </div>
+                </div>
             `;
+
+            // 加载Agent交互日志
+            loadAgentLogs(id);
+        }
+
+        async function loadAgentLogs(taskId) {
+            const container = document.getElementById('agentLogsContainer');
+            const execId = document.getElementById('executionId').value.trim();
+
+            if (!execId) {
+                container.innerHTML = '<div style="color: #6e7681; font-size: 12px;">缺少执行ID</div>';
+                return;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/api/smart-decompose/executions/${execId}/tasks/${taskId}/logs`);
+                const data = await res.json();
+
+                if (!data.logs || data.logs.length === 0) {
+                    container.innerHTML = '<div style="color: #6e7681; font-size: 12px;">暂无Agent交互日志</div>';
+                    return;
+                }
+
+                const logsHtml = data.logs.map((log, index) => `
+                    <div class="agent-log-item">
+                        <div class="agent-log-header" onclick="toggleAgentLog(${index})">
+                            <div class="agent-log-meta">
+                                迭代#${log.iteration || '-'}
+                                ${log.timestamp ? ' · ' + formatTime(log.timestamp) : ''}
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                ${log.action ? `<span class="agent-log-action ${log.action}">${log.action}</span>` : ''}
+                                <span class="agent-log-toggle" id="toggle-${index}">展开</span>
+                            </div>
+                        </div>
+                        <div class="agent-log-body" id="log-body-${index}">
+                            ${log.thought ? `
+                            <div class="agent-log-section">
+                                <div class="agent-log-label">思考过程</div>
+                                <div class="agent-log-content truncated">${escapeHtml(log.thought)}</div>
+                            </div>
+                            ` : ''}
+                            ${log.prompt ? `
+                            <div class="agent-log-section">
+                                <div class="agent-log-label">提示词</div>
+                                <div class="agent-log-content truncated">${escapeHtml(log.prompt)}</div>
+                            </div>
+                            ` : ''}
+                            ${log.rawResponse ? `
+                            <div class="agent-log-section">
+                                <div class="agent-log-label">Agent响应</div>
+                                <div class="agent-log-content truncated">${escapeHtml(log.rawResponse)}</div>
+                            </div>
+                            ` : ''}
+                            ${log.resultMessage && !log.rawResponse ? `
+                            <div class="agent-log-section">
+                                <div class="agent-log-label">结果</div>
+                                <div class="agent-log-content">${escapeHtml(log.resultMessage)}</div>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `).join('');
+
+                container.innerHTML = `
+                    <div class="agent-logs-header">
+                        <span class="agent-logs-title">Agent交互日志</span>
+                        <span class="agent-logs-count">${data.logs.length}条</span>
+                    </div>
+                    ${logsHtml}
+                `;
+            } catch (e) {
+                console.error('加载Agent日志失败:', e);
+                container.innerHTML = '<div style="color: #f85149; font-size: 12px;">加载失败</div>';
+            }
+        }
+
+        function toggleAgentLog(index) {
+            const body = document.getElementById('log-body-' + index);
+            const toggle = document.getElementById('toggle-' + index);
+            if (body && toggle) {
+                const isExpanded = body.classList.toggle('expanded');
+                toggle.textContent = isExpanded ? '收起' : '展开';
+            }
         }
 
         function findNode(tree, id) {

@@ -88,14 +88,8 @@ public class DecomposeOrchestrator {
         logger.info("========================================");
 
         try {
-            logger.info("[ORCHESTRATOR] 启动 OpenClaw 会话...");
-            openClawClient.startSession();
-
-            // 恢复会话时设置已有的 sessionId
-            if (context.getOpenClawSessionId() != null) {
-                openClawClient.setSessionId(context.getOpenClawSessionId());
-                logger.info("[ORCHESTRATOR] 恢复 OpenClaw 会话: {}", context.getOpenClawSessionId());
-            }
+            // 会话ID已由Handler从数据库设置，直接使用
+            logger.info("[ORCHESTRATOR] 使用OpenClaw会话: {}", openClawClient.getSessionId());
 
             while (!context.getTaskQueue().isEmpty()) {
                 // ========== 检查暂停/停止状态 ==========
@@ -224,13 +218,8 @@ public class DecomposeOrchestrator {
             logger.info("[ORCHESTRATOR] OpenClaw 会话ID: {}", context.getOpenClawSessionId());
 
         } finally {
-            // 只有完成或失败时才结束会话，暂停时保持会话
-            if (context.getStatus() != DecomposeStatus.PAUSED) {
-                logger.info("[ORCHESTRATOR] 结束 OpenClaw 会话");
-                openClawClient.endSession();
-            } else {
-                logger.info("[ORCHESTRATOR] 暂停状态，保持 OpenClaw 会话: {}", openClawClient.getSessionId());
-            }
+            // 会话ID保存在数据库中，不需要手动管理
+            logger.info("[ORCHESTRATOR] 执行结束，会话ID保持: {}", openClawClient.getSessionId());
         }
 
         logger.info("========================================");
@@ -296,7 +285,7 @@ public class DecomposeOrchestrator {
             logger.info("[DECISION] 执行结果: {}", truncate(response.getResult(), 200));
         }
 
-        decisionRecorder.record(context, task, response);
+        decisionRecorder.record(context, task, response, prompt, rawResponse);
 
         // 调用自定义决策处理器
         List<DecisionHandler> handlers = extensionRegistry.getDecisionHandlers();

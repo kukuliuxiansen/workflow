@@ -32,11 +32,13 @@
           if (!e.shiftKey) clearNodeSelection();
 
           const selectionRect = document.getElementById('selectionRect');
-          selectionRect.style.left = boxSelectStartX + 'px';
-          selectionRect.style.top = boxSelectStartY + 'px';
-          selectionRect.style.width = '0';
-          selectionRect.style.height = '0';
-          selectionRect.classList.add('active');
+          if (selectionRect) {
+            selectionRect.style.left = boxSelectStartX + 'px';
+            selectionRect.style.top = boxSelectStartY + 'px';
+            selectionRect.style.width = '0';
+            selectionRect.style.height = '0';
+            selectionRect.classList.add('active');
+          }
           e.preventDefault();
         }
       });
@@ -57,10 +59,12 @@
           const currentY = e.clientY - rect.top;
 
           const selectionRect = document.getElementById('selectionRect');
-          selectionRect.style.left = Math.min(boxSelectStartX, currentX) + 'px';
-          selectionRect.style.top = Math.min(boxSelectStartY, currentY) + 'px';
-          selectionRect.style.width = Math.abs(currentX - boxSelectStartX) + 'px';
-          selectionRect.style.height = Math.abs(currentY - boxSelectStartY) + 'px';
+          if (selectionRect) {
+            selectionRect.style.left = Math.min(boxSelectStartX, currentX) + 'px';
+            selectionRect.style.top = Math.min(boxSelectStartY, currentY) + 'px';
+            selectionRect.style.width = Math.abs(currentX - boxSelectStartX) + 'px';
+            selectionRect.style.height = Math.abs(currentY - boxSelectStartY) + 'px';
+          }
         }
       });
 
@@ -73,7 +77,7 @@
         if (isBoxSelecting) {
           isBoxSelecting = false;
           const selectionRect = document.getElementById('selectionRect');
-          selectionRect.classList.remove('active');
+          if (selectionRect) selectionRect.classList.remove('active');
           finishBoxSelect(e);
         }
       });
@@ -83,9 +87,11 @@
         if (!e.target.closest('.node')) {
           e.preventDefault();
           const menu = document.getElementById('canvasContextMenu');
-          menu.style.left = e.clientX + 'px';
-          menu.style.top = e.clientY + 'px';
-          menu.classList.add('show');
+          if (menu) {
+            menu.style.left = e.clientX + 'px';
+            menu.style.top = e.clientY + 'px';
+            menu.classList.add('show');
+          }
         }
       });
 
