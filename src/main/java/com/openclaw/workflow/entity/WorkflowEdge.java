@@ -2,6 +2,8 @@ package com.openclaw.workflow.entity;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import javax.persistence.*;
 import java.time.LocalDateTime;
@@ -20,9 +22,13 @@ public class WorkflowEdge {
     private String workflowId;
 
     @Column(name = "source_node_id", nullable = false)
+    @JsonProperty("sourceNodeId")
+    @JsonAlias({"source", "source_node_id"})
     private String sourceNodeId;
 
     @Column(name = "target_node_id", nullable = false)
+    @JsonProperty("targetNodeId")
+    @JsonAlias({"target", "target_node_id"})
     private String targetNodeId;
 
     @Enumerated(EnumType.STRING)

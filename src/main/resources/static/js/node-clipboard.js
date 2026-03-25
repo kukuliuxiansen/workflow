@@ -156,6 +156,8 @@
       clearNodeSelection();
       await selectWorkflow(state.currentWorkflow.id);
       renderPropertyPanel();
+      markDirty();
+      updateUndoRedoButtons();
 
       if (successCount > 0) {
         showToast('success', `已删除 ${successCount} 个节点`);

@@ -121,7 +121,13 @@ public class WorkflowController {
     @Operation(summary = "创建工作流")
     @PostMapping
     public ApiResponse<Workflow> create(@RequestBody CreateWorkflowRequest request) {
-        Workflow workflow = workflowService.create(request.getName(), request.getDescription(), request.getFolderId());
+        Workflow workflow = workflowService.create(
+                request.getName(),
+                request.getDescription(),
+                request.getFolderId(),
+                request.getNodes(),
+                request.getEdges()
+        );
         return ApiResponse.success(workflow);
     }
 

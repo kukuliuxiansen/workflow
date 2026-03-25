@@ -52,6 +52,14 @@ public class WorkflowService {
 
     @Transactional
     public Workflow create(String name, String description, String folderId) {
+        return create(name, description, folderId, null, null);
+    }
+
+    /**
+     * 创建工作流，支持同时保存节点和边
+     */
+    @Transactional
+    public Workflow create(String name, String description, String folderId, List<WorkflowNode> nodes, List<WorkflowEdge> edges) {
         Workflow workflow = new Workflow();
         workflow.setId("wf_" + System.currentTimeMillis());
         workflow.setName(name != null ? name : "新建工作流");
@@ -61,30 +69,41 @@ public class WorkflowService {
         workflow.setVersion("1.0");
         workflow.setCreatedAt(LocalDateTime.now());
         workflow.setUpdatedAt(LocalDateTime.now());
+        workflowRepository.save(workflow);
 
-        // 创建开始节点
-        WorkflowNode startNode = new WorkflowNode();
-        startNode.setId("start");
-        startNode.setWorkflowId(workflow.getId());
-        startNode.setType(WorkflowNode.NodeType.START);
-        startNode.setName("开始");
-        startNode.setPositionX(100);
-        startNode.setPositionY(150);
-        startNode.setCreatedAt(LocalDateTime.now());
-        nodeRepository.save(startNode);
+        // 如果传入了节点，保存节点；否则创建默认的开始和结束节点
+        if (nodes != null && !nodes.isEmpty()) {
+            saveNodes(workflow.getId(), nodes);
+        } else {
+            // 创建开始节点
+            WorkflowNode startNode = new WorkflowNode();
+            startNode.setId("start");
+            startNode.setWorkflowId(workflow.getId());
+            startNode.setType(WorkflowNode.NodeType.START);
+            startNode.setName("开始");
+            startNode.setPositionX(100);
+            startNode.setPositionY(150);
+            startNode.setCreatedAt(LocalDateTime.now());
+            nodeRepository.save(startNode);
 
-        // 创建结束节点
-        WorkflowNode finishNode = new WorkflowNode();
-        finishNode.setId("finish");
-        finishNode.setWorkflowId(workflow.getId());
-        finishNode.setType(WorkflowNode.NodeType.FINISH);
-        finishNode.setName("结束");
-        finishNode.setPositionX(500);
-        finishNode.setPositionY(150);
-        finishNode.setCreatedAt(LocalDateTime.now());
-        nodeRepository.save(finishNode);
+            // 创建结束节点
+            WorkflowNode finishNode = new WorkflowNode();
+            finishNode.setId("finish");
+            finishNode.setWorkflowId(workflow.getId());
+            finishNode.setType(WorkflowNode.NodeType.FINISH);
+            finishNode.setName("结束");
+            finishNode.setPositionX(500);
+            finishNode.setPositionY(150);
+            finishNode.setCreatedAt(LocalDateTime.now());
+            nodeRepository.save(finishNode);
+        }
 
-        return workflowRepository.save(workflow);
+        // 如果传入了边，保存边
+        if (edges != null && !edges.isEmpty()) {
+            saveEdges(workflow.getId(), edges);
+        }
+
+        return workflow;
     }
 
     @Transactional
@@ -130,8 +149,8 @@ public class WorkflowService {
      */
     private void saveNodes(String workflowId, List<WorkflowNode> nodes) {
         for (WorkflowNode node : nodes) {
-            // 查找现有节点
-            WorkflowNode existingNode = nodeRepository.findById(node.getId()).orElse(null);
+            // 查找工作流内的现有节点（不是全局查找，避免ID冲突）
+            WorkflowNode existingNode = nodeRepository.findByWorkflowIdAndId(workflowId, node.getId()).orElse(null);
 
             if (existingNode != null) {
                 // 更新现有节点
@@ -156,9 +175,8 @@ public class WorkflowService {
                 nodeRepository.save(existingNode);
             } else {
                 // 创建新节点
-                if (node.getWorkflowId() == null) {
-                    node.setWorkflowId(workflowId);
-                }
+                node.setId(generateUniqueNodeId(workflowId, node.getId()));
+                node.setWorkflowId(workflowId);
                 if (node.getCreatedAt() == null) {
                     node.setCreatedAt(LocalDateTime.now());
                 }
@@ -170,10 +188,25 @@ public class WorkflowService {
     }
 
     /**
+     * 生成唯一的节点ID，避免跨工作流冲突
+     */
+    private String generateUniqueNodeId(String workflowId, String originalId) {
+        // 检查该ID在工作流内是否已存在
+        if (nodeRepository.findByWorkflowIdAndId(workflowId, originalId).isPresent()) {
+            return originalId + "_" + System.currentTimeMillis();
+        }
+        return originalId;
+    }
+
+    /**
      * 保存边列表
      */
     private void saveEdges(String workflowId, List<WorkflowEdge> edges) {
         for (WorkflowEdge edge : edges) {
+            // 如果没有ID，生成一个
+            if (edge.getId() == null || edge.getId().isEmpty()) {
+                edge.setId("edge_" + System.currentTimeMillis() + "_" + edges.indexOf(edge));
+            }
             if (edge.getWorkflowId() == null) {
                 edge.setWorkflowId(workflowId);
             }

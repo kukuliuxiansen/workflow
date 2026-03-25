@@ -143,10 +143,11 @@
           });
           const saveData = await saveRes.json();
 
-          if (saveData.success) {
+          if (saveData.success && saveData.data) {
+            const actualId = saveData.data.id;  // 使用后端返回的实际ID
             closeModal('aiGenerateModal');
             await loadWorkflows();
-            await selectWorkflow(workflow.id);
+            await selectWorkflow(actualId);
             showToast('success', '工作流已生成');
             addLog('success', `AI生成工作流: ${workflow.name}`);
           } else {

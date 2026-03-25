@@ -59,8 +59,20 @@
         }
         // Escape: 取消选择/关闭弹窗
         if (e.key === 'Escape') {
+          // 先关闭弹窗
+          const visibleModals = document.querySelectorAll('.modal-overlay.show');
+          if (visibleModals.length > 0) {
+            visibleModals.forEach(m => m.classList.remove('show'));
+            return;
+          }
+          // 再关闭右键菜单
+          const contextMenu = document.querySelector('.context-menu.show');
+          if (contextMenu) {
+            closeContextMenu();
+            return;
+          }
+          // 最后取消选择
           clearNodeSelection();
-          closeContextMenu();
           closeSearchPanel();
           closeShortcutHelp();
           renderCanvas();

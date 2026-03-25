@@ -8,6 +8,12 @@
     async function selectWorkflow(id) {
       console.log('选择工作流:', id);
       try {
+        // 切换工作流前，关闭所有面板和弹窗
+        closeHistoryPanel();
+        collapseRightPanel();
+        document.querySelectorAll('.modal-overlay.show').forEach(m => m.classList.remove('show'));
+        closeContextMenu();
+
         const res = await fetch(`${API}/workflows/${id}`);
         const data = await res.json();
         console.log('工作流数据:', data);

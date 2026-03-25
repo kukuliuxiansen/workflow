@@ -1,17 +1,78 @@
 // 工作流管理函数
 
+    // 前端定义的常用模板
+    const WORKFLOW_TEMPLATES = [
+      {
+        id: 'tpl-basic',
+        name: '基础工作流',
+        description: '包含开始和结束节点的简单工作流',
+        nodes: [
+          { id: 'start', type: 'start', name: '开始', position_x: 100, position_y: 200 },
+          { id: 'finish', type: 'finish', name: '结束', position_x: 500, position_y: 200 }
+        ],
+        edges: [{ source: 'start', target: 'finish', sourcePort: 'success', targetPort: 'input' }]
+      },
+      {
+        id: 'tpl-agent',
+        name: 'Agent执行流程',
+        description: '包含Agent执行节点的工作流',
+        nodes: [
+          { id: 'start', type: 'start', name: '开始', position_x: 100, position_y: 200 },
+          { id: 'agent1', type: 'agent_execution', name: 'Agent执行', position_x: 300, position_y: 200 },
+          { id: 'finish', type: 'finish', name: '结束', position_x: 500, position_y: 200 }
+        ],
+        edges: [
+          { source: 'start', target: 'agent1', sourcePort: 'success', targetPort: 'input' },
+          { source: 'agent1', target: 'finish', sourcePort: 'success', targetPort: 'input' }
+        ]
+      },
+      {
+        id: 'tpl-condition',
+        name: '条件分支流程',
+        description: '包含条件判断的工作流',
+        nodes: [
+          { id: 'start', type: 'start', name: '开始', position_x: 100, position_y: 200 },
+          { id: 'cond1', type: 'condition', name: '条件判断', position_x: 250, position_y: 200 },
+          { id: 'agent1', type: 'agent_execution', name: 'Agent执行', position_x: 400, position_y: 100 },
+          { id: 'agent2', type: 'agent_execution', name: 'Agent执行', position_x: 400, position_y: 300 },
+          { id: 'finish', type: 'finish', name: '结束', position_x: 550, position_y: 200 }
+        ],
+        edges: [
+          { source: 'start', target: 'cond1', sourcePort: 'success', targetPort: 'input' },
+          { source: 'cond1', target: 'agent1', sourcePort: 'success', targetPort: 'input' },
+          { source: 'cond1', target: 'agent2', sourcePort: 'fail', targetPort: 'input' },
+          { source: 'agent1', target: 'finish', sourcePort: 'success', targetPort: 'input' },
+          { source: 'agent2', target: 'finish', sourcePort: 'success', targetPort: 'input' }
+        ]
+      },
+      {
+        id: 'tpl-review',
+        name: '人工审核流程',
+        description: '包含人工审核节点的流程',
+        nodes: [
+          { id: 'start', type: 'start', name: '开始', position_x: 100, position_y: 200 },
+          { id: 'agent1', type: 'agent_execution', name: 'Agent执行', position_x: 250, position_y: 200 },
+          { id: 'review1', type: 'human_review', name: '人工审核', position_x: 400, position_y: 200 },
+          { id: 'finish', type: 'finish', name: '结束', position_x: 550, position_y: 200 }
+        ],
+        edges: [
+          { source: 'start', target: 'agent1', sourcePort: 'success', targetPort: 'input' },
+          { source: 'agent1', target: 'review1', sourcePort: 'success', targetPort: 'input' },
+          { source: 'review1', target: 'finish', sourcePort: 'success', targetPort: 'input' }
+        ]
+      }
+    ];
+
     // 创建工作流
     async function createWorkflow() {
       const name = document.getElementById('newWorkflowName').value;
       if (!name) { showToast('warn', '请输入名称'); return; }
 
-      const id = 'wf_' + Date.now();
       try {
-        await fetch(`${API}/workflows`, {
+        const res = await fetch(`${API}/workflows`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            id,
             name,
             description: document.getElementById('newWorkflowDesc').value,
             nodes: [
@@ -20,12 +81,18 @@
             ]
           })
         });
-        closeModal('createModal');
-        await loadWorkflows();
-        await selectWorkflow(id);
-        showToast('success', '创建成功');
+        const data = await res.json();
+        if (data.success && data.data) {
+          const actualId = data.data.id;  // 使用后端返回的实际ID
+          closeModal('createModal');
+          await loadWorkflows();
+          await selectWorkflow(actualId);
+          showToast('success', '创建成功');
+        } else {
+          showToast('error', data.message || '创建失败');
+        }
       } catch (e) {
-        showToast('error', '创建失败');
+        showToast('error', '创建失败: ' + e.message);
       }
     }
 
@@ -77,56 +144,78 @@
       }
     }
 
-    // 从模板创建
-    async function createFromTemplate(id) {
-      const name = prompt('请输入名称:', '新工作流');
+    // 从模板创建（使用前端定义的模板）
+    async function createFromTemplate(templateId) {
+      const template = WORKFLOW_TEMPLATES.find(t => t.id === templateId);
+      if (!template) {
+        showToast('error', '模板不存在');
+        return;
+      }
+
+      const name = prompt('请输入名称:', template.name);
       if (!name) return;
+
       try {
-        const res = await fetch(`${API}/templates/${id}/create-workflow`, {
+        // 深拷贝节点并生成新ID
+        const nodeIdMap = {};
+        const newNodes = template.nodes.map(node => {
+          const newId = 'node_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+          nodeIdMap[node.id] = newId;
+          return {
+            ...node,
+            id: newId
+          };
+        });
+
+        // 更新边的源和目标节点ID
+        const newEdges = template.edges.map(edge => ({
+          ...edge,
+          source: nodeIdMap[edge.source],
+          target: nodeIdMap[edge.target]
+        }));
+
+        // 创建工作流
+        const res = await fetch(`${API}/workflows`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name })
+          body: JSON.stringify({
+            name,
+            description: template.description,
+            nodes: newNodes,
+            edges: newEdges
+          })
         });
         const data = await res.json();
-        if (data.success) {
+
+        if (data.success && data.data) {
+          const actualId = data.data.id;
           closeModal('templateModal');
           await loadWorkflows();
-          await selectWorkflow(data.data.id);
+          await selectWorkflow(actualId);
           showToast('success', '创建成功');
+        } else {
+          showToast('error', data.message || '创建失败');
         }
       } catch (e) {
-        showToast('error', '创建失败');
+        showToast('error', '创建失败: ' + e.message);
       }
     }
 
-    // 显示模板选择
-    async function showTemplateModal() {
+    // 显示模板选择（使用前端定义的模板）
+    function showTemplateModal() {
       document.getElementById('templateModal').classList.add('show');
       const list = document.getElementById('templateList');
-      try {
-        const res = await fetch(`${API}/templates`);
-        const data = await res.json();
-        if (data.success && data.data.length > 0) {
-          list.innerHTML = data.data.map(t => {
-            let nodeCount = t.nodeCount || 0;
-            if (!nodeCount && t.nodes) {
-              try {
-                const nodes = JSON.parse(t.nodes);
-                nodeCount = Array.isArray(nodes) ? nodes.length : 0;
-              } catch (e) {}
-            }
-            return `
-            <div class="template-card" onclick="createFromTemplate('${t.id}')">
-              <div class="name">${t.name}</div>
-              <div class="desc">${t.description || ''}</div>
-              <div class="meta">${nodeCount} 个节点</div>
-            </div>
-          `}).join('');
-        } else {
-          list.innerHTML = '<div class="empty-state"><div class="title">暂无模板</div></div>';
-        }
-      } catch (e) {
-        list.innerHTML = '<div class="empty-state"><div class="title">加载失败</div></div>';
+
+      if (WORKFLOW_TEMPLATES.length > 0) {
+        list.innerHTML = WORKFLOW_TEMPLATES.map(t => `
+          <div class="template-card" onclick="createFromTemplate('${t.id}')">
+            <div class="name">${t.name}</div>
+            <div class="desc">${t.description || ''}</div>
+            <div class="meta">${t.nodes.length} 个节点</div>
+          </div>
+        `).join('');
+      } else {
+        list.innerHTML = '<div class="empty-state"><div class="title">暂无模板</div></div>';
       }
     }
 
