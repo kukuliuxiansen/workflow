@@ -75,10 +75,12 @@ public class ExecutionService {
                 .orElseThrow(() -> new RuntimeException("执行记录不存在: " + executionId));
     }
 
-    @Async
+    /**
+     * 启动工作流执行（同步创建记录，异步执行）
+     */
     public Execution start(String workflowId, Map<String, Object> inputData, String taskDescription,
                            String projectPath, String globalPrompt) {
-        // 创建执行记录
+        // 创建执行记录（同步）
         Execution execution = new Execution();
         execution.setId(generateExecutionId());
         execution.setWorkflowId(workflowId);
@@ -98,37 +100,48 @@ public class ExecutionService {
 
         executionRepository.save(execution);
 
-        // 异步执行工作流
-        ExecutionOptions options = new ExecutionOptions();
-        options.setExecutionId(execution.getId());
-
-        if (inputData == null) {
-            inputData = new java.util.HashMap<>();
-        }
+        // 准备输入数据
+        final Map<String, Object> finalInputData = inputData != null ? new HashMap<>(inputData) : new HashMap<>();
         if (taskDescription != null) {
-            inputData.put("task_description", taskDescription);
+            finalInputData.put("task_description", taskDescription);
         }
         if (projectPath != null) {
-            inputData.put("project_path", projectPath);
+            finalInputData.put("project_path", projectPath);
         }
         if (globalPrompt != null) {
-            inputData.put("global_prompt", globalPrompt);
+            finalInputData.put("global_prompt", globalPrompt);
         }
 
-        try {
-            ExecutionResult result = workflowEngine.execute(workflowId, null, inputData, options);
-            execution.setStatus(result.isSuccess() ? "completed" : "paused");
-            if (!result.isSuccess() && result.getError() != null) {
-                execution.setContextData(result.getError());
+        final String executionId = execution.getId();
+        final ExecutionOptions options = new ExecutionOptions();
+        options.setExecutionId(executionId);
+
+        // 异步执行工作流
+        new Thread(() -> {
+            try {
+                ExecutionResult result = workflowEngine.execute(workflowId, null, finalInputData, options);
+                Execution exec = executionRepository.findById(executionId).orElse(null);
+                if (exec != null) {
+                    exec.setStatus(result.isSuccess() ? "completed" : "paused");
+                    if (!result.isSuccess() && result.getError() != null) {
+                        exec.setContextData(result.getError());
+                    }
+                    exec.setEndTime(LocalDateTime.now());
+                    executionRepository.save(exec);
+                }
+            } catch (Exception e) {
+                logger.error("工作流执行异常", e);
+                Execution exec = executionRepository.findById(executionId).orElse(null);
+                if (exec != null) {
+                    exec.setStatus("paused");
+                    exec.setContextData(e.getMessage());
+                    exec.setEndTime(LocalDateTime.now());
+                    executionRepository.save(exec);
+                }
             }
-        } catch (Exception e) {
-            logger.error("工作流执行异常", e);
-            execution.setStatus("paused");
-            execution.setContextData(e.getMessage());
-        }
+        }).start();
 
-        execution.setEndTime(LocalDateTime.now());
-        return executionRepository.save(execution);
+        return execution;
     }
 
     // 兼容旧的方法签名

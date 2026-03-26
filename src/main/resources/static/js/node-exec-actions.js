@@ -96,7 +96,8 @@
           state.execution = data.data;
           state.executionStatus = 'running';
           taskConfig.contextFilePath = data.data.contextFilePath || '';
-          connectWS(data.data.executionId);
+          const executionId = data.data.executionId || data.data.id;
+          connectWS(executionId);
           // 更新按钮状态：隐藏执行，显示暂停
           const btnExecute = document.getElementById('btnExecute');
           const btnPause = document.getElementById('btnPause');
@@ -105,7 +106,7 @@
           if (btnPause) btnPause.style.display = 'inline-flex';
           if (btnResume) btnResume.style.display = 'none';
           updateStatus('running');
-          addLog('info', '重新执行: ' + data.data.executionId);
+          addLog('info', '重新执行: ' + executionId);
         }
       } catch (e) {
         showToast('error', '重新执行失败');

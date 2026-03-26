@@ -359,7 +359,9 @@
           state.executionStatus = 'running';
           // 保存上下文文件路径
           taskConfig.contextFilePath = data.data.contextFilePath || '';
-          connectWS(data.data.executionId);
+          // 兼容 id 和 executionId 两种字段名
+          const executionId = data.data.executionId || data.data.id;
+          connectWS(executionId);
           // 更新按钮状态：隐藏执行，显示暂停
           const btnExecute = document.getElementById('btnExecute');
           const btnPause = document.getElementById('btnPause');
@@ -367,7 +369,7 @@
           if (btnExecute) btnExecute.style.display = 'none';
           if (btnPause) btnPause.style.display = 'inline-flex';
           if (btnResume) btnResume.style.display = 'none';
-          addLog('info', '开始执行: ' + data.data.executionId);
+          addLog('info', '开始执行: ' + executionId);
           addLog('info', '上下文文件: ' + (data.data.contextFilePath || '未创建'), 'execution');
         }
       } catch (e) {
@@ -389,7 +391,7 @@
       }
 
       try {
-        const res = await fetch(`${API}/executions/${state.execution.executionId}/pause`, { method: 'POST' });
+        const res = await fetch(`${API}/executions/${state.execution.id}/pause`, { method: 'POST' });
         const data = await res.json();
         if (data.success) {
           state.executionStatus = 'paused';
@@ -429,7 +431,7 @@
       }
 
       try {
-        const res = await fetch(`${API}/executions/${state.execution.executionId}/resume`, { method: 'POST' });
+        const res = await fetch(`${API}/executions/${state.execution.id}/resume`, { method: 'POST' });
         const data = await res.json();
         if (data.success) {
           state.executionStatus = 'running';
