@@ -149,8 +149,23 @@
     }
 
     // 添加日志
-    function addLog(type, message) {
+    function addLog(type, message, logType = 'execution') {
       console.log(`[${type}] ${message}`);
+      const timestamp = new Date().toISOString();
+      const logEntry = { time: timestamp, level: type, msg: message };
+
+      if (logType === 'agent') {
+        if (!state.logs.agent) state.logs.agent = [];
+        state.logs.agent.push(logEntry);
+      } else {
+        if (!state.logs.execution) state.logs.execution = [];
+        state.logs.execution.push(logEntry);
+      }
+
+      // 更新日志计数
+      if (typeof updateLogCounts === 'function') {
+        updateLogCounts();
+      }
     }
 
     // 初始化应用
