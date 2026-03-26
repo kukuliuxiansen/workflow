@@ -25,6 +25,12 @@ openclaw:
   enabled: true
   base-url: http://localhost:8080
   api-key: ${OPENCLAW_API_KEY:}
+  gateway:
+    url: http://localhost:18789
+    token: 56b640cc2d91411f63255af68355c19ee33c88ec458878ca
+  agent:
+    id: project-manager
+  channel: workflow
 
 # 飞书配置
 feishu:

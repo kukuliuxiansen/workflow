@@ -31,6 +31,9 @@ public class OpenClawClient {
     @Value("${openclaw.agent.id:project-manager}")
     private String agentId;
 
+    @Value("${openclaw.channel:workflow}")
+    private String channel;
+
     /** 当前会话ID */
     private String currentSessionId;
 
@@ -159,7 +162,10 @@ public class OpenClawClient {
         try {
             AgentRequest.Builder builder = AgentRequest.builder()
                 .agentId(agentId)
-                .message(prompt);
+                .message(prompt)
+                .channel(channel);
+
+            logger.info("[OPENCLAW] 入参 - channel: {}", channel);
 
             if (currentSessionId != null && !currentSessionId.isEmpty()) {
                 builder.sessionKey(currentSessionId);

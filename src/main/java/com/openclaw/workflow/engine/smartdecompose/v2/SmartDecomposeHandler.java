@@ -9,6 +9,7 @@ import com.openclaw.workflow.engine.smartdecompose.v2.model.DecomposeContext;
 import com.openclaw.workflow.engine.smartdecompose.v2.model.SubTask;
 import com.openclaw.workflow.engine.smartdecompose.v2.model.enums.DecomposeStatus;
 import com.openclaw.workflow.engine.smartdecompose.v2.persistence.StatePersister;
+import com.openclaw.workflow.entity.Execution;
 import com.openclaw.workflow.entity.PromptTemplate;
 import com.openclaw.workflow.entity.SmartDecomposeScene;
 import com.openclaw.workflow.entity.TemplateConfig;

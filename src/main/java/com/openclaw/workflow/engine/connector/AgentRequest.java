@@ -9,6 +9,7 @@ public class AgentRequest {
     private String systemPrompt;
     private String sessionKey;
     private String context;
+    private String channel;
     private Integer maxTokens;
     private Double temperature;
 
@@ -27,6 +28,9 @@ public class AgentRequest {
     public String getContext() { return context; }
     public void setContext(String context) { this.context = context; }
 
+    public String getChannel() { return channel; }
+    public void setChannel(String channel) { this.channel = channel; }
+
     public Integer getMaxTokens() { return maxTokens; }
     public void setMaxTokens(Integer maxTokens) { this.maxTokens = maxTokens; }
 
@@ -43,6 +47,7 @@ public class AgentRequest {
         public Builder systemPrompt(String systemPrompt) { request.setSystemPrompt(systemPrompt); return this; }
         public Builder sessionKey(String sessionKey) { request.setSessionKey(sessionKey); return this; }
         public Builder context(String context) { request.setContext(context); return this; }
+        public Builder channel(String channel) { request.setChannel(channel); return this; }
         public Builder maxTokens(Integer maxTokens) { request.setMaxTokens(maxTokens); return this; }
         public Builder temperature(Double temperature) { request.setTemperature(temperature); return this; }
         public AgentRequest build() { return request; }

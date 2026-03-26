@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -17,6 +19,8 @@ import java.util.UUID;
  * OpenClaw Gateway API 客户端
  */
 public class OpenClawGatewayClient {
+
+    private static final Logger logger = LoggerFactory.getLogger(OpenClawGatewayClient.class);
 
     private final String gatewayUrl;
     private final String authToken;
@@ -112,6 +116,12 @@ public class OpenClawGatewayClient {
     private ObjectNode buildChatCompletionsRequest(AgentRequest request) {
         ObjectNode body = objectMapper.createObjectNode();
         body.put("model", "openclaw:" + request.getAgentId());
+
+        // channel 放在请求体中，用于 OpenClaw UI 按渠道分组显示会话
+        if (request.getChannel() != null && !request.getChannel().isEmpty()) {
+            body.put("channel", request.getChannel());
+            logger.debug("[GATEWAY] 请求体中设置 channel: {}", request.getChannel());
+        }
 
         ArrayNode messages = body.putArray("messages");
         ObjectNode userMessage = messages.addObject();
