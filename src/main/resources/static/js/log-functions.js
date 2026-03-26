@@ -71,8 +71,8 @@
       const agentLogCount = document.getElementById('agentLogCount');
       const apiLogCount = document.getElementById('apiLogCount');
       const opLogCount = document.getElementById('opLogCount');
-      if (execLogCount) execLogCount.textContent = state.logs.execution.length;
-      if (agentLogCount) agentLogCount.textContent = state.logs.agent.length;
-      if (apiLogCount) apiLogCount.textContent = state.logs.api.length;
-      if (opLogCount) opLogCount.textContent = state.operationLogs.length;
+      if (execLogCount) execLogCount.textContent = (state.logs && state.logs.execution) ? state.logs.execution.length : 0;
+      if (agentLogCount) agentLogCount.textContent = (state.logs && state.logs.agent) ? state.logs.agent.length : 0;
+      if (apiLogCount) apiLogCount.textContent = (state.logs && state.logs.api) ? state.logs.api.length : 0;
+      if (opLogCount) opLogCount.textContent = state.operationLogs ? state.operationLogs.length : 0;
     }

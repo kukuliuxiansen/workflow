@@ -2,6 +2,11 @@
 
     // 渲染所有日志
     function renderLogs() {
+      // 确保 state.logs 存在
+      if (!state.logs) {
+        state.logs = { execution: [], agent: [], api: [] };
+      }
+
       // 渲染执行日志
       const execContent = document.getElementById('execLogContent');
       if (execContent && state.logs.execution) {
@@ -36,7 +41,7 @@
       const container = document.getElementById('apiLogContent');
       if (!container) return;
 
-      if (state.logs.api.length === 0) {
+      if (!state.logs || !state.logs.api || state.logs.api.length === 0) {
         container.innerHTML = '<div style="text-align:center;padding:20px;color:#888;">暂无API日志</div>';
         return;
       }
