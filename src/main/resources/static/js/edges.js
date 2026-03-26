@@ -39,7 +39,7 @@
         const res = await fetch(`${API}/executions/records?workflowId=${workflowId}&limit=10`);
         const data = await res.json();
 
-        if (data.success && data.data.length > 0) {
+        if (data.success && data.data && data.data.length > 0) {
           state.historyRecords = data.data;
           list.innerHTML = data.data.map(e => {
             const execId = e.executionId || e.id;

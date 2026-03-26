@@ -25,7 +25,7 @@
 
         const res = await fetch(url);
         const data = await res.json();
-        if (data.success && data.data.length > 0) {
+        if (data.success && data.data && data.data.length > 0) {
           state.historyRecords = data.data;
           list.innerHTML = data.data.map(e => `
             <div class="history-item" data-id="${e.executionId || e.id}" onclick="selectHistoryItem('${e.executionId || e.id}')">
