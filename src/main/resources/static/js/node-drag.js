@@ -110,5 +110,12 @@
     }
 
     function closeModal(id) {
-      document.getElementById(id).classList.remove('show');
+      const modal = document.getElementById(id);
+      if (modal) {
+        modal.classList.remove('show');
+        // 如果是动态创建的弹窗，从DOM中移除
+        if (id === 'validationModal' || modal.dataset.dynamic === 'true') {
+          modal.remove();
+        }
+      }
     }

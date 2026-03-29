@@ -1,0 +1,915 @@
+{
+  "workflow_name": "商角AI自动化流程",
+  "version": "1.0",
+  "description": "商角AI分镜生成自动化工作流",
+
+  "meta_requirements": {
+    "execution_result_default": false,
+    "review_result_default": false,
+    "max_retry_count": 5,
+    "max_concurrent_agents": 5,
+    "agent_separation_rule": "主agent负责审核！每个任务都需要调用子agent完成！不能一个agent完成审核和执行！审核未通过必须重新唤起新的agent重新执行，主agent不能自行修改代替修复！修复完成后需要再次审核！"
+  },
+
+  "browser_config": {
+    "login_url": "https://shjai.jxinai.com/login",
+    "target_url": "https://shjai.jxinai.com/",
+    "credentials": {
+      "username": "liuxiansen",
+      "password": "@liu2321878756"
+    },
+    "mcp_connections": {
+      "primary": "mcp__chrome-devtools__*",
+      "backup": "mcp__plugin_chrome-devtools-mcp_chrome-devtools__*",
+      "rule": "如果遇到 'browser is already running' 错误，依次尝试备用MCP连接，绝不可杀掉现有Chrome进程"
+    }
+  },
+
+  "script_file": {
+    "path": "/Users/weidian/Desktop/商角脚本/merged.txt"
+  },
+
+  "image_model": {
+    "default": "gemini-3-pro-image-preview"
+  },
+
+  "tasks": [
+    {
+      "task_id": 1,
+      "task_name": "登录商角AI",
+      "sequence": {
+        "execution": {
+          "node_id": "task1_exec",
+          "result": false,
+          "retry_count": 0,
+          "agent_id": null,
+          "actions": [
+            "打开浏览器访问 https://shjai.jxinai.com/login",
+            "输入账号: liuxiansen",
+            "输入密码: @liu2321878756",
+            "点击登录按钮完成登录"
+          ]
+        },
+        "review": {
+          "node_id": "task1_review",
+          "result": false,
+          "review_type": "process_and_result",
+          "review_items": [
+            {
+              "item": "页面URL验证",
+              "check": "页面成功进入 https://shjai.jxinai.com/ 页面",
+              "method": "获取当前页面URL，验证是否为目标URL"
+            },
+            {
+              "item": "主页tab验证",
+              "check": "可以看到主页tab",
+              "method": "获取页面snapshot，检查是否存在主页tab元素"
+            },
+            {
+              "item": "视频生成tab验证",
+              "check": "可以看到视频生成tab",
+              "method": "获取页面snapshot，检查是否存在视频生成tab元素"
+            }
+          ],
+          "review_note": "主agent必须逐一检查每个review_item，不能跳过任何一项"
+        }
+      }
+    },
+
+    {
+      "task_id": 2,
+      "task_name": "清理分镜数据",
+      "sequence": {
+        "execution": {
+          "node_id": "task2_exec",
+          "result": false,
+          "retry_count": 0,
+          "agent_id": null,
+          "actions": [
+            "点击 '分镜' 进入分镜tab",
+            "检查集数数量，如果超过第1集：",
+            "  - 点击最右边集数的删除icon进行删除",
+            "  - 点击 '全选' 进行全选",
+            "  - 点击 '删除选中' 进行删除",
+            "  - 认批量删除弹窗",
+            "检查角色数量，如果不为0：",
+            "  - 全选所有角色",
+            "  - 点击批量删除",
+            "检查场景数量，如果不为0：",
+            "  - 全选所有场景",
+            "  - 点击批量删除",
+            "检查道具数量，如果不为0：",
+            "  - 全选所有道具",
+            "  - 点击批量删除"
+          ]
+        },
+        "review": {
+          "node_id": "task2_review",
+          "result": false,
+          "review_type": "process_and_result",
+          "review_items": [
+            {
+              "item": "页面位置验证",
+              "check": "页面在主页，能看到分镜tab",
+              "method": "获取页面snapshot验证"
+            },
+            {
+              "item": "页面标题验证",
+              "check": "主题是：漫剧分镜生成器",
+              "method": "获取页面标题元素内容"
+            },
+            {
+              "item": "集数验证",
+              "check": "页面上只有'第1集'",
+              "method": "检查集数列表，确认只有1集"
+            },
+            {
+              "item": "角色数量验证",
+              "check": "角色数量为0",
+              "method": "检查角色计数显示"
+            },
+            {
+              "item": "场景数量验证",
+              "check": "场景数量为0",
+              "method": "检查场景计数显示"
+            },
+            {
+              "item": "道具数量验证",
+              "check": "道具数量为0",
+              "method": "检查道具计数显示"
+            }
+          ]
+        }
+      }
+    },
+
+    {
+      "task_id": 3,
+      "task_name": "导入多集剧本",
+      "sequence": {
+        "execution": {
+          "node_id": "task3_exec",
+          "result": false,
+          "retry_count": 0,
+          "agent_id": null,
+          "actions": [
+            "点击 '导入多集剧本'（删除icon的左边）",
+            "弹窗后，使用upload_file工具上传 /Users/weidian/Desktop/商角脚本/merged.txt",
+            "点击 '开始识别'",
+            "等待识别完成"
+          ]
+        },
+        "review": {
+          "node_id": "task3_review",
+          "result": false,
+          "review_type": "process_and_result",
+          "review_items": [
+            {
+              "item": "页面位置验证",
+              "check": "页面在主页，能看到分镜tab",
+              "method": "获取页面snapshot验证"
+            },
+            {
+              "item": "页面标题验证",
+              "check": "主题是：漫剧分镜生成器",
+              "method": "获取页面标题元素内容"
+            },
+            {
+              "item": "集数数量验证",
+              "check": "页面有超过'第8集'",
+              "method": "检查集数列表，确认至少有8集以上"
+            }
+          ]
+        }
+      }
+    },
+
+    {
+      "task_id": 4,
+      "task_name": "审核剧本内容质量",
+      "sequence": {
+        "execution": {
+          "node_id": "task4_exec",
+          "result": false,
+          "retry_count": 0,
+          "agent_id": null,
+          "actions": [
+            "点击第1集，查看内容",
+            "点击第2集，查看内容",
+            "点击第3集，查看内容",
+            "获取总集数，点击最后3集（倒数第1、倒数第2、倒数第3集）",
+            "对每集识别内容是否出现：",
+            "  - 重复内容",
+            "  - 内容丢失",
+            "  - 空白内容",
+            "  - 非本剧本内容",
+            "如果出现不符合的内容，对该集进行删除"
+          ]
+        },
+        "review": {
+          "node_id": "task4_review",
+          "result": false,
+          "review_type": "process_and_result_strict",
+          "review_items": [
+            {
+              "item": "前3集内容审核",
+              "check": "前3集内容为剧情内容，无重复、丢失、空白、非本内容",
+              "method": "逐一获取前3集的剧本内容文本，严格审查内容质量"
+            },
+            {
+              "item": "后3集内容审核",
+              "check": "后3集内容为剧情内容，无重复、丢失、空白、非本内容",
+              "method": "逐一获取后3集的剧本内容文本，严格审查内容质量"
+            }
+          ],
+          "review_note": "严格审查！必须实际审核每一集内容！不能只看表面结果！"
+        }
+      }
+    },
+
+    {
+      "task_id": 5,
+      "task_name": "角色生成",
+      "sequence": {
+        "execution": {
+          "node_id": "task5_exec",
+          "result": false,
+          "retry_count": 0,
+          "agent_id": null,
+          "actions": [
+            "漫剧分镜下点击 '角色'，进入角色列表页",
+            "点击范围下拉框选择：全部剧本",
+            "点击图像下拉框，选择 gemini-3-pro-image-preview",
+            "点击 '从剧本提取'",
+            "等待全部生成完成",
+            "展开详情（XPath: /html/body/div/div/div/main/div/div[6]/div/div[2]/div[5]/div[1]/div/div/div/button[3]）",
+            "对每个角色的文本描述最前面加上：'欧美人，'",
+            "对每个角色的视觉标签文本最前面加上：'欧美人，'",
+            "全部编辑完成后，点击 '批量生成图像'",
+            "等待所有图片生成完成"
+          ]
+        },
+        "review": {
+          "node_id": "task5_review",
+          "result": false,
+          "review_type": "process_and_result",
+          "review_items": [
+            {
+              "item": "范围配置验证",
+              "check": "范围下拉框选择了'全部剧本'（过程审核）",
+              "method": "审核过程中确认范围下拉框的选中值"
+            },
+            {
+              "item": "图像模型配置验证",
+              "check": "图像下拉框选择了'gemini-3-pro-image-preview'（过程审核）",
+              "method": "审核过程中确认图像模型下拉框的选中值"
+            },
+            {
+              "item": "角色描述修改验证",
+              "check": "每个角色描述都添加了'欧美人，'前缀（过程审核）",
+              "method": "逐一检查每个角色的文本描述输入框，确认开头有'欧美人，'"
+            },
+            {
+              "item": "视觉标签修改验证",
+              "check": "每个角色视觉标签都添加了'欧美人，'前缀（过程审核）",
+              "method": "逐一检查每个角色的视觉标签输入框，确认开头有'欧美人，'"
+            },
+            {
+              "item": "批量生成操作验证",
+              "check": "点击了'批量生成图像'按钮（过程审核）",
+              "method": "审核过程中确认点击了批量生成按钮"
+            },
+            {
+              "item": "图片生成结果验证",
+              "check": "所有角色图片都已生成，元素中存在真实图片",
+              "method": "获取所有角色元素，检查每个角色是否有真实图片（不是占位符或空）"
+            },
+            {
+              "item": "图片内容验证",
+              "check": "所有角色图片都是人形角色",
+              "method": "截图分析所有角色图片，确认都是人形角色"
+            }
+          ],
+          "review_note": "所有图片都必须生成成功！必须逐一检查每个角色的描述修改！"
+        }
+      }
+    },
+
+    {
+      "task_id": 6,
+      "task_name": "场景生成",
+      "sequence": {
+        "execution": {
+          "node_id": "task6_exec",
+          "result": false,
+          "retry_count": 0,
+          "agent_id": null,
+          "actions": [
+            "分镜tab下点击 '场景'",
+            "范围选择：全部范围",
+            "图像选择：gemini-3-pro-image-preview",
+            "点击 '从剧本提取'",
+            "等待约1分钟后加载所有场景",
+            "对所有场景的描述词最后加上：'不允许出现中文'",
+            "点击 '批量生成图像'",
+            "等待图片全部生成完成"
+          ]
+        },
+        "review": {
+          "node_id": "task6_review",
+          "result": false,
+          "review_type": "process_and_result",
+          "review_items": [
+            {
+              "item": "范围配置验证",
+              "check": "范围选择了'全部范围'（过程审核）",
+              "method": "审核过程中确认范围下拉框选中值"
+            },
+            {
+              "item": "图像模型配置验证",
+              "check": "图像选择了'gemini-3-pro-image-preview'（过程审核）",
+              "method": "审核过程中确认图像模型下拉框选中值"
+            },
+            {
+              "item": "场景描述修改验证",
+              "check": "所有场景描述都添加了'不允许出现中文'后缀（过程审核）",
+              "method": "逐一检查每个场景的描述输入框，确认结尾有'不允许出现中文'"
+            },
+            {
+              "item": "批量生成操作验证",
+              "check": "点击了'批量生成图像'按钮（过程审核）",
+              "method": "审核过程中确认点击了批量生成按钮"
+            },
+            {
+              "item": "图片生成结果验证",
+              "check": "所有场景图片均已生成",
+              "method": "检查所有场景元素，确认每个场景都有真实图片"
+            }
+          ],
+          "review_note": "所有图片都必须生成成功！必须逐一检查描述修改！"
+        }
+      }
+    },
+
+    {
+      "task_id": 7,
+      "task_name": "道具生成",
+      "sequence": {
+        "execution": {
+          "node_id": "task7_exec",
+          "result": false,
+          "retry_count": 0,
+          "agent_id": null,
+          "actions": [
+            "分镜tab下点击 '道具'",
+            "范围选择：全部范围",
+            "图像选择：gemini-3-pro-image-preview",
+            "点击 '从剧本提取'",
+            "等待约1分钟后加载所有道具",
+            "对所有道具的描述词最后加上：'不允许出现中文'",
+            "点击 '批量生成图像'"
+          ]
+        },
+        "review": {
+          "node_id": "task7_review",
+          "result": false,
+          "review_type": "process_and_result",
+          "review_items": [
+            {
+              "item": "范围配置验证",
+              "check": "范围选择了'全部范围'（过程审核）",
+              "method": "审核过程中确认范围下拉框选中值"
+            },
+            {
+              "item": "图像模型配置验证",
+              "check": "图像选择了'gemini-3-pro-image-preview'（过程审核）",
+              "method": "审核过程中确认图像模型下拉框选中值"
+            },
+            {
+              "item": "道具描述修改验证",
+              "check": "所有道具描述都添加了'不允许出现中文'后缀（过程审核）",
+              "method": "逐一检查每个道具的描述输入框，确认结尾有'不允许出现中文'"
+            },
+            {
+              "item": "批量生成操作验证",
+              "check": "点击了'批量生成图像'按钮（过程审核）",
+              "method": "审核过程中确认点击了批量生成按钮"
+            },
+            {
+              "item": "图片生成结果验证",
+              "check": "所有道具图片均已生成",
+              "method": "检查所有道具元素，确认每个道具都有真实图片"
+            }
+          ],
+          "review_note": "所有图片都必须生成成功！必须逐一检查描述修改！"
+        }
+      }
+    },
+
+    {
+      "task_id": 8,
+      "task_name": "风格参数配置",
+      "sequence": {
+        "execution": {
+          "node_id": "task8_exec",
+          "result": false,
+          "retry_count": 0,
+          "agent_id": null,
+          "actions": [
+            "分镜tab下，点击 '风格参数'",
+            "动画类型选择：电影剧情片",
+            "风格细节：不填写",
+            "画面比例选择：9:16",
+            "生成参数配置：",
+            "  - 文本模型：qwen3-max-2026-01-23",
+            "  - 图像类型：gemini-3-pro-image-preview",
+            "  - 输出分辨率：1K",
+            "  - 输出语言：English"
+          ]
+        },
+        "review": {
+          "node_id": "task8_review",
+          "result": false,
+          "review_type": "process_and_result",
+          "review_items": [
+            {
+              "item": "动画类型验证",
+              "check": "动画类型选择了'电影剧情片'",
+              "method": "检查动画类型下拉框选中值"
+            },
+            {
+              "item": "风格细节验证",
+              "check": "风格细节未填写（为空）",
+              "method": "检查风格细节输入框内容为空"
+            },
+            {
+              "item": "画面比例验证",
+              "check": "画面比例选择了'9:16'",
+              "method": "检查画面比例下拉框选中值"
+            },
+            {
+              "item": "文本模型验证",
+              "check": "文本模型选择了'qwen3-max-2026-01-23'",
+              "method": "检查文本模型下拉框选中值"
+            },
+            {
+              "item": "图像类型验证",
+              "check": "图像类型选择了'gemini-3-pro-image-preview'",
+              "method": "检查图像类型下拉框选中值"
+            },
+            {
+              "item": "输出分辨率验证",
+              "check": "输出分辨率选择了'1K'",
+              "method": "检查输出分辨率下拉框选中值"
+            },
+            {
+              "item": "输出语言验证",
+              "check": "输出语言选择了'English'",
+              "method": "检查输出语言下拉框选中值"
+            }
+          ],
+          "review_note": "每个配置项都必须逐一验证！不能跳过！"
+        }
+      }
+    },
+
+    {
+      "task_id": "human_review_1",
+      "task_name": "人工审核节点-图片生成完成度",
+      "type": "human_review",
+      "description": "必须卡点！人工审核图片生成的完成度和符合度！不允许跳过！",
+      "review_items": [
+        "角色图片是否全部生成完成",
+        "角色图片是否符合'欧美人'要求",
+        "场景图片是否全部生成完成",
+        "场景图片是否无中文",
+        "道具图片是否全部生成完成",
+        "道具图片是否无中文"
+      ],
+      "status": {
+        "result": false,
+        "reviewer": null,
+        "review_time": null,
+        "comments": null
+      }
+    },
+
+    {
+      "task_id": 9,
+      "task_name": "生成分镜-串行批量处理",
+      "type": "serial_batch",
+      "description": "单agent逐集处理。每集需要单独配置参数（页面不保留配置），配置后点击拆解",
+      "batch_config": {
+        "episodes_per_batch": 5,
+        "execution_mode": "单agent串行处理，每批次5集",
+        "important_note": "每次进入分镜页面，配置数据不保留！每集都需要重新配置所有参数！",
+        "flow_summary": "【逐集配置并生成】点击第1集→配置参数→拆解→点击第2集→配置参数→拆解...以此类推"
+      },
+      "sequence": {
+        "execution": {
+          "node_id": "task9_exec",
+          "result": false,
+          "retry_count": 0,
+          "agent_id": null,
+          "actions": [
+            "【第1集-配置并生成】",
+            "  点击第1集tab",
+            "  点击 '生成分镜'",
+            "  输出格式选择：Grok脚本10s",
+            "  文本模型选择：qwen3-max-2026-01-23",
+            "  AI分析模型选择：gemini-3.1-pro-preview",
+            "  台词语言选择：英文",
+            "  生图模型选择：gemini-3-pro-image-preview",
+            "  视频生成选择：vide-q3-turl",
+            "  附加要求填写：每个分镜头台词不超过40个字",
+            "  点击 '拆解镜头' 按钮",
+            "",
+            "【第2集-配置并生成】",
+            "  点击第2集tab",
+            "  点击 '生成分镜'",
+            "  （重新配置）输出格式选择：Grok脚本10s",
+            "  （重新配置）文本模型选择：qwen3-max-2026-01-23",
+            "  （重新配置）AI分析模型选择：gemini-3.1-pro-preview",
+            "  （重新配置）台词语言选择：英文",
+            "  （重新配置）生图模型选择：gemini-3-pro-image-preview",
+            "  （重新配置）视频生成选择：vide-q3-turl",
+            "  （重新配置）附加要求填写：每个分镜头台词不超过40个字",
+            "  点击 '拆解镜头' 按钮",
+            "",
+            "【第3集-配置并生成】",
+            "  点击第3集tab → 点击 '生成分镜' → 重新配置所有参数 → 点击 '拆解镜头'",
+            "",
+            "【第4集-配置并生成】",
+            "  点击第4集tab → 点击 '生成分镜' → 重新配置所有参数 → 点击 '拆解镜头'",
+            "",
+            "【第5集-配置并生成】",
+            "  点击第5集tab → 点击 '生成分镜' → 重新配置所有参数 → 点击 '拆解镜头'",
+            "",
+            "【等待完成】等待所有集数的分镜生成完成",
+            "",
+            "【检查结果】逐一检查每集是否成功生成至少10个分镜，失败的重新配置并拆解"
+          ]
+        },
+        "review": {
+          "node_id": "task9_review",
+          "result": false,
+          "review_type": "process_and_result",
+          "review_items": [
+            {
+              "item": "第1集配置验证",
+              "check": "第1集配置了所有参数：输出格式、文本模型、AI分析模型、台词语言、生图模型、视频生成、附加要求",
+              "method": "审核过程中确认第1集每项配置都正确选择"
+            },
+            {
+              "item": "第2集配置验证",
+              "check": "第2集重新配置了所有参数（页面不保留配置）",
+              "method": "审核过程中确认第2集重新配置了每项参数"
+            },
+            {
+              "item": "第3集配置验证",
+              "check": "第3集重新配置了所有参数",
+              "method": "审核过程中确认第3集重新配置了每项参数"
+            },
+            {
+              "item": "第4集配置验证",
+              "check": "第4集重新配置了所有参数",
+              "method": "审核过程中确认第4集重新配置了每项参数"
+            },
+            {
+              "item": "第5集配置验证",
+              "check": "第5集重新配置了所有参数",
+              "method": "审核过程中确认第5集重新配置了每项参数"
+            },
+            {
+              "item": "拆解操作验证",
+              "check": "每集都点击了'拆解镜头'按钮",
+              "method": "审核过程中确认每集都执行了拆解操作"
+            },
+            {
+              "item": "生成结果验证",
+              "check": "每集都成功生成了多个分镜头",
+              "method": "逐一检查每集的分镜列表，确认每集至少有分镜头生成"
+            }
+          ],
+          "review_note": "必须确认每集都重新配置了参数！不能假设配置会保留！"
+        }
+      }
+    },
+
+    {
+      "task_id": 10,
+      "task_name": "分镜角色审核矫正-串行批量处理",
+      "type": "serial_batch",
+      "description": "分镜生成完成后，逐集检查和修正角色/场景/道具配置",
+      "batch_config": {
+        "episodes_per_batch": 5,
+        "execution_mode": "单agent串行处理，每批次5集",
+        "flow_summary": "【逐集审核】依次点击每集→检查角色/场景/道具→修正不匹配项"
+      },
+      "sequence": {
+        "execution": {
+          "node_id": "task10_exec",
+          "result": false,
+          "retry_count": 0,
+          "agent_id": null,
+          "actions": [
+            "【逐集审核-第1集】",
+            "  点击第1集tab → 点击 '生成分镜' → 对'每页显示'选择'全部'",
+            "  逐一分析每个分镜头：",
+            "    - 检查'角色'列表是否与'图片描述（已去台词）'一致",
+            "    - 角色不匹配则：添加正确角色（点击+按钮），删除多余角色（悬停tag点击移除）",
+            "    - 检查'场景'是否与描述一致",
+            "    - 检查'道具'是否与描述一致",
+            "",
+            "【逐集审核-第2集】",
+            "  点击第2集tab → 重复上述检查和修正步骤",
+            "",
+            "【逐集审核-第3集】",
+            "  点击第3集tab → 重复上述检查和修正步骤",
+            "",
+            "【逐集审核-第4集】",
+            "  点击第4集tab → 重复上述检查和修正步骤",
+            "",
+            "【逐集审核-第5集】",
+            "  点击第5集tab → 重复上述检查和修正步骤",
+            "",
+            "5集全部审核完成"
+          ]
+        },
+        "review": {
+          "node_id": "task10_review",
+          "result": false,
+          "review_type": "process_and_result",
+          "review_items": [
+            {
+              "item": "每页显示验证",
+              "check": "每集都选择了'全部'展示所有分镜",
+              "method": "检查每页显示下拉框选中值"
+            },
+            {
+              "item": "角色匹配验证",
+              "check": "每集每个分镜头的角色列表与剧本中角色一致",
+              "method": "逐一检查每集每个分镜头的角色tag列表，对比剧本角色"
+            },
+            {
+              "item": "场景匹配验证",
+              "check": "每集每个分镜头的场景与描述一致",
+              "method": "逐一检查每集每个分镜头的场景配置"
+            },
+            {
+              "item": "道具匹配验证",
+              "check": "每集每个分镜头的道具与描述一致",
+              "method": "逐一检查每集每个分镜头的道具配置"
+            }
+          ]
+        }
+      }
+    },
+
+    {
+      "task_id": 11,
+      "task_name": "批量生成分镜图片-串行批量处理",
+      "type": "serial_batch",
+      "description": "先批量点击所有5集的生成图片，然后统一等待完成",
+      "batch_config": {
+        "episodes_per_batch": 5,
+        "execution_mode": "单agent串行处理，每批次5集",
+        "flow_summary": "【第一阶段-批量点击生成】逐集点击生成图片按钮 → 【第二阶段-统一等待】等待所有图片生成完成 → 【第三阶段-检查重试】检查失败的重新生成"
+      },
+      "sequence": {
+        "execution": {
+          "node_id": "task11_exec",
+          "result": false,
+          "retry_count": 0,
+          "agent_id": null,
+          "actions": [
+            "【第一阶段-批量点击生成】",
+            "  点击第1集tab → 点击 '生成分镜' → 点击 '批量生成图片'",
+            "  点击第2集tab → 点击 '生成分镜' → 点击 '批量生成图片'",
+            "  点击第3集tab → 点击 '生成分镜' → 点击 '批量生成图片'",
+            "  点击第4集tab → 点击 '生成分镜' → 点击 '批量生成图片'",
+            "  点击第5集tab → 点击 '生成分镜' → 点击 '批量生成图片'",
+            "",
+            "【第二阶段-统一等待】",
+            "  等待所有集数的图片生成完成",
+            "",
+            "【第三阶段-检查重试】",
+            "  检查每集的图片生成结果",
+            "  如有失败的图片，重新点击该集的'批量生成图片'"
+          ]
+        },
+        "review": {
+          "node_id": "task11_review",
+          "result": false,
+          "review_type": "process_and_result",
+          "review_items": [
+            {
+              "item": "批量点击验证",
+              "check": "每集都点击了'批量生成图片'按钮",
+              "method": "审核过程中确认每集都点击了批量生成按钮"
+            },
+            {
+              "item": "图片生成结果验证",
+              "check": "5集所有分镜均生成了分镜图片",
+              "method": "检查5集所有分镜元素，确认每个分镜都有真实图片"
+            }
+          ]
+        }
+      }
+    },
+
+    {
+      "task_id": 12,
+      "task_name": "分镜时长配置-串行批量处理",
+      "type": "serial_batch",
+      "description": "图片生成完成后，回到第1集开始逐集配置时长",
+      "batch_config": {
+        "episodes_per_batch": 5,
+        "execution_mode": "单agent串行处理，每批次5集",
+        "flow_summary": "【逐集配置】回到第1集→配置所有分镜时长→第2集→配置时长→...→第5集"
+      },
+      "sequence": {
+        "execution": {
+          "node_id": "task12_exec",
+          "result": false,
+          "retry_count": 0,
+          "agent_id": null,
+          "actions": [
+            "【配置时长-第1集】",
+            "  点击第1集tab → 点击 '生成分镜' → 对'每页显示'选择'全部'",
+            "  逐一分析每个分镜头，根据台词数配置时长：",
+            "    - 无台词：2-4s（结合剧本分析具体时长）",
+            "    - 一句台词：4-6s（分析具体时长）",
+            "    - 两句台词：10s左右（根据剧本适当增减）",
+            "    - 三句台词：15s（最多15s）",
+            "",
+            "【配置时长-第2集】",
+            "  点击第2集tab → 重复上述配置步骤",
+            "",
+            "【配置时长-第3集】",
+            "  点击第3集tab → 重复上述配置步骤",
+            "",
+            "【配置时长-第4集】",
+            "  点击第4集tab → 重复上述配置步骤",
+            "",
+            "【配置时长-第5集】",
+            "  点击第5集tab → 重复上述配置步骤",
+            "",
+            "5集时长配置完成"
+          ]
+        },
+        "review": {
+          "node_id": "task12_review",
+          "result": false,
+          "review_type": "process_and_result",
+          "review_items": [
+            {
+              "item": "每页显示验证",
+              "check": "每集都选择了'全部'展示所有分镜",
+              "method": "检查每页显示下拉框选中值"
+            },
+            {
+              "item": "时长配置验证",
+              "check": "5集每个分镜头时长配置正确",
+              "method": "逐一检查5集每个分镜头的时长配置，验证是否符合规则"
+            },
+            {
+              "item": "台词分析验证",
+              "check": "时长配置基于台词数分析",
+              "method": "审核过程中确认agent分析了每个分镜头的台词数"
+            }
+          ]
+        }
+      }
+    },
+
+    {
+      "task_id": "human_review_2",
+      "task_name": "人工审核节点-分镜生成完成",
+      "type": "human_review",
+      "description": "必须卡点！等待当前批次5集完成后，主agent审核！任务暂停并等待人工审核！",
+      "review_items": [
+        "当前批次5集的分镜是否都已生成",
+        "分镜角色是否匹配",
+        "分镜图片是否全部生成",
+        "分镜时长配置是否正确"
+      ],
+      "status": {
+        "result": false,
+        "reviewer": null,
+        "review_time": null,
+        "comments": null
+      }
+    },
+
+    {
+      "task_id": 13,
+      "task_name": "批量生成分镜视频-串行批量处理",
+      "type": "serial_batch",
+      "description": "先批量点击所有5集的生成视频，然后统一等待完成。视频生成较慢，需要反复重试",
+      "batch_config": {
+        "episodes_per_batch": 5,
+        "execution_mode": "单agent串行处理，每批次5集",
+        "flow_summary": "【第一阶段-批量点击生成】逐集点击生成视频按钮 → 【第二阶段-统一等待】等待所有视频生成完成（每分钟检查一次）→ 【第三阶段-检查重试】检查失败的重新生成"
+      },
+      "sequence": {
+        "execution": {
+          "node_id": "task13_exec",
+          "result": false,
+          "retry_count": 0,
+          "agent_id": null,
+          "actions": [
+            "【第一阶段-批量点击生成】",
+            "  点击第1集tab → 点击 '生成分镜' → 点击 '批量生成视频'",
+            "  点击第2集tab → 点击 '生成分镜' → 点击 '批量生成视频'",
+            "  点击第3集tab → 点击 '生成分镜' → 点击 '批量生成视频'",
+            "  点击第4集tab → 点击 '生成分镜' → 点击 '批量生成视频'",
+            "  点击第5集tab → 点击 '生成分镜' → 点击 '批量生成视频'",
+            "",
+            "【第二阶段-统一等待】",
+            "  等待所有集数的视频生成完成（每分钟检查一次进度）",
+            "",
+            "【第三阶段-检查重试】",
+            "  检查每集的视频生成结果",
+            "  如有失败的视频，重新点击该集的'批量生成视频'"
+          ]
+        },
+        "review": {
+          "node_id": "task13_review",
+          "result": false,
+          "review_type": "process_and_result",
+          "review_items": [
+            {
+              "item": "批量点击验证",
+              "check": "每集都点击了'批量生成视频'按钮",
+              "method": "审核过程中确认每集都点击了批量生成按钮"
+            },
+            {
+              "item": "视频生成结果验证",
+              "check": "5集全部分镜视频生成完成",
+              "method": "检查5集所有分镜元素，确认每个分镜都有视频"
+            }
+          ],
+          "review_note": "视频生成可能需要反复重试，直到所有视频生成完成"
+        }
+      }
+    },
+
+    {
+      "task_id": 14,
+      "task_name": "后续集数循环处理",
+      "type": "batch_loop",
+      "description": "当前批次5集处理完后，继续处理下一批次5集，直到所有集数完成",
+      "loop_config": {
+        "tasks_to_repeat": [9, 10, 11, 12, 13],
+        "episodes_per_batch": 5,
+        "condition": "所有集数都已处理完成",
+        "execution_note": "每次处理一批5集，完成后再处理下一批5集，串行执行"
+      },
+      "status": {
+        "result": false,
+        "current_batch": 0,
+        "processed_episodes": []
+      }
+    }
+  ],
+
+  "execution_order": [
+    1, 2, 3, 4, 5, 6, 7, 8,
+    "human_review_1",
+    9, 10, 11, 12,
+    "human_review_2",
+    13,
+    14
+  ],
+
+  "retry_mechanism": {
+    "max_retry": 5,
+    "retry_condition": "审核未通过",
+    "retry_action": "重新唤起新的agent执行任务",
+    "retry_note": "主agent不能自行修改结果！必须重新唤起新agent！"
+  },
+
+  "serial_batch_rules": {
+    "episodes_per_batch": 5,
+    "execution_mode": "单agent串行处理，每批次5集。当前批次处理完后继续下一批次",
+    "task_types": ["serial_batch"],
+    "tasks_using_serial_batch": [9, 10, 11, 12, 13],
+    "flow_patterns": {
+      "task_9_生成分镜": "【逐集配置并生成】每集单独配置参数（页面不保留）→点击拆解→下一集重新配置→拆解...",
+      "task_10_角色审核": "【逐集审核】依次检查每集的角色/场景/道具配置",
+      "task_11_生成图片": "【批量点击】逐集点击生成 → 【统一等待】等待所有完成 → 【检查重试】",
+      "task_12_配置时长": "【逐集配置】回到第1集开始逐集配置时长",
+      "task_13_生成视频": "【批量点击】逐集点击生成 → 【统一等待】等待所有完成 → 【检查重试】"
+    },
+    "rule": "单agent串行处理5集，完成后主agent审核。如有失败，重新唤起agent重试"
+  },
+
+  "main_agent_responsibilities": {
+    "review_all_tasks": true,
+    "cannot_modify_results": true,
+    "must_invoke_new_agent_on_retry": true,
+    "process_review_required": true,
+    "note": "主agent必须对审核结果负责，严格执行审核要求，审核过程而非只审核结果"
+  }
+}

@@ -12,7 +12,18 @@
       "Bash(node /Users/weidian/.npm-global/lib/node_modules/@anthropic-ai/claude-code/cli.js --help)",
       "Bash(/Users/weidian/.npm-global/lib/node_modules/@anthropic-ai/claude-code/vendor/ripgrep/arm64-darwin/rg --version)",
       "Bash(ls -la /Users/weidian/.npm-global/lib/node_modules/@anthropic-ai/claude-code/*.mjs /Users/weidian/.npm-global/lib/node_modules/@anthropic-ai/claude-code/*.js)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(playwright-mcp --help)",
+      "Bash(chmod +x ~/.claude/scripts/view_traffic.sh)",
+      "Bash(~/.claude/scripts/view_traffic.sh)",
+      "Bash(mitmdump -r ~/.claude/logs/traffic_flow.mitm --set flow_detail=0)",
+      "Bash(pkill -f 'mitmdump -r')",
+      "Bash(mitmdump -r ~/.claude/logs/traffic_flow.mitm -q)",
+      "Bash(python3 -c \":*)",
+      "Bash(xxd)",
+      "Bash(grep -o dashscope[^,]* ~/.claude/logs/traffic_flow.mitm)",
+      "Bash(brew install:*)",
+      "Bash(open:*)"
     ]
   }
 }

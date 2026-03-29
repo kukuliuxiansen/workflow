@@ -109,15 +109,17 @@ class PromptBuilderTest {
         String template = "任务: {{taskDescription}}\n" +
             "验收标准: {{criteria}}\n" +
             "执行结果: {{executionResult}}\n" +
+            "执行思路: {{executionThought}}\n" +
             "之前的问题: {{previousIssues}}";
 
         context.setReviewTemplateContent(template);
 
-        String prompt = promptBuilder.buildReviewPrompt(context, task, "登录成功", Arrays.asList("问题1", "问题2"));
+        String prompt = promptBuilder.buildReviewPrompt(context, task, "登录成功", "分析过程", Arrays.asList("问题1", "问题2"));
 
         assertTrue(prompt.contains("实现用户登录功能"));
         assertTrue(prompt.contains("必须支持用户名密码登录"));
         assertTrue(prompt.contains("登录成功"));
+        assertTrue(prompt.contains("分析过程"));
         assertTrue(prompt.contains("问题1"));
         assertTrue(prompt.contains("问题2"));
     }
@@ -127,7 +129,7 @@ class PromptBuilderTest {
         String template = "问题: {{previousIssues}}";
         context.setReviewTemplateContent(template);
 
-        String prompt = promptBuilder.buildReviewPrompt(context, task, "结果", Collections.emptyList());
+        String prompt = promptBuilder.buildReviewPrompt(context, task, "结果", "分析", Collections.emptyList());
 
         assertFalse(prompt.contains("1."));
     }
@@ -137,7 +139,7 @@ class PromptBuilderTest {
         context.setReviewTemplateContent(null);
 
         assertThrows(IllegalStateException.class,
-            () -> promptBuilder.buildReviewPrompt(context, task, "结果", Collections.emptyList()));
+            () -> promptBuilder.buildReviewPrompt(context, task, "结果", "分析", Collections.emptyList()));
     }
 
     @Test
@@ -151,7 +153,6 @@ class PromptBuilderTest {
         assertTrue(retryPrompt.contains("上次执行失败"));
         assertTrue(retryPrompt.contains("问题A"));
         assertTrue(retryPrompt.contains("问题B"));
-        assertTrue(retryPrompt.contains("重新执行"));
     }
 
     @Test

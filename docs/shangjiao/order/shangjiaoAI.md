@@ -1,0 +1,195 @@
+使用 Chrome DevTools MCP 操作浏览器
+触发条件
+用户要求打开网页、调试前端、自动化浏览器操作
+用户提到 "Chrome DevTools"、"浏览器自动化"、"打开网页"
+需要进行前端调试、性能分析、网络请求检查
+前置检查
+检测 MCP 连接状态
+尝试 list_pages 检查浏览器是否可用
+如果遇到 "browser is already running" 错误：
+→ 依次尝试备用的 MCP 连接（如 plugin 版本）
+→ 绝不可杀掉现有 Chrome 进程
+确定可用连接
+mcp__chrome-devtools__* (主连接)
+mcp__plugin_chrome-devtools-mcp_chrome-devtools__* (备用连接)
+
+
+注意：本任务文本随时会更新未执行的任务！！因此需要每次都读取当前文本加载最新的任务信息！！
+
+任务1
+执行：
+执行打开浏览器：https://shjai.jxinai.com/login
+在/html/body/div/div/div/div/div[1]/div[2]/div/div[2]/form/div[1]/div[1]/input处输入账号：liuxiansen
+在/html/body/div/div/div/div/div[1]/div[2]/div/div[2]/form/div[1]/div[2]/input处输入密码：@liu2321878756
+点击/html/body/div/div/div/div/div[1]/div[2]/div/div[2]/form/button完成登录
+
+审核：页面成功进入https://shjai.jxinai.com/页面，并且可以看到主页/视频生成等tab
+
+任务2
+执行：
+点击：/html/body/div/div/aside/nav/a[6] 进入分镜tab
+如果页面上/html/body/div/div/div/main/div/div[2]/div[1] 中的集数超过1，有第二集，
+需要点击删除：/html/body/div/div/div/main/div/div[2]/div[2]/div/button[3]
+再点击：/html/body/div/div/div/main/div/div[2]/div[2]/div/button[1] 进行全选
+再点击：/html/body/div/div/div/main/div/div[2]/div[2]/div/button[2]进行删除
+会弹窗看到批量删除确认。点击/html/body/div/div/div/main/div/div[3]/div[2]/div/button[2]进行确认删除。
+
+如果角色人数不为0，全选所有角色，点击批量删除
+如果场景数量不为0，全选所有场景，点击批量删除
+如果场景道具不为0，全选所有道具，点击批量删除
+
+审核：页面在主页，并且能看到分镜tab，主题是：漫剧分镜生成器，并且页面上只有“第1集”，角色/场景/道具 数量均为0
+
+任务3
+执行：
+点击/html/body/div[1]/div/div/main/div/div[2]/div[2]/div/button[2] 导入多集剧本，
+弹窗之后，使用upload_file 工具对/Users/weidian/Desktop/商角脚本/merged.txt 进行上传
+再点击：/html/body/div[1]/div/div/main/div/div[7]/div[2]/div[3]/button[2] 开始识别
+最后点击：/html/body/div/div/div/main/div/div[7]/div[2]/div[3]/button[2] 进行识别
+
+审核：页面在主页，并且能看到分镜tab，主题是：漫剧分镜生成器，并且页面有超过“第8集”
+
+
+任务4、 
+点击前三集
+点击第一集：/html/body/div/div/div/main/div/div[2]/div[1]/div[1]/button[1]
+点击第二集：/html/body/div/div/div/main/div/div[2]/div[1]/div[1]/button[2]
+点击第二集：/html/body/div/div/div/main/div/div[2]/div[1]/div[1]/button[3]
+以此类推点击后三集
+识别内容是否出现重复，内容丢失，空白，或者非本内容
+如果出现不符合的内容，对改集进行删除。
+
+审核：前三集和后三集内容为剧情内容。严格审查！必须实际审查！
+
+
+任务5、
+点击 /html/body/div/div/div/main/div/div[6]/div/div[1]/button[2] ”角色“
+点击 /html/body/div/div/div/main/div/div[6]/div/div[2]/div[1]/div/select[2] 选择全部剧本
+点击 /html/body/div/div/div/main/div/div[6]/div/div[2]/div[1]/div/div[2]/select 图像下拉框，选择gemini-3.1-flash-image-preview
+点击：/html/body/div/div/div/main/div/div[6]/div/div[2]/div[1]/div/button[1] 从剧本提取
+等待全部生成完成后
+点击：
+/html/body/div/div/div/main/div/div[6]/div/div[2]/div[5]/div[1]/div/div/div/button[3] 展开详情
+在/html/body/div/div/div/main/div/div[6]/div/div[2]/div[5]/div[1]/div/div/div[2]/div[1]/textarea 文本输入框的最前面加上：“欧美人，”
+在视觉标签/html/body/div/div/div/main/div/div[6]/div/div[2]/div[5]/div[1]/div/div/div[2]/div[1]/div/textarea 文本输入框的最前面加上：“欧美人，”
+
+点击：
+/html/body/div/div/div/main/div/div[6]/div/div[2]/div[5]/div[2]/div/div/div/button[3] 展开详情
+在/html/body/div/div/div/main/div/div[6]/div/div[2]/div[5]/div[2]/div/div/div[2]/div[1]/textarea 文本输入框的最前面加上：“欧美人，”
+在视觉标签/html/body/div/div/div/main/div/div[6]/div/div[2]/div[5]/div[2]/div/div/div[2]/div[1]/div/textarea 文本输入框的最前面加上：“欧美人，”
+以此类推，对剩下的所有角色都加上 “欧美人，” 的提示词
+
+上述完成后，点击：/html/body/div/div/div/main/div/div[6]/div/div[2]/div[1]/div/button[2] 批量生成图像
+等待所有图片均生成完成，任务5结束。
+
+审核:当前页面中
+/html/body/div/div/div/main/div/div[6]/div/div[2]/div[5]/div[1]/div/div/div/button[1]/img
+/html/body/div/div/div/main/div/div[6]/div/div[2]/div[5]/div[2]/div/div/div/button[1]/img
+/html/body/div/div/div/main/div/div[6]/div/div[2]/div[5]/div[2]/div/div/div/button[1]/img
+以此类图，元素中都存在真实的图片，并且截图分析所有角色都为人形角色。
+
+任务6、
+1、分镜tab下点击场景，范围选择全部范围，图像选择gemini-3.1-flash-image-preview
+2、点击从剧本提取，等待约1分钟后，加载出所有场景，
+3、对所有场景增加描述词，写到最后：不允许出现中文
+4、点击批量生成图像
+5、再次阅读本文件！以免忘记任务细节！
+审核：当前节点中所有场景图片均已生成
+
+任务7、
+1、分镜tab下点击道具，范围选择全部范围，图像选择gemini-3.1-flash-image-preview
+2、点击从剧本提取，等待约1分钟后，加载出所有道具，
+3、对所有道具增加描述词，写到最后：不允许出现中文
+4、点击批量生成图像
+审核：当前节点中所有道具图片均已生成
+
+任务8、
+1、分镜tab下，点击风格参数
+可以看到四个内容，分别是：动画类型、风格细节、画面比例、生成参数、基准参考图
+动画类型选择：电影剧情片
+不需要写风格细节
+画面比例：9：16
+生成参数：
+-文本模型：qwen3-max-2026-01-23
+-图像类型：gemini-3.1-flash-image-preview
+-输出分辨率：1K
+-输出语言：English
+2、再次阅读本文件！以免忘记任务细节！
+
+审核：完全按照上述信息展示。
+
+重点！！从第35集开始！！！因为前面的已经生成了！！直接点击第35集！！从35开始
+重点！！从第35集开始！！！因为前面的已经生成了！！直接点击第35集！！从35开始
+重点！！从第35集开始！！！因为前面的已经生成了！！直接点击第35集！！从35开始
+
+
+任务9、
+分析当前页面是不是已经全部分镜都生成了，是的话跳过当前任务！
+1、分镜tab下，点击生成分镜（如果在 生成分镜下，可以不用点击）
+2、从输出格式中选择 Grok脚本10s
+3、文本模型选择：qwen3-max-2026-01-23
+4、AI分析模型：gemini-3.1-flash-preview
+5、台词语言：英文
+6、生图模型：gemini-3.1-flash-image-preview
+7、视频生成：vide-q3-turl
+8、附加要求:每个分镜头台词不超过40个字
+9、点击“拆解镜头”按钮
+10、确认至少生成10个分镜。
+11、再次阅读本文件！以免忘记任务细节！
+审核：生成多个分镜头图片
+
+
+任务10、
+对每个分镜头进行审核
+1、分镜tab下，点击生成分镜（如果在 生成分镜下，可以不用点击）
+2、对“每页显示”数量，选择并点击“全部”，展示所有的分镜
+3、分析第一个分镜头，“角色”列表需要与当前分镜中的“图片描述（已去台词）”出现的角色一致，不能多，不能少
+- 每个角色tag悬停时会显示红色**"移除角色"按钮** (title="移除角色")                                                                           
+- 有一个**"+"按钮用于"添加角色"** (title="添加角色")  
+4、分析第一个分镜头，“场景”需要与当前分镜中的“图片描述（已去台词）”出现的场景描述一致
+5、分析第一个分镜头，“道具”需要与当前分镜中的“图片描述（已去台词）”出现的道具描述一致
+6、如果角色匹配不正确，则需要增加正确的角色，删除多余的角色（绝对要求！！）。
+7、重复当前任务，执行下一个分镜头审核，直到当前集数的角色审核矫正完成。
+8、最后再次阅读本文件！以免忘记任务细节！
+
+审核：当前集数下的所有分镜头角色与剧本中角色一致，
+
+
+任务11、
+分析当前页面是不是已经全部分镜图片都生成了，是的话跳过当前任务！
+1、分镜tab下，点击生成分镜（如果在 生成分镜下，可以不用点击）
+2、点击批量生成图片，等待图片全部生成完成
+3、最后再次阅读本文件！以免忘记任务细节！
+审核：所有分镜均生成分镜图片
+
+
+任务12、
+对每个分镜头进行审核
+1、分镜tab下，点击生成分镜（如果在 生成分镜下，可以不用点击）
+2、对“每页显示”数量，选择并点击“全部”，展示所有的分镜
+3、分析第一个分镜头，根据当前镜头的的台词数，严格按照以下规则配置时长：
+- 无台词：2-4s（需要根据剧本，结合整个剧本，分析到底用2s还是4s）
+- 一句台词：4-6s（分析到底用4s还是6s）
+- 两句台词：10s左右（根据剧本适当增减）
+- 三句台词：15s（最多15s）
+4、重复当前任务，执行下一个分镜头审核，直到当前集数的分镜头时长全部配置完成。
+5、最后再次阅读本文件！以免忘记任务细节！
+
+审核：当前集数下的所有分镜头角色与剧本中角色一致，
+
+任务13、
+分析当前页面是不是已经全部分镜视频都生成了，是的话跳过当前任务！
+1、分镜tab下，点击生成分镜（如果在 生成分镜下，可以不用点击）
+2、点击批量生成视频，等待视频生成完成
+生成视频过程中比较漫长，可以sleep 1分钟看一次
+
+审核：全部分镜视频生成完成
+
+
+
+任务14 -- 不需要做、因为本次只是做35集、
+1、分镜tab下，点击下一集，重复任务9，直到第3集（测试到第三集即可）
+
+
+审核：完成视频的生成
+

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "/Users/weidian/.npm-global/bin/playwright-mcp",
+      "args": []
+    }
+  }
+}
