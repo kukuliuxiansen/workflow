@@ -19,6 +19,7 @@ public class NodeExecutionContext {
     private String projectPath;
     private String globalPrompt;
     private ExecutionControl executionControl;
+    private Integer timeout; // 节点超时时间（秒）
 
     public NodeExecutionContext() {}
 
@@ -52,4 +53,7 @@ public class NodeExecutionContext {
 
     public ExecutionControl getExecutionControl() { return executionControl; }
     public void setExecutionControl(ExecutionControl executionControl) { this.executionControl = executionControl; }
+
+    public Integer getTimeout() { return timeout; }
+    public void setTimeout(Integer timeout) { this.timeout = timeout; }
 }

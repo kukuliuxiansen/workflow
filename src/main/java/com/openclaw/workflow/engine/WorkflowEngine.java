@@ -128,7 +128,8 @@ public class WorkflowEngine {
                     break;
                 }
 
-                NodeResult result = executionHelper.execute(node, workflowId, executionId, executionControl);
+                // 使用ExecutionOptions中的timeout默认值
+                NodeResult result = executionHelper.execute(node, workflowId, executionId, executionControl, options.getTimeout());
 
                 // 检查是否在执行过程中被停止
                 if (executionControl.isStopped()) {

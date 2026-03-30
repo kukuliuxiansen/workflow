@@ -40,7 +40,8 @@ public class AgentNodeHandler extends BaseNodeHandler {
         WorkflowNode node = context.getNode();
         String agentId = getAgentId(node);
         String prompt = promptBuilder.buildPrompt(node, context);
-        int timeout = getTimeout(node, executor.getDefaultTimeout());
+        // 优先使用 context 中的 timeout，其次使用节点配置的 timeout，最后使用默认值
+        int timeout = context.getTimeout() != null ? context.getTimeout() : getTimeout(node, executor.getDefaultTimeout());
 
         try {
             String output = executor.execute(agentId, prompt, context, timeout);

@@ -37,6 +37,10 @@ public class LoopNodeHandler extends BaseNodeHandler {
     @Override
     public NodeResult execute(NodeExecutionContext context) throws Exception {
         WorkflowNode node = context.getNode();
+        
+        // 从 context 获取 timeout
+        int timeout = context.getTimeout() != null ? context.getTimeout() : 600;
+        
         LoopConfig config = parseConfig(node);
         NodeResult.LoopContext loopContext = getOrCreateLoopContext(context, config);
 
@@ -48,12 +52,35 @@ public class LoopNodeHandler extends BaseNodeHandler {
             return createExitResult(node, loopContext, "达到最大迭代次数");
         }
 
+        // 检查是否应该继续循环
+        if (!loopContext.isShouldContinue()) {
+            logger.info("循环被标记为不继续，退出循环");
+            return createExitResult(node, loopContext, "循环被标记为不继续");
+        }
+
+        logger.debug("循环节点执行: shouldContinue={}, currentIteration={}, currentValue={}",
+                loopContext.isShouldContinue(), loopContext.getCurrentIteration(), loopContext.getCurrentValue());
+
         if (config.getLoopMode() == LoopMode.ITERATOR) {
             if (loopContext.getCurrentValue() == null) {
                 logger.info("迭代数据已耗尽，退出循环");
                 return createExitResult(node, loopContext, "迭代数据已耗尽");
             }
             loopContext.setCurrentIteration(loopContext.getCurrentIteration() + 1);
+            
+            // 检查是否达到最大迭代次数
+            if (loopContext.getCurrentIteration() >= loopContext.getMaxIterations()) {
+                logger.info("达到最大迭代次数: {}", loopContext.getMaxIterations());
+                loopContext.setShouldContinue(false);
+            }
+            // 检查是否还有更多迭代数据
+            else if (config.getIteratorSource() != null && loopContext.getCurrentIteration() >= config.getIteratorSource().size()) {
+                logger.info("迭代数据已耗尽，退出循环");
+                loopContext.setShouldContinue(false);
+            } else {
+                loopContext.setShouldContinue(true);
+            }
+            
             return createContinueResult(config, loopContext);
         } else {
             return decideViaAgent(node, config, loopContext, context);
@@ -65,6 +92,12 @@ public class LoopNodeHandler extends BaseNodeHandler {
             for (NodeResult result : context.getPreviousOutputs().values()) {
                 if (result != null && result.getLoopContext() != null) {
                     NodeResult.LoopContext existing = result.getLoopContext();
+                    // 检查是否应该继续循环
+                    if (!existing.isShouldContinue()) {
+                        logger.info("循环被标记为不继续，退出循环");
+                        existing.setCurrentValue(null);
+                        return existing;
+                    }
                     if (config.getLoopMode() == LoopMode.ITERATOR && config.getIteratorSource() != null) {
                         int nextIndex = existing.getCurrentIteration();
                         if (nextIndex < config.getIteratorSource().size()) {
@@ -73,12 +106,15 @@ public class LoopNodeHandler extends BaseNodeHandler {
                             existing.setCurrentValue(null);
                         }
                     }
+                    logger.debug("从之前的输出中获取LoopContext: shouldContinue={}, currentIteration={}, currentValue={}",
+                            existing.isShouldContinue(), existing.getCurrentIteration(), existing.getCurrentValue());
                     return existing;
                 }
             }
         }
 
         NodeResult.LoopContext loopContext = new NodeResult.LoopContext();
+        loopContext.setShouldContinue(true); // 默认设置为true，允许循环开始
         loopContext.setCurrentIteration(0);
         loopContext.setMaxIterations(config.getMaxIterations());
         loopContext.setLoopVariable(config.getLoopVariable());
@@ -88,6 +124,9 @@ public class LoopNodeHandler extends BaseNodeHandler {
                 && !config.getIteratorSource().isEmpty()) {
             loopContext.setCurrentValue(config.getIteratorSource().get(0));
         }
+
+        logger.debug("创建新的LoopContext: shouldContinue={}, currentIteration={}, currentValue={}",
+                loopContext.isShouldContinue(), loopContext.getCurrentIteration(), loopContext.getCurrentValue());
 
         return loopContext;
     }

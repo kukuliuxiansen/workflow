@@ -34,13 +34,22 @@ public class NodeExecutionHelper {
     }
 
     public NodeResult execute(WorkflowNode node, String workflowId, String executionId, ExecutionControl executionControl) {
+        return execute(node, workflowId, executionId, executionControl, null);
+    }
+
+    public NodeResult execute(WorkflowNode node, String workflowId, String executionId, ExecutionControl executionControl, Integer timeout) {
         logger.info("执行节点: {} ({})", node.getName(), node.getType());
 
         long startTime = System.currentTimeMillis();
         Object nodeInput = null;
 
         try {
-            NodeExecutionContext context = buildContext(node, workflowId, executionId, executionControl);
+            // 如果没有传入 timeout，使用节点配置的默认值
+            if (timeout == null) {
+                timeout = 600; // 默认600秒
+            }
+            
+            NodeExecutionContext context = buildContext(node, workflowId, executionId, executionControl, timeout);
 
             Map<String, Object> inputMap = new HashMap<>();
             inputMap.put("nodeId", node.getId());
@@ -66,7 +75,7 @@ public class NodeExecutionHelper {
         }
     }
 
-    private NodeExecutionContext buildContext(WorkflowNode node, String workflowId, String executionId, ExecutionControl executionControl) {
+    private NodeExecutionContext buildContext(WorkflowNode node, String workflowId, String executionId, ExecutionControl executionControl, Integer timeout) {
         NodeExecutionContext context = new NodeExecutionContext();
         context.setNode(node);
         context.setWorkflowId(workflowId);
@@ -77,6 +86,7 @@ public class NodeExecutionHelper {
         context.setProjectPath(contextManager.getProjectPath());
         context.setGlobalPrompt(contextManager.getGlobalPrompt());
         context.setExecutionControl(executionControl);
+        context.setTimeout(timeout);
         return context;
     }
 
